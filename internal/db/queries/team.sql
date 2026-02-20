@@ -95,3 +95,7 @@ WHERE team_id = $1;
 UPDATE "TeamTable"
 SET spend = 0, updated_at = NOW()
 WHERE team_id = $1;
+
+-- name: ListTeamAliases :many
+SELECT team_id, team_alias FROM "TeamTable"
+WHERE team_id = ANY(sqlc.arg(team_ids)::text[]);

@@ -256,6 +256,36 @@ func (q *Queries) ListAvailableTeams(ctx context.Context) ([]TeamTable, error) {
 	return items, nil
 }
 
+const listTeamAliases = `-- name: ListTeamAliases :many
+SELECT team_id, team_alias FROM "TeamTable"
+WHERE team_id = ANY($1::text[])
+`
+
+type ListTeamAliasesRow struct {
+	TeamID    string  `json:"team_id"`
+	TeamAlias *string `json:"team_alias"`
+}
+
+func (q *Queries) ListTeamAliases(ctx context.Context, teamIds []string) ([]ListTeamAliasesRow, error) {
+	rows, err := q.db.Query(ctx, listTeamAliases, teamIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTeamAliasesRow
+	for rows.Next() {
+		var i ListTeamAliasesRow
+		if err := rows.Scan(&i.TeamID, &i.TeamAlias); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTeams = `-- name: ListTeams :many
 SELECT team_id, team_alias, organization_id, admins, members, members_with_roles, metadata, max_budget, spend, models, blocked, tpm_limit, rpm_limit, budget_duration, budget_reset_at, budget_id, created_at, created_by, updated_at, updated_by FROM "TeamTable" ORDER BY created_at DESC
 `

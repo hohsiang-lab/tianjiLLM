@@ -94,3 +94,39 @@ SELECT token, key_name, expires FROM "VerificationToken"
 WHERE expires IS NOT NULL AND expires <= NOW()
 ORDER BY expires
 LIMIT 100;
+
+-- name: ListVerificationTokensFiltered :many
+SELECT * FROM "VerificationToken"
+WHERE
+  (sqlc.narg(filter_team_id)::text IS NULL OR team_id = sqlc.narg(filter_team_id)) AND
+  (sqlc.narg(filter_key_alias)::text IS NULL OR key_alias = sqlc.narg(filter_key_alias)) AND
+  (sqlc.narg(filter_user_id)::text IS NULL OR user_id = sqlc.narg(filter_user_id)) AND
+  (sqlc.narg(filter_token)::text IS NULL OR token = sqlc.narg(filter_token))
+ORDER BY created_at DESC
+LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
+
+-- name: CountVerificationTokensFiltered :one
+SELECT COUNT(*) FROM "VerificationToken"
+WHERE
+  (sqlc.narg(filter_team_id)::text IS NULL OR team_id = sqlc.narg(filter_team_id)) AND
+  (sqlc.narg(filter_key_alias)::text IS NULL OR key_alias = sqlc.narg(filter_key_alias)) AND
+  (sqlc.narg(filter_user_id)::text IS NULL OR user_id = sqlc.narg(filter_user_id)) AND
+  (sqlc.narg(filter_token)::text IS NULL OR token = sqlc.narg(filter_token));
+
+-- name: GetVerificationTokenByAlias :one
+SELECT token FROM "VerificationToken"
+WHERE key_alias = sqlc.arg(alias) AND (sqlc.narg(filter_team_id)::text IS NULL OR team_id = sqlc.narg(filter_team_id))
+LIMIT 1;
+
+-- name: RegenerateVerificationTokenWithParams :one
+UPDATE "VerificationToken"
+SET
+    token = sqlc.arg(new_token),
+    spend = 0,
+    max_budget = COALESCE(sqlc.narg(new_max_budget), max_budget),
+    tpm_limit = COALESCE(sqlc.narg(new_tpm_limit), tpm_limit),
+    rpm_limit = COALESCE(sqlc.narg(new_rpm_limit), rpm_limit),
+    budget_duration = COALESCE(sqlc.narg(new_budget_duration), budget_duration),
+    updated_at = NOW()
+WHERE token = sqlc.arg(old_token)
+RETURNING *;

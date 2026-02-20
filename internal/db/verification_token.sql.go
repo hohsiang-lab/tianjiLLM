@@ -48,6 +48,34 @@ func (q *Queries) BulkUpdateVerificationTokens(ctx context.Context, arg BulkUpda
 	return err
 }
 
+const countVerificationTokensFiltered = `-- name: CountVerificationTokensFiltered :one
+SELECT COUNT(*) FROM "VerificationToken"
+WHERE
+  ($1::text IS NULL OR team_id = $1) AND
+  ($2::text IS NULL OR key_alias = $2) AND
+  ($3::text IS NULL OR user_id = $3) AND
+  ($4::text IS NULL OR token = $4)
+`
+
+type CountVerificationTokensFilteredParams struct {
+	FilterTeamID   *string `json:"filter_team_id"`
+	FilterKeyAlias *string `json:"filter_key_alias"`
+	FilterUserID   *string `json:"filter_user_id"`
+	FilterToken    *string `json:"filter_token"`
+}
+
+func (q *Queries) CountVerificationTokensFiltered(ctx context.Context, arg CountVerificationTokensFilteredParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countVerificationTokensFiltered,
+		arg.FilterTeamID,
+		arg.FilterKeyAlias,
+		arg.FilterUserID,
+		arg.FilterToken,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createVerificationToken = `-- name: CreateVerificationToken :one
 INSERT INTO "VerificationToken" (
     token, key_name, key_alias, spend, max_budget, expires,
@@ -194,6 +222,24 @@ func (q *Queries) GetVerificationToken(ctx context.Context, token string) (Verif
 		&i.UpdatedBy,
 	)
 	return i, err
+}
+
+const getVerificationTokenByAlias = `-- name: GetVerificationTokenByAlias :one
+SELECT token FROM "VerificationToken"
+WHERE key_alias = $1 AND ($2::text IS NULL OR team_id = $2)
+LIMIT 1
+`
+
+type GetVerificationTokenByAliasParams struct {
+	Alias        *string `json:"alias"`
+	FilterTeamID *string `json:"filter_team_id"`
+}
+
+func (q *Queries) GetVerificationTokenByAlias(ctx context.Context, arg GetVerificationTokenByAliasParams) (string, error) {
+	row := q.db.QueryRow(ctx, getVerificationTokenByAlias, arg.Alias, arg.FilterTeamID)
+	var token string
+	err := row.Scan(&token)
+	return token, err
 }
 
 const listExpiredTokens = `-- name: ListExpiredTokens :many
@@ -411,6 +457,86 @@ func (q *Queries) ListVerificationTokensByUser(ctx context.Context, userID *stri
 	return items, nil
 }
 
+const listVerificationTokensFiltered = `-- name: ListVerificationTokensFiltered :many
+SELECT token, key_name, key_alias, spend, max_budget, expires, models, aliases, config, user_id, team_id, organization_id, permissions, metadata, blocked, tpm_limit, rpm_limit, budget_duration, budget_reset_at, allowed_cache_controls, allowed_routes, policies, access_group_ids, model_spend, model_max_budget, soft_budget_cooldown, budget_id, object_permission_id, created_at, created_by, updated_at, updated_by FROM "VerificationToken"
+WHERE
+  ($1::text IS NULL OR team_id = $1) AND
+  ($2::text IS NULL OR key_alias = $2) AND
+  ($3::text IS NULL OR user_id = $3) AND
+  ($4::text IS NULL OR token = $4)
+ORDER BY created_at DESC
+LIMIT $6 OFFSET $5
+`
+
+type ListVerificationTokensFilteredParams struct {
+	FilterTeamID   *string `json:"filter_team_id"`
+	FilterKeyAlias *string `json:"filter_key_alias"`
+	FilterUserID   *string `json:"filter_user_id"`
+	FilterToken    *string `json:"filter_token"`
+	QueryOffset    int32   `json:"query_offset"`
+	QueryLimit     int32   `json:"query_limit"`
+}
+
+func (q *Queries) ListVerificationTokensFiltered(ctx context.Context, arg ListVerificationTokensFilteredParams) ([]VerificationToken, error) {
+	rows, err := q.db.Query(ctx, listVerificationTokensFiltered,
+		arg.FilterTeamID,
+		arg.FilterKeyAlias,
+		arg.FilterUserID,
+		arg.FilterToken,
+		arg.QueryOffset,
+		arg.QueryLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VerificationToken
+	for rows.Next() {
+		var i VerificationToken
+		if err := rows.Scan(
+			&i.Token,
+			&i.KeyName,
+			&i.KeyAlias,
+			&i.Spend,
+			&i.MaxBudget,
+			&i.Expires,
+			&i.Models,
+			&i.Aliases,
+			&i.Config,
+			&i.UserID,
+			&i.TeamID,
+			&i.OrganizationID,
+			&i.Permissions,
+			&i.Metadata,
+			&i.Blocked,
+			&i.TpmLimit,
+			&i.RpmLimit,
+			&i.BudgetDuration,
+			&i.BudgetResetAt,
+			&i.AllowedCacheControls,
+			&i.AllowedRoutes,
+			&i.Policies,
+			&i.AccessGroupIds,
+			&i.ModelSpend,
+			&i.ModelMaxBudget,
+			&i.SoftBudgetCooldown,
+			&i.BudgetID,
+			&i.ObjectPermissionID,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.UpdatedAt,
+			&i.UpdatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const regenerateVerificationToken = `-- name: RegenerateVerificationToken :one
 UPDATE "VerificationToken"
 SET token = $2, spend = 0, updated_at = NOW()
@@ -425,6 +551,76 @@ type RegenerateVerificationTokenParams struct {
 
 func (q *Queries) RegenerateVerificationToken(ctx context.Context, arg RegenerateVerificationTokenParams) (VerificationToken, error) {
 	row := q.db.QueryRow(ctx, regenerateVerificationToken, arg.Token, arg.Token_2)
+	var i VerificationToken
+	err := row.Scan(
+		&i.Token,
+		&i.KeyName,
+		&i.KeyAlias,
+		&i.Spend,
+		&i.MaxBudget,
+		&i.Expires,
+		&i.Models,
+		&i.Aliases,
+		&i.Config,
+		&i.UserID,
+		&i.TeamID,
+		&i.OrganizationID,
+		&i.Permissions,
+		&i.Metadata,
+		&i.Blocked,
+		&i.TpmLimit,
+		&i.RpmLimit,
+		&i.BudgetDuration,
+		&i.BudgetResetAt,
+		&i.AllowedCacheControls,
+		&i.AllowedRoutes,
+		&i.Policies,
+		&i.AccessGroupIds,
+		&i.ModelSpend,
+		&i.ModelMaxBudget,
+		&i.SoftBudgetCooldown,
+		&i.BudgetID,
+		&i.ObjectPermissionID,
+		&i.CreatedAt,
+		&i.CreatedBy,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const regenerateVerificationTokenWithParams = `-- name: RegenerateVerificationTokenWithParams :one
+UPDATE "VerificationToken"
+SET
+    token = $1,
+    spend = 0,
+    max_budget = COALESCE($2, max_budget),
+    tpm_limit = COALESCE($3, tpm_limit),
+    rpm_limit = COALESCE($4, rpm_limit),
+    budget_duration = COALESCE($5, budget_duration),
+    updated_at = NOW()
+WHERE token = $6
+RETURNING token, key_name, key_alias, spend, max_budget, expires, models, aliases, config, user_id, team_id, organization_id, permissions, metadata, blocked, tpm_limit, rpm_limit, budget_duration, budget_reset_at, allowed_cache_controls, allowed_routes, policies, access_group_ids, model_spend, model_max_budget, soft_budget_cooldown, budget_id, object_permission_id, created_at, created_by, updated_at, updated_by
+`
+
+type RegenerateVerificationTokenWithParamsParams struct {
+	NewToken          string   `json:"new_token"`
+	NewMaxBudget      *float64 `json:"new_max_budget"`
+	NewTpmLimit       *int64   `json:"new_tpm_limit"`
+	NewRpmLimit       *int64   `json:"new_rpm_limit"`
+	NewBudgetDuration *string  `json:"new_budget_duration"`
+	OldToken          string   `json:"old_token"`
+}
+
+func (q *Queries) RegenerateVerificationTokenWithParams(ctx context.Context, arg RegenerateVerificationTokenWithParamsParams) (VerificationToken, error) {
+	row := q.db.QueryRow(ctx, regenerateVerificationTokenWithParams,
+		arg.NewToken,
+		arg.NewMaxBudget,
+		arg.NewTpmLimit,
+		arg.NewRpmLimit,
+		arg.NewBudgetDuration,
+		arg.OldToken,
+	)
 	var i VerificationToken
 	err := row.Scan(
 		&i.Token,
