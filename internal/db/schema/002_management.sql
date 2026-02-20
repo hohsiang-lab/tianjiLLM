@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS "SpendLogs" (
 CREATE INDEX IF NOT EXISTS idx_spend_logs_starttime ON "SpendLogs" (starttime);
 CREATE INDEX IF NOT EXISTS idx_spend_logs_api_key ON "SpendLogs" (api_key);
 CREATE INDEX IF NOT EXISTS idx_spend_logs_team ON "SpendLogs" (team_id);
-CREATE INDEX IF NOT EXISTS idx_spend_logs_user ON "SpendLogs" (user);
+CREATE INDEX IF NOT EXISTS idx_spend_logs_user ON "SpendLogs" ("user");
 CREATE INDEX IF NOT EXISTS idx_spend_logs_tags ON "SpendLogs" USING gin (request_tags);
 
 CREATE TABLE IF NOT EXISTS "EndUserTable" (

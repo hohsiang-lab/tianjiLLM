@@ -716,7 +716,7 @@ func parseOptionalInt64(s string) *int64 {
 
 func parseCSV(s string) []string {
 	if s == "" {
-		return nil
+		return []string{}
 	}
 	var result []string
 	for _, m := range strings.Split(s, ",") {

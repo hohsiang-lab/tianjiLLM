@@ -184,6 +184,7 @@ templ KeysPage(data KeysPageData) {
 			</div>
 		</div>
 		<div id="key-reveal-container"></div>
+		<div id="dialog-actions" style="display:none"></div>
 	}
 }
 
@@ -559,10 +560,22 @@ templ KeysTableWithKeyReveal(data KeysPageData, rawKey string) {
 	<div id="key-reveal-container" hx-swap-oob="innerHTML">
 		@KeyRevealDialog(rawKey)
 	</div>
+	<div id="dialog-actions" hx-swap-oob="innerHTML" style="display:none">
+		<script>
+			(function() {
+				var form = document.querySelector('#create-key-dialog form');
+				if (form) form.reset();
+				if (window.tui && window.tui.dialog) {
+					window.tui.dialog.close("create-key-dialog");
+					setTimeout(function() { window.tui.dialog.open("key-reveal-dialog"); }, 350);
+				}
+			})();
+		</script>
+	</div>
 }
 
 templ KeyRevealDialog(rawKey string) {
-	@dialog.Dialog(dialog.Props{ID: "key-reveal-dialog", Attributes: templ.Attributes{"data-state": "open"}}) {
+	@dialog.Dialog(dialog.Props{ID: "key-reveal-dialog", Open: true}) {
 		@dialog.Content(dialog.ContentProps{Class: "max-w-md"}) {
 			@dialog.Header() {
 				@dialog.Title() {
