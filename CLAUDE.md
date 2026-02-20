@@ -93,6 +93,8 @@ Sentinel errors in `internal/model/errors.go` (ErrAuthentication, ErrRateLimit, 
 - PostgreSQL (MCP server configs, prompt templates — existing), Redis (cache — existing) (005-migration-gap-phase5)
 - Go 1.22+ (latest stable) + all existing deps; NEW tables: audit_log, deleted_verification_token, deleted_team_table, agents_table, daily_agent_spend, skills_table, claude_code_plugin_table, health_check_table, error_logs, daily_organization_spend, daily_end_user_spend (006-migration-gap-phase6)
 - PostgreSQL (audit logs, A2A agents, skills, marketplace plugins, health checks, error logs — new tables), Redis (parallel request limiting, dynamic rate limiting — enhanced usage) (006-migration-gap-phase6)
+- Go 1.22+ (latest stable) + chi v5 (HTTP router), templ (type-safe HTML templates), HTMX 2.x (server-driven UI), templUI v1.5.0 (shadcn-style components), Tailwind CSS v4 (008-ui-virtual-keys)
+- PostgreSQL (pgx/v5 + sqlc code generation) (008-ui-virtual-keys)
 
 ## Recent Changes
 - 001-migration-gap-analysis: Added Go 1.22+ (latest stable) + chi (HTTP router), pgx/v5 (PostgreSQL), go-redis/v9 (Redis), prometheus/client_golang (metrics), opentelemetry-go (tracing), golang-jwt/jwt/v5 (JWT auth)

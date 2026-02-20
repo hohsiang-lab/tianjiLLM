@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -123,7 +124,8 @@ func (h *Handlers) KeyInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, token)
 }
 
-// KeyList handles GET /key/list
+// KeyList handles GET /key/list with optional filter/pagination params:
+// ?page=1&size=50&team_id=...&key_alias=...&user_id=...&key_hash=...
 func (h *Handlers) KeyList(w http.ResponseWriter, r *http.Request) {
 	if h.DB == nil {
 		writeJSON(w, http.StatusServiceUnavailable, model.ErrorResponse{
@@ -132,10 +134,49 @@ func (h *Handlers) KeyList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.DB.ListVerificationTokens(r.Context(), db.ListVerificationTokensParams{
-		Limit:  1000,
-		Offset: 0,
-	})
+	q := r.URL.Query()
+
+	page, _ := strconv.Atoi(q.Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	size, _ := strconv.Atoi(q.Get("size"))
+	if size < 1 || size > 100 {
+		size = 50
+	}
+
+	filterParams := db.ListVerificationTokensFilteredParams{
+		QueryOffset: int32((page - 1) * size),
+		QueryLimit:  int32(size),
+	}
+	countParams := db.CountVerificationTokensFilteredParams{}
+
+	if v := q.Get("team_id"); v != "" {
+		filterParams.FilterTeamID = &v
+		countParams.FilterTeamID = &v
+	}
+	if v := q.Get("key_alias"); v != "" {
+		filterParams.FilterKeyAlias = &v
+		countParams.FilterKeyAlias = &v
+	}
+	if v := q.Get("user_id"); v != "" {
+		filterParams.FilterUserID = &v
+		countParams.FilterUserID = &v
+	}
+	if v := q.Get("key_hash"); v != "" {
+		filterParams.FilterToken = &v
+		countParams.FilterToken = &v
+	}
+
+	totalCount, err := h.DB.CountVerificationTokensFiltered(r.Context(), countParams)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
+			Error: model.ErrorDetail{Message: "count keys: " + err.Error(), Type: "internal_error"},
+		})
+		return
+	}
+
+	tokens, err := h.DB.ListVerificationTokensFiltered(r.Context(), filterParams)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
 			Error: model.ErrorDetail{Message: "list keys: " + err.Error(), Type: "internal_error"},
@@ -143,7 +184,17 @@ func (h *Handlers) KeyList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"keys": tokens})
+	totalPages := (int(totalCount) + size - 1) / size
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"keys":         tokens,
+		"total_count":  totalCount,
+		"current_page": page,
+		"total_pages":  totalPages,
+	})
 }
 
 // KeyDelete handles POST /key/delete
