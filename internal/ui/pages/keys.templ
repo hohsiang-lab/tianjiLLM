@@ -1,0 +1,269 @@
+package pages
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/table"
+)
+
+type KeyRow struct {
+	Token     string
+	KeyName   string
+	KeyAlias  string
+	Spend     float64
+	MaxBudget *float64
+	Models    []string
+	Blocked   bool
+	CreatedAt time.Time
+}
+
+type KeysPageData struct {
+	Keys       []KeyRow
+	Page       int
+	TotalPages int
+	Search     string
+}
+
+templ KeysPage(data KeysPageData) {
+	@AppLayout("API Keys", "/ui/keys") {
+		@dialog.Script()
+		@input.Script()
+		<div class="space-y-4">
+			<div class="flex items-center justify-between">
+				@input.Input(input.Props{
+					Placeholder: "Search keys...",
+					Class:       "max-w-sm",
+					Attributes: templ.Attributes{
+						"hx-get":     "/ui/keys/table",
+						"hx-trigger": "input changed delay:300ms",
+						"hx-target":  "#keys-table",
+						"name":       "search",
+						"value":      data.Search,
+					},
+				})
+				@dialog.Dialog(dialog.Props{ID: "create-key-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{}) {
+							Create Key
+						}
+					}
+					@dialog.Content(dialog.ContentProps{}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Create API Key
+							}
+							@dialog.Description() {
+								Generate a new API key with optional budget limits.
+							}
+						}
+						<form
+							hx-post="/ui/keys/create"
+							hx-target="#keys-table"
+							hx-on::after-request="if(event.detail.successful) document.querySelector('[data-tui-dialog-close]')?.click()"
+						>
+							<div class="space-y-4 py-4">
+								<div class="space-y-2">
+									<label for="key_name" class="text-sm font-medium">Key Name</label>
+									@input.Input(input.Props{
+										ID:          "key_name",
+										Name:        "key_name",
+										Placeholder: "my-api-key",
+									})
+								</div>
+								<div class="space-y-2">
+									<label for="max_budget" class="text-sm font-medium">Max Budget ($)</label>
+									@input.Input(input.Props{
+										ID:          "max_budget",
+										Name:        "max_budget",
+										Type:        "number",
+										Placeholder: "100.00",
+										Attributes:  templ.Attributes{"step": "0.01"},
+									})
+								</div>
+								<div class="space-y-2">
+									<label for="models" class="text-sm font-medium">Models (comma-separated)</label>
+									@input.Input(input.Props{
+										ID:          "models",
+										Name:        "models",
+										Placeholder: "gpt-4, claude-sonnet-4-5-20250929",
+									})
+								</div>
+							</div>
+							@dialog.Footer() {
+								@dialog.Close() {
+									@button.Button(button.Props{Variant: button.VariantOutline}) {
+										Cancel
+									}
+								}
+								@button.Button(button.Props{Type: "submit"}) {
+									Create
+								}
+							}
+						</form>
+					}
+				}
+			</div>
+			<div id="keys-table">
+				@KeysTablePartial(data)
+			</div>
+		</div>
+		<div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+	}
+}
+
+templ KeysTablePartial(data KeysPageData) {
+	@card.Card() {
+		@card.Content(card.ContentProps{Class: "p-0"}) {
+			@table.Table() {
+				@table.Header() {
+					@table.Row() {
+						@table.Head() { Name }
+						@table.Head() { Alias }
+						@table.Head() { Spend }
+						@table.Head() { Budget }
+						@table.Head() { Models }
+						@table.Head() { Status }
+						@table.Head() { Created }
+						@table.Head() { Actions }
+					}
+				}
+				@table.Body() {
+					if len(data.Keys) == 0 {
+						@table.Row() {
+							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": "8"}}) {
+								<div class="py-8 text-center text-muted-foreground">No keys found</div>
+							}
+						}
+					}
+					for _, k := range data.Keys {
+						@keyRow(k)
+					}
+				}
+			}
+		}
+	}
+	if data.TotalPages > 1 {
+		<div class="mt-4 flex items-center justify-center gap-2">
+			for i := 1; i <= data.TotalPages; i++ {
+				if i == data.Page {
+					@button.Button(button.Props{Variant: button.VariantDefault, Size: button.SizeSm, Disabled: true}) {
+						{ fmt.Sprintf("%d", i) }
+					}
+				} else {
+					@button.Button(button.Props{
+						Variant: button.VariantOutline,
+						Size:    button.SizeSm,
+						Attributes: templ.Attributes{
+							"hx-get":    fmt.Sprintf("/ui/keys/table?page=%d&search=%s", i, data.Search),
+							"hx-target": "#keys-table",
+						},
+					}) {
+						{ fmt.Sprintf("%d", i) }
+					}
+				}
+			}
+		</div>
+	}
+}
+
+templ keyRow(k KeyRow) {
+	@table.Row() {
+		@table.Cell() {
+			<span class="font-medium">
+				if k.KeyName != "" {
+					{ k.KeyName }
+				} else {
+					<span class="text-muted-foreground">-</span>
+				}
+			</span>
+		}
+		@table.Cell() {
+			if k.KeyAlias != "" {
+				{ k.KeyAlias }
+			} else {
+				<span class="text-muted-foreground">-</span>
+			}
+		}
+		@table.Cell() {
+			{ fmt.Sprintf("$%.2f", k.Spend) }
+		}
+		@table.Cell() {
+			if k.MaxBudget != nil {
+				{ fmt.Sprintf("$%.2f", *k.MaxBudget) }
+			} else {
+				<span class="text-muted-foreground">Unlimited</span>
+			}
+		}
+		@table.Cell() {
+			if len(k.Models) > 0 {
+				<span class="text-xs">{ strings.Join(k.Models, ", ") }</span>
+			} else {
+				<span class="text-muted-foreground text-xs">All</span>
+			}
+		}
+		@table.Cell() {
+			if k.Blocked {
+				@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+					Blocked
+				}
+			} else {
+				@badge.Badge(badge.Props{Variant: badge.VariantDefault}) {
+					Active
+				}
+			}
+		}
+		@table.Cell() {
+			<span class="text-xs text-muted-foreground">{ k.CreatedAt.Format("2006-01-02") }</span>
+		}
+		@table.Cell() {
+			<div class="flex gap-1">
+				if k.Blocked {
+					@button.Button(button.Props{
+						Variant: button.VariantOutline,
+						Size:    button.SizeSm,
+						Attributes: templ.Attributes{
+							"hx-post":    "/ui/keys/unblock",
+							"hx-vals":    fmt.Sprintf(`{"token":"%s"}`, k.Token),
+							"hx-target":  "#keys-table",
+							"hx-confirm": "Unblock this key?",
+						},
+					}) {
+						Unblock
+					}
+				} else {
+					@button.Button(button.Props{
+						Variant: button.VariantOutline,
+						Size:    button.SizeSm,
+						Attributes: templ.Attributes{
+							"hx-post":    "/ui/keys/block",
+							"hx-vals":    fmt.Sprintf(`{"token":"%s"}`, k.Token),
+							"hx-target":  "#keys-table",
+							"hx-confirm": "Block this key?",
+						},
+					}) {
+						Block
+					}
+				}
+				@button.Button(button.Props{
+					Variant: button.VariantDestructive,
+					Size:    button.SizeSm,
+					Attributes: templ.Attributes{
+						"hx-post":    "/ui/keys/delete",
+						"hx-vals":    fmt.Sprintf(`{"token":"%s"}`, k.Token),
+						"hx-target":  "#keys-table",
+						"hx-confirm": "Delete this key permanently?",
+					},
+				}) {
+					Delete
+				}
+			</div>
+		}
+	}
+}

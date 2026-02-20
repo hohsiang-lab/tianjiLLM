@@ -1,0 +1,69 @@
+package pages
+
+import (
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/table"
+)
+
+type ModelRow struct {
+	ModelName string
+	Provider  string
+	ModelID   string
+	APIBase   string
+}
+
+templ ModelsPage(models []ModelRow) {
+	@AppLayout("Models", "/ui/models") {
+		@card.Card() {
+			@card.Header() {
+				@card.Title() {
+					Configured Models
+				}
+				@card.Description() {
+					Models available through this proxy instance.
+				}
+			}
+			@card.Content(card.ContentProps{Class: "p-0"}) {
+				@table.Table() {
+					@table.Header() {
+						@table.Row() {
+							@table.Head() { Model Name }
+							@table.Head() { Provider }
+							@table.Head() { Model ID }
+							@table.Head() { API Base }
+						}
+					}
+					@table.Body() {
+						if len(models) == 0 {
+							@table.Row() {
+								@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": "4"}}) {
+									<div class="py-8 text-center text-muted-foreground">No models configured</div>
+								}
+							}
+						}
+						for _, m := range models {
+							@table.Row() {
+								@table.Cell() {
+									<span class="font-medium">{ m.ModelName }</span>
+								}
+								@table.Cell() {
+									{ m.Provider }
+								}
+								@table.Cell() {
+									<code class="text-xs">{ m.ModelID }</code>
+								}
+								@table.Cell() {
+									if m.APIBase != "" {
+										<code class="text-xs">{ m.APIBase }</code>
+									} else {
+										<span class="text-muted-foreground text-xs">Default</span>
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

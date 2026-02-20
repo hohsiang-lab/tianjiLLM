@@ -21,11 +21,17 @@ type Server struct {
 	MCPSSEHandler      http.Handler // optional MCP SSE transport
 	MCPStreamHandler   http.Handler // optional MCP Streamable HTTP transport
 	MCPRESTHandler     http.Handler // optional MCP REST API handler
+	UIHandler          UIRouter     // optional admin dashboard UI
 
 	// Rate limiting middleware (nil-safe: act as pass-through when nil)
 	parallelMW     func(http.Handler) http.Handler
 	dynamicRateMW  func(http.Handler) http.Handler
 	cacheControlMW func(http.Handler) http.Handler
+}
+
+// UIRouter registers UI routes onto a chi subrouter.
+type UIRouter interface {
+	RegisterRoutes(r chi.Router)
 }
 
 // ServerConfig holds configuration for creating a new Server.
@@ -38,6 +44,7 @@ type ServerConfig struct {
 	MCPSSEHandler      http.Handler
 	MCPStreamHandler   http.Handler
 	MCPRESTHandler     http.Handler
+	UIHandler          UIRouter // optional admin dashboard UI
 }
 
 // NewServer creates a chi router with all routes configured.
@@ -71,6 +78,7 @@ func NewServerWithAuth(cfg ServerConfig, authCfg middleware.AuthConfig) *Server 
 		MCPSSEHandler:      cfg.MCPSSEHandler,
 		MCPStreamHandler:   cfg.MCPStreamHandler,
 		MCPRESTHandler:     cfg.MCPRESTHandler,
+		UIHandler:          cfg.UIHandler,
 		parallelMW:         middleware.NewParallelRequestMiddleware(parallelLimiter),
 		dynamicRateMW:      middleware.NewDynamicRateLimitMiddleware(dynamicLimiter),
 		cacheControlMW:     middleware.NewCacheControlMiddleware(),
@@ -616,6 +624,13 @@ func (s *Server) setupRoutes() {
 		r.Get("/health/checks", s.Handlers.HealthCheckHistory)
 		r.Get("/errors", s.Handlers.ErrorLogsList)
 	})
+
+	// Admin Dashboard UI (no API auth — uses its own cookie session)
+	if s.UIHandler != nil {
+		r.Route("/ui", func(r chi.Router) {
+			s.UIHandler.RegisterRoutes(r)
+		})
+	}
 
 	// Utility endpoints
 	r.Route("/utils", func(r chi.Router) {

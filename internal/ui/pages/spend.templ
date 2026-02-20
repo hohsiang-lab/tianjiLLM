@@ -1,0 +1,149 @@
+package pages
+
+import (
+	"fmt"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/table"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/tabs"
+)
+
+type SpendRow struct {
+	GroupKey     string
+	TotalSpend   float64
+	RequestCount int64
+}
+
+type SpendPageData struct {
+	Rows      []SpendRow
+	StartDate string
+	EndDate   string
+	GroupBy   string // "model", "key", "team"
+}
+
+templ SpendPage(data SpendPageData) {
+	@AppLayout("Spend Analysis", "/ui/spend") {
+		@tabs.Script()
+		<div class="space-y-4">
+			<div class="flex items-center gap-4">
+				@input.Input(input.Props{
+					Type:  "date",
+					Name:  "start_date",
+					Class: "w-40",
+					Attributes: templ.Attributes{
+						"value":      data.StartDate,
+						"hx-get":     "/ui/spend/table",
+						"hx-trigger": "change",
+						"hx-target":  "#spend-table",
+						"hx-include": "[name='end_date'],[name='group_by']",
+					},
+				})
+				<span class="text-muted-foreground">to</span>
+				@input.Input(input.Props{
+					Type:  "date",
+					Name:  "end_date",
+					Class: "w-40",
+					Attributes: templ.Attributes{
+						"value":      data.EndDate,
+						"hx-get":     "/ui/spend/table",
+						"hx-trigger": "change",
+						"hx-target":  "#spend-table",
+						"hx-include": "[name='start_date'],[name='group_by']",
+					},
+				})
+			</div>
+			@tabs.Tabs() {
+				@tabs.List() {
+					@tabs.Trigger(tabs.TriggerProps{
+						Value:    "model",
+						IsActive: data.GroupBy == "model" || data.GroupBy == "",
+						Attributes: templ.Attributes{
+							"hx-get":     "/ui/spend/table?group_by=model",
+							"hx-trigger": "click",
+							"hx-target":  "#spend-table",
+							"hx-include": "[name='start_date'],[name='end_date']",
+						},
+					}) {
+						By Model
+					}
+					@tabs.Trigger(tabs.TriggerProps{
+						Value:    "key",
+						IsActive: data.GroupBy == "key",
+						Attributes: templ.Attributes{
+							"hx-get":     "/ui/spend/table?group_by=key",
+							"hx-trigger": "click",
+							"hx-target":  "#spend-table",
+							"hx-include": "[name='start_date'],[name='end_date']",
+						},
+					}) {
+						By Key
+					}
+					@tabs.Trigger(tabs.TriggerProps{
+						Value:    "team",
+						IsActive: data.GroupBy == "team",
+						Attributes: templ.Attributes{
+							"hx-get":     "/ui/spend/table?group_by=team",
+							"hx-trigger": "click",
+							"hx-target":  "#spend-table",
+							"hx-include": "[name='start_date'],[name='end_date']",
+						},
+					}) {
+						By Team
+					}
+				}
+			}
+			<input type="hidden" name="group_by" value={ data.GroupBy }/>
+			<div id="spend-table">
+				@SpendTablePartial(data)
+			</div>
+		</div>
+	}
+}
+
+templ SpendTablePartial(data SpendPageData) {
+	@card.Card() {
+		@card.Content(card.ContentProps{Class: "p-0"}) {
+			@table.Table() {
+				@table.Header() {
+					@table.Row() {
+						@table.Head() {
+							switch data.GroupBy {
+								case "key":
+									Key
+								case "team":
+									Team
+								default:
+									Model
+							}
+						}
+						@table.Head() { Total Spend }
+						@table.Head() { Requests }
+					}
+				}
+				@table.Body() {
+					if len(data.Rows) == 0 {
+						@table.Row() {
+							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": "3"}}) {
+								<div class="py-8 text-center text-muted-foreground">No spend data for selected period</div>
+							}
+						}
+					}
+					for _, r := range data.Rows {
+						@table.Row() {
+							@table.Cell() {
+								<span class="font-medium">{ r.GroupKey }</span>
+							}
+							@table.Cell() {
+								{ fmt.Sprintf("$%.4f", r.TotalSpend) }
+							}
+							@table.Cell() {
+								{ fmt.Sprintf("%d", r.RequestCount) }
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

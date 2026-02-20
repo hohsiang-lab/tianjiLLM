@@ -1,0 +1,39 @@
+package pages
+
+import (
+	"fmt"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+)
+
+type DashboardStats struct {
+	TotalKeys    int
+	ActiveModels int
+	TotalSpend   float64
+	Requests24h  int64
+}
+
+templ DashboardPage(stats DashboardStats) {
+	@AppLayout("Dashboard", "/ui/") {
+		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			@statCard("Total Keys", fmt.Sprintf("%d", stats.TotalKeys), "API keys registered")
+			@statCard("Active Models", fmt.Sprintf("%d", stats.ActiveModels), "Models configured")
+			@statCard("Spend (30d)", fmt.Sprintf("$%.2f", stats.TotalSpend), "Last 30 days")
+			@statCard("Requests (24h)", fmt.Sprintf("%d", stats.Requests24h), "Last 24 hours")
+		</div>
+	}
+}
+
+templ statCard(title, value, description string) {
+	@card.Card() {
+		@card.Header(card.HeaderProps{Class: "pb-2"}) {
+			@card.Description() {
+				{ title }
+			}
+		}
+		@card.Content() {
+			<div class="text-2xl font-bold">{ value }</div>
+			<p class="text-xs text-muted-foreground">{ description }</p>
+		}
+	}
+}

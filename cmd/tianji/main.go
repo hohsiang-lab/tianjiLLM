@@ -35,6 +35,7 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/router/strategy"
 	"github.com/praxisllmlab/tianjiLLM/internal/router/strategy/auto"
 	"github.com/praxisllmlab/tianjiLLM/internal/scheduler"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui"
 
 	// Register all providers via init()
 	_ "github.com/praxisllmlab/tianjiLLM/internal/provider/ai21"
@@ -393,6 +394,14 @@ func main() {
 	}
 	sched.Start()
 
+	// Init admin dashboard UI
+	uiHandler := &ui.UIHandler{
+		DB:        queries,
+		Config:    cfg,
+		Cache:     cacheBackend,
+		MasterKey: cfg.GeneralSettings.MasterKey,
+	}
+
 	// Create server
 	srv := proxy.NewServer(proxy.ServerConfig{
 		Handlers:           handlers,
@@ -402,6 +411,7 @@ func main() {
 		MCPSSEHandler:      mcpSSEHandler,
 		MCPStreamHandler:   mcpStreamHandler,
 		MCPRESTHandler:     mcpRESTHandler,
+		UIHandler:          uiHandler,
 	})
 
 	// Start HTTP server
