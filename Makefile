@@ -1,6 +1,6 @@
 TAILWIND := ./bin/tailwindcss
 
-.PHONY: build test lint generate check docker run clean templ-generate tailwind-build ui ui-dev tools
+.PHONY: build test lint generate check docker run clean templ-generate tailwind-build ui ui-dev tools dev
 
 tools:
 	go install github.com/a-h/templ/cmd/templ@latest
@@ -36,6 +36,12 @@ run:
 
 clean:
 	rm -rf bin/tianji coverage.out
+
+dev:
+	wgo -file .go -file .templ -file .css -xfile _templ.go -xfile .sql.go -xdir test -xdir vendor -xdir specs -xdir .git \
+		templ generate ./internal/ui/... \
+		:: ./bin/tailwindcss -i internal/ui/input.css -o internal/ui/assets/css/output.css --minify \
+		:: go run ./cmd/tianji --config proxy_config.yaml
 
 ui-dev:
 	templ generate --watch --proxy="http://localhost:4000" &
