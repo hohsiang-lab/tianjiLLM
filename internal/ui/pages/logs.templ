@@ -1,0 +1,542 @@
+package pages
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/pagination"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/table"
+)
+
+type RequestLogRow struct {
+	RequestID        string
+	Timestamp        time.Time
+	Status           string // "Success" or "Failed"
+	StatusCode       *int32
+	ErrorType        *string
+	Provider         *string
+	Model            string
+	Spend            float64
+	DurationSec      float64
+	TotalTokens      int
+	PromptTokens     int
+	CompletionTokens int
+	CacheHit         string
+	KeyHash          string
+	TeamID           *string
+	EndUser          *string
+}
+
+type LogsPageData struct {
+	Logs       []RequestLogRow
+	Page       int
+	TotalPages int
+	TotalCount int
+	TimeRange  string
+	LiveTail   bool
+	// Filters
+	FilterStatus    *string
+	FilterModel     *string
+	FilterApiKey    *string
+	FilterTeamID    *string
+	FilterRequestID *string
+}
+
+func (d LogsPageData) FilterQueryString() string {
+	var parts []string
+	parts = append(parts, fmt.Sprintf("page=%d", d.Page))
+	parts = append(parts, "time_range="+d.TimeRange)
+	if d.FilterStatus != nil {
+		parts = append(parts, "status="+*d.FilterStatus)
+	}
+	if d.FilterModel != nil {
+		parts = append(parts, "model="+*d.FilterModel)
+	}
+	if d.FilterApiKey != nil {
+		parts = append(parts, "api_key="+*d.FilterApiKey)
+	}
+	if d.FilterTeamID != nil {
+		parts = append(parts, "team_id="+*d.FilterTeamID)
+	}
+	if d.FilterRequestID != nil {
+		parts = append(parts, "request_id="+*d.FilterRequestID)
+	}
+	if d.LiveTail {
+		parts = append(parts, "live_tail=true")
+	}
+	return strings.Join(parts, "&")
+}
+
+func (d LogsPageData) filterQSWithoutPage() string {
+	var parts []string
+	parts = append(parts, "time_range="+d.TimeRange)
+	if d.FilterStatus != nil {
+		parts = append(parts, "status="+*d.FilterStatus)
+	}
+	if d.FilterModel != nil {
+		parts = append(parts, "model="+*d.FilterModel)
+	}
+	if d.FilterApiKey != nil {
+		parts = append(parts, "api_key="+*d.FilterApiKey)
+	}
+	if d.FilterTeamID != nil {
+		parts = append(parts, "team_id="+*d.FilterTeamID)
+	}
+	if d.FilterRequestID != nil {
+		parts = append(parts, "request_id="+*d.FilterRequestID)
+	}
+	if d.LiveTail {
+		parts = append(parts, "live_tail=true")
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "&" + strings.Join(parts, "&")
+}
+
+func (d LogsPageData) hasActiveFilters() bool {
+	return d.FilterStatus != nil || d.FilterModel != nil || d.FilterApiKey != nil || d.FilterTeamID != nil || d.FilterRequestID != nil
+}
+
+func ptrVal(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func selectedAttr(current, value string) string {
+	if current == value {
+		return "selected"
+	}
+	return ""
+}
+
+templ LogsPage(data LogsPageData) {
+	@AppLayout("Request Logs", "/ui/logs") {
+		<script>
+			function toggleFilterPanel() {
+				document.getElementById('filter-panel').classList.toggle('hidden');
+			}
+			function resetFilters() {
+				var form = document.getElementById('log-filters');
+				form.querySelectorAll('input[type="text"]').forEach(function(el) { el.value = ''; });
+				form.querySelectorAll('select').forEach(function(el) { el.selectedIndex = 0; });
+				htmx.ajax('GET', '/ui/logs/table?page=1&time_range=24h', {target: '#logs-table'});
+			}
+		</script>
+		<div class="space-y-3">
+			<!-- Filter toolbar -->
+			<div id="log-filters">
+				<!-- Row 1: Search + Time Range + Live Tail + Fetch + Filters toggle -->
+				<div class="flex items-center gap-2">
+					<!-- Request ID search -->
+					<div class="relative flex-1">
+						@icon.Search(icon.Props{Size: 16, Class: "absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"})
+						<input
+							type="text"
+							name="request_id"
+							placeholder="Search by Request ID..."
+							value={ ptrVal(data.FilterRequestID) }
+							class="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+							hx-get="/ui/logs/table"
+							hx-trigger="input changed delay:300ms"
+							hx-target="#logs-table"
+							hx-include="#log-filters"
+						/>
+					</div>
+					<!-- Time range select -->
+					<select
+						name="time_range"
+						class="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+						hx-get="/ui/logs/table"
+						hx-trigger="change"
+						hx-target="#logs-table"
+						hx-include="#log-filters"
+					>
+						<option value="1h" selected?={ data.TimeRange == "1h" }>Last 1 hour</option>
+						<option value="24h" selected?={ data.TimeRange == "24h" }>Last 24 hours</option>
+						<option value="7d" selected?={ data.TimeRange == "7d" }>Last 7 days</option>
+						<option value="30d" selected?={ data.TimeRange == "30d" }>Last 30 days</option>
+					</select>
+					<!-- Live Tail toggle -->
+					if data.LiveTail {
+						<input type="hidden" name="live_tail" value="true"/>
+						@button.Button(button.Props{
+							Size: button.SizeSm,
+							Variant: button.VariantOutline,
+							Attributes: templ.Attributes{
+								"hx-get":     "/ui/logs?time_range=" + data.TimeRange,
+								"hx-target":  "body",
+								"hx-push-url": "true",
+							},
+						}) {
+							<span class="relative mr-1.5 flex h-2 w-2">
+								<span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+								<span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+							</span>
+							Live
+						}
+					} else {
+						@button.Button(button.Props{
+							Size: button.SizeSm,
+							Variant: button.VariantOutline,
+							Attributes: templ.Attributes{
+								"hx-get":     "/ui/logs?time_range=" + data.TimeRange + "&live_tail=true",
+								"hx-target":  "body",
+								"hx-push-url": "true",
+							},
+						}) {
+							<span class="mr-1.5 h-2 w-2 rounded-full bg-muted-foreground/30"></span>
+							Live
+						}
+					}
+					<!-- Fetch button -->
+					@button.Button(button.Props{
+						Size: button.SizeSm,
+						Attributes: templ.Attributes{
+							"hx-get":     "/ui/logs/table",
+							"hx-target":  "#logs-table",
+							"hx-include": "#log-filters",
+						},
+					}) {
+						Fetch
+					}
+					<!-- Filters toggle -->
+					@button.Button(button.Props{
+						Size:    button.SizeSm,
+						Variant: button.VariantOutline,
+						Attributes: templ.Attributes{
+							"onclick": "toggleFilterPanel()",
+						},
+					}) {
+						@icon.ListFilter(icon.Props{Size: 16, Class: "mr-1"})
+						Filters
+					}
+				</div>
+				<!-- Row 2: Collapsible filter panel -->
+				<div id="filter-panel" class="hidden mt-2">
+					<div class="grid grid-cols-4 gap-2 p-3 rounded-md border border-border bg-muted/30">
+						<div>
+							<label class="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
+							<select
+								name="status"
+								class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+								hx-get="/ui/logs/table"
+								hx-trigger="change"
+								hx-target="#logs-table"
+								hx-include="#log-filters"
+							>
+								<option value="">All</option>
+								<option value="success" selected?={ data.FilterStatus != nil && *data.FilterStatus == "success" }>Success</option>
+								<option value="failed" selected?={ data.FilterStatus != nil && *data.FilterStatus == "failed" }>Failed</option>
+							</select>
+						</div>
+						<div>
+							<label class="text-xs font-medium text-muted-foreground mb-1 block">Model</label>
+							@input.Input(input.Props{
+								Placeholder: "Filter by model...",
+								Attributes: templ.Attributes{
+									"name":       "model",
+									"value":      ptrVal(data.FilterModel),
+									"hx-get":     "/ui/logs/table",
+									"hx-trigger": "input changed delay:300ms",
+									"hx-target":  "#logs-table",
+									"hx-include": "#log-filters",
+								},
+							})
+						</div>
+						<div>
+							<label class="text-xs font-medium text-muted-foreground mb-1 block">API Key</label>
+							@input.Input(input.Props{
+								Placeholder: "Filter by key hash...",
+								Attributes: templ.Attributes{
+									"name":       "api_key",
+									"value":      ptrVal(data.FilterApiKey),
+									"hx-get":     "/ui/logs/table",
+									"hx-trigger": "input changed delay:300ms",
+									"hx-target":  "#logs-table",
+									"hx-include": "#log-filters",
+								},
+							})
+						</div>
+						<div>
+							<label class="text-xs font-medium text-muted-foreground mb-1 block">Team</label>
+							@input.Input(input.Props{
+								Placeholder: "Filter by team...",
+								Attributes: templ.Attributes{
+									"name":       "team_id",
+									"value":      ptrVal(data.FilterTeamID),
+									"hx-get":     "/ui/logs/table",
+									"hx-trigger": "input changed delay:300ms",
+									"hx-target":  "#logs-table",
+									"hx-include": "#log-filters",
+								},
+							})
+						</div>
+						<div class="col-span-4 flex justify-end">
+							@button.Button(button.Props{
+								Size:    button.SizeSm,
+								Variant: button.VariantGhost,
+								Attributes: templ.Attributes{
+									"onclick": "resetFilters()",
+								},
+							}) {
+								Reset Filters
+							}
+						</div>
+					</div>
+				</div>
+			</div>
+			<!-- Table container with optional Live Tail polling -->
+			if data.LiveTail {
+				<div
+					id="logs-table"
+					hx-get="/ui/logs/table"
+					hx-trigger="every 15s"
+					hx-target="#logs-table"
+					hx-include="#log-filters"
+				>
+					@LogsTablePartial(data)
+				</div>
+			} else {
+				<div id="logs-table">
+					@LogsTablePartial(data)
+				</div>
+			}
+		</div>
+	}
+}
+
+templ LogsTablePartial(data LogsPageData) {
+	<!-- Live Tail status bar -->
+	if data.LiveTail {
+		<div class="mb-3 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+			<span class="relative flex h-2 w-2">
+				<span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+				<span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+			</span>
+			<span>Auto-refreshing every 15 seconds</span>
+			@button.Button(button.Props{
+				Size:    button.SizeSm,
+				Variant: button.VariantGhost,
+				Attributes: templ.Attributes{
+					"hx-get":      "/ui/logs?" + strings.Replace(data.FilterQueryString(), "live_tail=true", "", 1),
+					"hx-target":   "body",
+					"hx-push-url": "true",
+					"class":       "ml-auto h-6 px-2 text-xs text-emerald-700 hover:text-emerald-900",
+				},
+			}) {
+				Stop
+			}
+		</div>
+	}
+	<!-- Results count -->
+	if data.TotalCount > 0 {
+		<div class="mb-2 text-sm text-muted-foreground">
+			{ fmt.Sprintf("Showing %d–%d of %d results", (data.Page-1)*50+1, min((data.Page)*50, data.TotalCount), data.TotalCount) }
+		</div>
+	}
+	@card.Card() {
+		@card.Content(card.ContentProps{Class: "p-0"}) {
+			@table.Table() {
+				@table.Header() {
+					@table.Row() {
+						@table.Head() { Time }
+						@table.Head() { Status }
+						@table.Head() { Model }
+						@table.Head() { Request ID }
+						@table.Head() { Key Hash }
+						@table.Head() { Team }
+						@table.Head(table.HeadProps{Class: "text-right"}) { Cost }
+						@table.Head(table.HeadProps{Class: "text-right"}) { Duration(s) }
+						@table.Head(table.HeadProps{Class: "text-right"}) { Tokens }
+					}
+				}
+				@table.Body() {
+					if len(data.Logs) == 0 {
+						@table.Row() {
+							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": "9"}}) {
+								if data.hasActiveFilters() {
+									<div class="py-8 text-center text-muted-foreground">
+										No results matching your filters.
+										<button onclick="resetFilters()" class="ml-1 text-primary hover:underline">Reset Filters</button>
+									</div>
+								} else {
+									<div class="py-8 text-center text-muted-foreground">No request logs yet. Logs will appear here once requests pass through the proxy.</div>
+								}
+							}
+						}
+					}
+					for _, row := range data.Logs {
+						@logRow(row)
+					}
+				}
+			}
+		}
+	}
+	<!-- Pagination -->
+	if data.TotalPages > 1 {
+		<div class="mt-4 flex items-center justify-center">
+			{{ pg := pagination.CreatePagination(data.Page, data.TotalPages, 5) }}
+			{{ qs := data.filterQSWithoutPage() }}
+			@pagination.Pagination() {
+				@pagination.Content() {
+					@pagination.Item() {
+						@pagination.Previous(pagination.PreviousProps{
+							Disabled: !pg.HasPrevious,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/logs/table?page=%d%s", data.Page-1, qs),
+								"hx-target": "#logs-table",
+							},
+						})
+					}
+					if pg.Pages[0] > 1 {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/logs/table?page=1%s", qs),
+									"hx-target": "#logs-table",
+								},
+							}) {
+								1
+							}
+						}
+						if pg.Pages[0] > 2 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+					}
+					for _, p := range pg.Pages {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								IsActive: p == pg.CurrentPage,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/logs/table?page=%d%s", p, qs),
+									"hx-target": "#logs-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", p) }
+							}
+						}
+					}
+					if pg.Pages[len(pg.Pages)-1] < pg.TotalPages {
+						if pg.Pages[len(pg.Pages)-1] < pg.TotalPages-1 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/logs/table?page=%d%s", pg.TotalPages, qs),
+									"hx-target": "#logs-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", pg.TotalPages) }
+							}
+						}
+					}
+					@pagination.Item() {
+						@pagination.Next(pagination.NextProps{
+							Disabled: !pg.HasNext,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/logs/table?page=%d%s", data.Page+1, qs),
+								"hx-target": "#logs-table",
+							},
+						})
+					}
+				}
+			}
+		</div>
+	}
+}
+
+templ logRow(row RequestLogRow) {
+	@table.Row() {
+		<!-- Time -->
+		@table.Cell() {
+			<span class="text-xs whitespace-nowrap">{ row.Timestamp.Format("01/02/2006 03:04:05 PM") }</span>
+		}
+		<!-- Status -->
+		@table.Cell() {
+			if row.Status == "Failed" {
+				@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+					Failed
+				}
+			} else {
+				@badge.Badge(badge.Props{Variant: badge.VariantDefault}) {
+					Success
+				}
+			}
+		}
+		<!-- Model -->
+		@table.Cell() {
+			<span class="text-xs max-w-[180px] truncate block" title={ row.Model }>{ row.Model }</span>
+		}
+		<!-- Request ID -->
+		@table.Cell() {
+			if len(row.RequestID) > 12 {
+				<span class="font-mono text-xs" title={ row.RequestID }>{ row.RequestID[:12] }...</span>
+			} else {
+				<span class="font-mono text-xs">{ row.RequestID }</span>
+			}
+		}
+		<!-- Key Hash -->
+		@table.Cell() {
+			if len(row.KeyHash) > 12 {
+				<span class="font-mono text-xs" title={ row.KeyHash }>{ row.KeyHash[:12] }...</span>
+			} else if row.KeyHash != "" {
+				<span class="font-mono text-xs">{ row.KeyHash }</span>
+			} else {
+				<span class="text-muted-foreground text-xs">–</span>
+			}
+		}
+		<!-- Team -->
+		@table.Cell() {
+			if row.TeamID != nil && *row.TeamID != "" {
+				<span class="text-xs" title={ *row.TeamID }>
+					if len(*row.TeamID) > 12 {
+						{ (*row.TeamID)[:12] }...
+					} else {
+						{ *row.TeamID }
+					}
+				</span>
+			} else {
+				<span class="text-muted-foreground text-xs">–</span>
+			}
+		}
+		<!-- Cost -->
+		@table.Cell(table.CellProps{Class: "text-right"}) {
+			if row.Spend > 0 {
+				<span class="font-mono text-xs">{ fmt.Sprintf("$%.4f", row.Spend) }</span>
+			} else {
+				<span class="text-muted-foreground text-xs">–</span>
+			}
+		}
+		<!-- Duration -->
+		@table.Cell(table.CellProps{Class: "text-right"}) {
+			if row.DurationSec > 0 {
+				<span class="font-mono text-xs">{ fmt.Sprintf("%.2f", row.DurationSec) }</span>
+			} else {
+				<span class="text-muted-foreground text-xs">–</span>
+			}
+		}
+		<!-- Tokens -->
+		@table.Cell(table.CellProps{Class: "text-right"}) {
+			if row.TotalTokens > 0 {
+				<span class="font-mono text-xs">{ fmt.Sprintf("%d", row.TotalTokens) }</span>
+				<span class="text-muted-foreground text-xs">{ fmt.Sprintf("(%d+%d)", row.PromptTokens, row.CompletionTokens) }</span>
+			} else {
+				<span class="text-muted-foreground text-xs">–</span>
+			}
+		}
+	}
+}

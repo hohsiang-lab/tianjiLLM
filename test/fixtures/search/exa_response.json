@@ -1,0 +1,11 @@
+{
+  "results": [
+    {
+      "title": "Go Packages",
+      "url": "https://pkg.go.dev",
+      "text": "Discover Go packages and modules. Browse the standard library and third-party packages.",
+      "publishedDate": "2024-02-01"
+    }
+  ],
+  "autopromptString": "golang packages"
+}

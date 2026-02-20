@@ -1,0 +1,95 @@
+package pages
+
+import (
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/sidebar"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
+)
+
+templ document(title string) {
+	<!DOCTYPE html>
+	<html lang="en" class="h-full">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title } - TianjiLLM</title>
+			<link rel="stylesheet" href="/ui/static/css/output.css"/>
+		</head>
+		<body class="h-full bg-background text-foreground antialiased">
+			{ children... }
+			<script src="/ui/static/js/htmx.min.js"></script>
+			<script src="/ui/static/js/chart.min.js"></script>
+			<script>
+				document.addEventListener('htmx:beforeSwap', function(e) {
+					e.detail.target.querySelectorAll('canvas').forEach(function(c) {
+						var chart = Chart.getChart(c);
+						if (chart) chart.destroy();
+					});
+				});
+			</script>
+			@sidebar.Script()
+		</body>
+	</html>
+}
+
+templ AppLayout(title string, activePath string) {
+	@document(title) {
+		@sidebar.Layout() {
+			@sidebar.Sidebar(sidebar.Props{ID: "app-sidebar"}) {
+				@sidebar.Header() {
+					<div class="flex items-center gap-2 px-2 py-1.5">
+						<div class="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-bold">T</div>
+						<span class="text-lg font-semibold">TianjiLLM</span>
+					</div>
+				}
+				@sidebar.Content() {
+					@sidebar.Group() {
+						@sidebar.GroupLabel() {
+							Management
+						}
+						@sidebar.Menu() {
+							@navItem("/ui/", "Dashboard", "layout-dashboard", activePath)
+							@navItem("/ui/keys", "API Keys", "key", activePath)
+							@navItem("/ui/models", "Models", "box", activePath)
+							@navItem("/ui/usage", "Usage", "chart-bar", activePath)
+							@navItem("/ui/logs", "Logs", "list", activePath)
+						}
+					}
+				}
+				@sidebar.Footer() {
+					@sidebar.Menu() {
+						@sidebar.MenuItem() {
+							<form method="post" action="/ui/logout" class="w-full">
+								@sidebar.MenuButton(sidebar.MenuButtonProps{}) {
+									@icon.Icon("log-out")(icon.Props{Size: 16})
+									<span>Logout</span>
+								}
+							</form>
+						}
+					}
+				}
+			}
+			@sidebar.Inset() {
+				<header class="flex h-14 items-center border-b border-border px-6">
+					@sidebar.Trigger(sidebar.TriggerProps{})
+					<h1 class="ml-4 text-lg font-semibold">{ title }</h1>
+				</header>
+				<main class="flex-1 p-6">
+					{ children... }
+				</main>
+			}
+		}
+	}
+}
+
+templ navItem(href, label, iconName, activePath string) {
+	@sidebar.MenuItem() {
+		@sidebar.MenuButton(sidebar.MenuButtonProps{
+			Href:     href,
+			IsActive: href == activePath,
+			Tooltip:  label,
+		}) {
+			@icon.Icon(iconName)(icon.Props{Size: 16})
+			<span>{ label }</span>
+		}
+	}
+}

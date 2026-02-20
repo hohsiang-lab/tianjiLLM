@@ -1,0 +1,82 @@
+{
+  "providers": {
+    "ollama": {
+      "name": "ollama",
+      "base_url": "http://localhost:11434/v1",
+      "auth_header": "",
+      "auth_prefix": ""
+    },
+    "vllm": {
+      "name": "vllm",
+      "base_url": "http://localhost:8000/v1"
+    },
+    "lm_studio": {
+      "name": "lm_studio",
+      "base_url": "http://localhost:1234/v1",
+      "auth_header": "",
+      "auth_prefix": ""
+    },
+    "llamafile": {
+      "name": "llamafile",
+      "base_url": "http://localhost:8080/v1",
+      "auth_header": "",
+      "auth_prefix": ""
+    },
+    "xinference": {
+      "name": "xinference",
+      "base_url": "http://localhost:9997/v1",
+      "auth_header": "",
+      "auth_prefix": ""
+    },
+    "triton": {
+      "name": "triton",
+      "base_url": "http://localhost:8000/v2/models"
+    },
+    "oobabooga": {
+      "name": "oobabooga",
+      "base_url": "http://localhost:5000/v1"
+    },
+    "lemonade": {
+      "name": "lemonade",
+      "base_url": "http://localhost:8000/api/v1"
+    },
+    "docker_model_runner": {
+      "name": "docker_model_runner",
+      "base_url": "http://localhost:12434/engines/llama.cpp/v1"
+    },
+    "heroku": {
+      "name": "heroku",
+      "base_url": "https://us.inference.heroku.com/v1"
+    },
+    "datarobot": {
+      "name": "datarobot",
+      "base_url": "https://app.datarobot.com/api/v2",
+      "auth_header": "Authorization",
+      "auth_prefix": "Bearer "
+    },
+    "novita": {
+      "name": "novita",
+      "base_url": "https://api.novita.ai/v3/openai"
+    },
+    "hyperbolic": {
+      "name": "hyperbolic",
+      "base_url": "https://api.hyperbolic.xyz/v1"
+    },
+    "featherless_ai": {
+      "name": "featherless_ai",
+      "base_url": "https://api.featherless.ai/v1"
+    },
+    "runwayml": {
+      "name": "runwayml",
+      "base_url": "https://api.rev.ai/revspeech/v1"
+    },
+    "linkup": {
+      "name": "linkup",
+      "base_url": "https://api.linkup.so/v1"
+    },
+    "firecrawl": {
+      "name": "firecrawl",
+      "base_url": "https://api.firecrawl.dev/v1"
+    }
+  }
+}

@@ -1,0 +1,53 @@
+package pages
+
+import (
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+)
+
+templ LoginPage(errMsg string) {
+	@document("Login") {
+		<div class="flex min-h-full items-center justify-center px-4 py-12">
+			@card.Card(card.Props{Class: "w-full max-w-sm"}) {
+				@card.Header() {
+					@card.Title() {
+						TianjiLLM Admin
+					}
+					@card.Description() {
+						Enter your API key to access the dashboard.
+					}
+				}
+				@card.Content() {
+					<form method="post" action="/ui/login" class="space-y-4">
+						if errMsg != "" {
+							<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+								{ errMsg }
+							</div>
+						}
+						<div class="space-y-2">
+							<label for="api_key" class="text-sm font-medium">API Key</label>
+							@input.Input(input.Props{
+								ID:          "api_key",
+								Name:        "api_key",
+								Type:        "password",
+								Placeholder: "sk-...",
+								Attributes: templ.Attributes{
+									"autofocus":    true,
+									"required":     true,
+									"autocomplete": "current-password",
+								},
+							})
+						</div>
+						@button.Button(button.Props{
+							Type:  "submit",
+							Class: "w-full",
+						}) {
+							Sign In
+						}
+					</form>
+				}
+			}
+		</div>
+	}
+}

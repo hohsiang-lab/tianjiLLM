@@ -1,0 +1,723 @@
+package pages
+
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+)
+
+// --- Data Types ---
+
+type UsagePageData struct {
+	ActiveTab string // "cost", "model-activity", "key-activity", "endpoint-activity"
+	StartDate string // "2026-02-17"
+	EndDate   string // "2026-02-24"
+	Preset    string // "7d", "24h", "30d", "custom"
+}
+
+type UsageTabContent interface {
+	usageTab()
+}
+
+type UsageMetrics struct {
+	TotalRequests      int64
+	SuccessfulRequests int64
+	FailedRequests     int64
+	TotalTokens        int64
+	TotalSpend         float64
+	AvgCostPerRequest  float64
+}
+
+type DailySpend struct {
+	Date  string
+	Spend float64
+}
+
+type DailyActivity struct {
+	Date         string
+	RequestCount int64
+	TotalTokens  int64
+}
+
+type TopKey struct {
+	APIKey       string
+	KeyAlias     string
+	TotalSpend   float64
+	RequestCount int64
+}
+
+type TopModel struct {
+	Model        string
+	TotalSpend   float64
+	TotalTokens  int64
+	RequestCount int64
+}
+
+type CostTabData struct {
+	UsagePageData
+	Metrics     UsageMetrics
+	DailySpend  []DailySpend
+	TopKeys     []TopKey
+	TopKeyLimit int
+	TopModels   []TopModel
+}
+
+func (CostTabData) usageTab() {}
+
+type ModelDailyActivity struct {
+	Model       string
+	DailyData   []DailyActivity
+	SumRequests int64
+	SumTokens   int64
+}
+
+type ModelActivityData struct {
+	UsagePageData
+	Models []ModelDailyActivity
+}
+
+func (ModelActivityData) usageTab() {}
+
+type KeyDailyActivity struct {
+	APIKey      string
+	DailyData   []DailyActivity
+	SumSpend    float64
+	SumRequests int64
+}
+
+type KeyActivityData struct {
+	UsagePageData
+	Keys []KeyDailyActivity
+}
+
+func (KeyActivityData) usageTab() {}
+
+type EndpointDailyActivity struct {
+	CallType    string
+	DailyData   []DailyActivity
+	SumRequests int64
+}
+
+type EndpointActivityData struct {
+	UsagePageData
+	Endpoints []EndpointDailyActivity
+}
+
+func (EndpointActivityData) usageTab() {}
+
+// --- Helper functions ---
+
+func formatCurrency(v float64) string {
+	if v == 0 {
+		return "$0.00"
+	}
+	if v < 0.01 && v > 0 {
+		return fmt.Sprintf("$%.4f", v)
+	}
+	whole := int64(v)
+	frac := int64((v - float64(whole)) * 100 + 0.5)
+	s := strconv.FormatInt(whole, 10)
+	if len(s) > 3 {
+		var parts []string
+		for len(s) > 3 {
+			parts = append([]string{s[len(s)-3:]}, parts...)
+			s = s[:len(s)-3]
+		}
+		parts = append([]string{s}, parts...)
+		s = ""
+		for i, p := range parts {
+			if i > 0 {
+				s += ","
+			}
+			s += p
+		}
+	}
+	return fmt.Sprintf("$%s.%02d", s, frac)
+}
+
+func formatCompact(v int64) string {
+	switch {
+	case v >= 1_000_000_000:
+		return fmt.Sprintf("%.1fB", float64(v)/1_000_000_000)
+	case v >= 1_000_000:
+		return fmt.Sprintf("%.1fM", float64(v)/1_000_000)
+	case v >= 1_000:
+		return fmt.Sprintf("%.1fK", float64(v)/1_000)
+	default:
+		return strconv.FormatInt(v, 10)
+	}
+}
+
+func formatNumber(v int64) string {
+	s := strconv.FormatInt(v, 10)
+	if len(s) <= 3 {
+		return s
+	}
+	var parts []string
+	for len(s) > 3 {
+		parts = append([]string{s[len(s)-3:]}, parts...)
+		s = s[:len(s)-3]
+	}
+	parts = append([]string{s}, parts...)
+	result := ""
+	for i, p := range parts {
+		if i > 0 {
+			result += ","
+		}
+		result += p
+	}
+	return result
+}
+
+func toJSON(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+// --- Templates ---
+
+templ UsagePage(data UsagePageData, tab UsageTabContent) {
+	@AppLayout("Usage", "/ui/usage") {
+		<div class="space-y-4">
+			<!-- Page Header -->
+			<div class="flex items-center justify-between">
+				<div class="flex items-center gap-4">
+					<h2 class="text-xl font-semibold">Usage View</h2>
+					<!-- Scope Selector -->
+					<select name="scope" class="rounded-md border border-input bg-background px-3 py-1.5 text-sm">
+						<option value="global" selected>Global Usage</option>
+					</select>
+				</div>
+				<div class="flex items-center gap-3">
+					<!-- Date Range Preset -->
+					<select
+						name="preset"
+						class="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+						hx-get="/ui/usage"
+						hx-target="body"
+						hx-push-url="true"
+						hx-include="[name='start_date'],[name='end_date'],[name='scope']"
+					>
+						<option value="24h" selected?={ data.Preset == "24h" }>Last 24h</option>
+						<option value="7d" selected?={ data.Preset == "7d" }>Last 7 days</option>
+						<option value="30d" selected?={ data.Preset == "30d" }>Last 30 days</option>
+						<option value="custom" selected?={ data.Preset == "custom" }>Custom</option>
+					</select>
+					if data.Preset == "custom" {
+						<input
+							type="date"
+							name="start_date"
+							value={ data.StartDate }
+							class="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+							hx-get="/ui/usage"
+							hx-trigger="change"
+							hx-target="body"
+							hx-push-url="true"
+							hx-include="[name='preset'],[name='end_date'],[name='scope']"
+						/>
+						<span class="text-sm text-muted-foreground">to</span>
+						<input
+							type="date"
+							name="end_date"
+							value={ data.EndDate }
+							class="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+							hx-get="/ui/usage"
+							hx-trigger="change"
+							hx-target="body"
+							hx-push-url="true"
+							hx-include="[name='preset'],[name='start_date'],[name='scope']"
+						/>
+					}
+					<!-- Hidden date inputs for non-custom presets -->
+					if data.Preset != "custom" {
+						<input type="hidden" name="start_date" value={ data.StartDate }/>
+						<input type="hidden" name="end_date" value={ data.EndDate }/>
+					}
+					<!-- Export Button -->
+					<a
+						href={ templ.SafeURL(fmt.Sprintf("/ui/usage/export?tab=%s&preset=%s&start_date=%s&end_date=%s", data.ActiveTab, data.Preset, data.StartDate, data.EndDate)) }
+						class="inline-flex items-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+					>
+						Export Data
+					</a>
+				</div>
+			</div>
+			<!-- Tab Bar -->
+			<div class="border-b border-border">
+				<div class="flex gap-0 -mb-px">
+					@usageTabTrigger("cost", "Cost", data)
+					@usageTabTrigger("model-activity", "Model Activity", data)
+					@usageTabTrigger("key-activity", "Key Activity", data)
+					@usageTabTrigger("endpoint-activity", "Endpoint Activity", data)
+				</div>
+			</div>
+			<!-- Tab Content -->
+			<div id="usage-content">
+				switch t := tab.(type) {
+					case CostTabData:
+						@UsageCostTab(t)
+					case ModelActivityData:
+						@UsageModelActivityTab(t)
+					case KeyActivityData:
+						@UsageKeyActivityTab(t)
+					case EndpointActivityData:
+						@UsageEndpointActivityTab(t)
+				}
+			</div>
+		</div>
+	}
+}
+
+templ usageTabTrigger(value, label string, data UsagePageData) {
+	<button
+		data-tab={ value }
+		class={ "usage-tab px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+			templ.KV("border-primary text-foreground", data.ActiveTab == value),
+			templ.KV("border-transparent text-muted-foreground hover:text-foreground hover:border-border", data.ActiveTab != value) }
+		hx-get={ fmt.Sprintf("/ui/usage/tab?tab=%s&preset=%s&start_date=%s&end_date=%s", value, data.Preset, data.StartDate, data.EndDate) }
+		hx-target="#usage-content"
+		hx-swap="innerHTML"
+		onclick="document.querySelectorAll('.usage-tab').forEach(function(b){b.className=b.className.replace('border-primary text-foreground','border-transparent text-muted-foreground hover:text-foreground hover:border-border')});this.className=this.className.replace('border-transparent text-muted-foreground hover:text-foreground hover:border-border','border-primary text-foreground')"
+	>
+		{ label }
+	</button>
+}
+
+// --- Cost Tab ---
+
+templ UsageCostTab(data CostTabData) {
+	<!-- Project Spend Summary -->
+	<div class="mb-6">
+		<h3 class="text-sm font-medium text-muted-foreground mb-1">
+			{ fmt.Sprintf("Project Spend %s - %s", data.StartDate, data.EndDate) }
+		</h3>
+		<div class="flex items-baseline gap-6">
+			<div>
+				<span class="text-xs text-muted-foreground">Total Spend</span>
+				<p class="text-3xl font-bold tracking-tight">{ formatCurrency(data.Metrics.TotalSpend) }</p>
+			</div>
+			<div>
+				<span class="text-xs text-muted-foreground">Max Budget</span>
+				<p class="text-lg font-semibold text-muted-foreground">No limit</p>
+			</div>
+		</div>
+	</div>
+	<!-- Usage Metrics Cards -->
+	<div class="mb-6">
+		<h3 class="text-sm font-semibold mb-3">Usage Metrics</h3>
+		<div class="grid grid-cols-5 gap-3">
+			@metricCard("Total Requests", formatNumber(data.Metrics.TotalRequests), "")
+			@metricCard("Successful Requests", formatNumber(data.Metrics.SuccessfulRequests), "text-emerald-600")
+			@metricCard("Failed Requests", formatNumber(data.Metrics.FailedRequests), "text-destructive")
+			@metricCard("Total Tokens", formatCompact(data.Metrics.TotalTokens), "")
+			@metricCard("Avg Cost / Request", formatCurrency(data.Metrics.AvgCostPerRequest), "")
+		</div>
+	</div>
+	<!-- Daily Spend Chart -->
+	<div class="rounded-lg border bg-card text-card-foreground shadow-xs p-6 mb-6">
+		<h3 class="text-sm font-semibold mb-4">Daily Spend</h3>
+		if len(data.DailySpend) == 0 {
+			<div class="flex items-center justify-center h-[260px] text-muted-foreground text-sm">No spend data for selected period</div>
+		} else {
+			<div style="height: 260px;">
+				<canvas id="dailySpendChart"></canvas>
+			</div>
+			@dailySpendChartScript(data.DailySpend)
+		}
+	</div>
+	<!-- Bottom Row: Top Keys + Top Models -->
+	<div class="grid grid-cols-2 gap-4">
+		<!-- Top Virtual Keys -->
+		<div class="rounded-lg border bg-card text-card-foreground shadow-xs">
+			<div class="p-6 pb-3">
+				<div class="flex items-center justify-between mb-3">
+					<h3 class="text-sm font-semibold">Top Virtual Keys</h3>
+					<div class="flex rounded-md border border-input overflow-hidden text-xs">
+						for _, lim := range []int{5, 10, 25, 50} {
+							<button
+								class={ "px-2 py-1",
+									templ.KV("bg-primary text-primary-foreground", data.TopKeyLimit == lim),
+									templ.KV("hover:bg-accent", data.TopKeyLimit != lim),
+									templ.KV("border-l border-input", lim != 5) }
+								hx-get={ fmt.Sprintf("/ui/usage/top-keys?limit=%d&preset=%s&start_date=%s&end_date=%s", lim, data.Preset, data.StartDate, data.EndDate) }
+								hx-target="#top-keys"
+								hx-swap="innerHTML"
+							>
+								{ strconv.Itoa(lim) }
+							</button>
+						}
+					</div>
+				</div>
+			</div>
+			<div id="top-keys" class="px-6 pb-6">
+				@UsageTopKeysPartial(data.TopKeys, data.TopKeyLimit)
+			</div>
+		</div>
+		<!-- Top Models -->
+		<div class="rounded-lg border bg-card text-card-foreground shadow-xs">
+			<div class="p-6 pb-3">
+				<h3 class="text-sm font-semibold mb-3">Top Public Model Names</h3>
+			</div>
+			<div class="px-6 pb-6">
+				if len(data.TopModels) == 0 {
+					<div class="flex items-center justify-center h-[200px] text-muted-foreground text-sm">No model data</div>
+				} else {
+					<div style="height: 200px;">
+						<canvas id="topModelsChart"></canvas>
+					</div>
+					@topModelsChartScript(data.TopModels)
+				}
+			</div>
+		</div>
+	</div>
+}
+
+templ metricCard(title, value, colorClass string) {
+	<div class="rounded-lg border bg-card text-card-foreground shadow-xs p-4">
+		<p class="text-sm text-muted-foreground mb-1">{ title }</p>
+		<p class={ "text-2xl font-bold", colorClass }>{ value }</p>
+	</div>
+}
+
+templ UsageTopKeysPartial(keys []TopKey, limit int) {
+	if len(keys) == 0 {
+		<div class="py-8 text-center text-muted-foreground text-sm">No key data for selected period</div>
+	} else {
+		<table class="w-full text-sm">
+			<thead>
+				<tr class="border-b border-border">
+					<th class="text-left py-2 text-xs font-medium text-muted-foreground">Key ID</th>
+					<th class="text-left py-2 text-xs font-medium text-muted-foreground">Key Alias</th>
+					<th class="text-right py-2 text-xs font-medium text-muted-foreground">Spend (USD)</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, k := range keys {
+					<tr class="border-b border-border/50">
+						<td class="py-2.5">
+							<span class="font-mono text-xs">{ k.APIKey }</span>
+						</td>
+						<td class="py-2.5 text-sm">
+							if k.KeyAlias != "" {
+								{ k.KeyAlias }
+							} else {
+								<span class="text-muted-foreground">–</span>
+							}
+						</td>
+						<td class="py-2.5 text-right font-mono text-sm">{ formatCurrency(k.TotalSpend) }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}
+
+// --- Chart Scripts ---
+
+templ dailySpendChartScript(data []DailySpend) {
+	@templ.JSONScript("dailySpendData", data)
+	<script>
+		(function() {
+			var raw = JSON.parse(document.getElementById('dailySpendData').textContent);
+			var labels = raw.map(function(d) { return d.Date; });
+			var values = raw.map(function(d) { return d.Spend; });
+			new Chart(document.getElementById('dailySpendChart'), {
+				type: 'bar',
+				data: {
+					labels: labels,
+					datasets: [{
+						label: 'Spend (USD)',
+						data: values,
+						backgroundColor: '#3B82F6',
+						borderRadius: 4,
+						barPercentage: 0.7
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					plugins: { legend: { display: false } },
+					scales: {
+						x: {
+							grid: { display: false },
+							ticks: { font: { size: 11 }, color: '#737373' }
+						},
+						y: {
+							grid: { color: '#e5e5e5' },
+							ticks: {
+								font: { size: 11 },
+								color: '#737373',
+								callback: function(v) { return '$' + v.toFixed(2); }
+							}
+						}
+					}
+				}
+			});
+		})();
+	</script>
+}
+
+templ topModelsChartScript(models []TopModel) {
+	@templ.JSONScript("topModelsData", models)
+	<script>
+		(function() {
+			var raw = JSON.parse(document.getElementById('topModelsData').textContent);
+			var labels = raw.map(function(d) { return d.Model; });
+			var values = raw.map(function(d) { return d.TotalSpend; });
+			new Chart(document.getElementById('topModelsChart'), {
+				type: 'bar',
+				data: {
+					labels: labels,
+					datasets: [{
+						label: 'Spend (USD)',
+						data: values,
+						backgroundColor: '#06B6D4',
+						borderRadius: 4,
+						barPercentage: 0.6
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					indexAxis: 'y',
+					plugins: { legend: { display: false } },
+					scales: {
+						x: {
+							grid: { color: '#e5e5e5' },
+							ticks: {
+								font: { size: 11 },
+								color: '#737373',
+								callback: function(v) { return '$' + v.toFixed(2); }
+							}
+						},
+						y: {
+							grid: { display: false },
+							ticks: { font: { size: 11 }, color: '#737373' }
+						}
+					}
+				}
+			});
+		})();
+	</script>
+}
+
+// --- Model Activity Tab ---
+
+templ UsageModelActivityTab(data ModelActivityData) {
+	if len(data.Models) == 0 {
+		<div class="flex items-center justify-center h-[300px] text-muted-foreground text-sm">No model activity data for selected period</div>
+	} else {
+		<div class="space-y-6">
+			<div class="rounded-lg border bg-card text-card-foreground shadow-xs p-6">
+				<h3 class="text-sm font-semibold mb-4">Requests by Model</h3>
+				<div style="height: 300px;">
+					<canvas id="modelRequestsChart"></canvas>
+				</div>
+				@modelRequestsChartScript(data.Models)
+			</div>
+			<div class="rounded-lg border bg-card text-card-foreground shadow-xs p-6">
+				<h3 class="text-sm font-semibold mb-4">Tokens by Model</h3>
+				<div style="height: 300px;">
+					<canvas id="modelTokensChart"></canvas>
+				</div>
+				@modelTokensChartScript(data.Models)
+			</div>
+		</div>
+	}
+}
+
+templ modelRequestsChartScript(models []ModelDailyActivity) {
+	@templ.JSONScript("modelRequestsData", models)
+	<script>
+		(function() {
+			var raw = JSON.parse(document.getElementById('modelRequestsData').textContent);
+			var colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];
+			var allDates = {};
+			raw.forEach(function(m) {
+				m.DailyData.forEach(function(d) { allDates[d.Date] = true; });
+			});
+			var labels = Object.keys(allDates).sort();
+			var datasets = raw.map(function(m, i) {
+				var dateMap = {};
+				m.DailyData.forEach(function(d) { dateMap[d.Date] = d.RequestCount; });
+				return {
+					label: m.Model,
+					data: labels.map(function(d) { return dateMap[d] || 0; }),
+					borderColor: colors[i % colors.length],
+					backgroundColor: colors[i % colors.length] + '33',
+					fill: true,
+					tension: 0.3,
+					pointRadius: 2
+				};
+			});
+			new Chart(document.getElementById('modelRequestsChart'), {
+				type: 'line',
+				data: { labels: labels, datasets: datasets },
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+					scales: {
+						x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#737373' } },
+						y: { grid: { color: '#e5e5e5' }, ticks: { font: { size: 11 }, color: '#737373' } }
+					}
+				}
+			});
+		})();
+	</script>
+}
+
+templ modelTokensChartScript(models []ModelDailyActivity) {
+	@templ.JSONScript("modelTokensData", models)
+	<script>
+		(function() {
+			var raw = JSON.parse(document.getElementById('modelTokensData').textContent);
+			var colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];
+			var allDates = {};
+			raw.forEach(function(m) {
+				m.DailyData.forEach(function(d) { allDates[d.Date] = true; });
+			});
+			var labels = Object.keys(allDates).sort();
+			var datasets = raw.map(function(m, i) {
+				var dateMap = {};
+				m.DailyData.forEach(function(d) { dateMap[d.Date] = d.TotalTokens; });
+				return {
+					label: m.Model,
+					data: labels.map(function(d) { return dateMap[d] || 0; }),
+					backgroundColor: colors[i % colors.length],
+					borderRadius: 4,
+					barPercentage: 0.7
+				};
+			});
+			new Chart(document.getElementById('modelTokensChart'), {
+				type: 'bar',
+				data: { labels: labels, datasets: datasets },
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+					scales: {
+						x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#737373' }, stacked: true },
+						y: { grid: { color: '#e5e5e5' }, ticks: { font: { size: 11 }, color: '#737373' }, stacked: true }
+					}
+				}
+			});
+		})();
+	</script>
+}
+
+// --- Key Activity Tab ---
+
+templ UsageKeyActivityTab(data KeyActivityData) {
+	if len(data.Keys) == 0 {
+		<div class="flex items-center justify-center h-[300px] text-muted-foreground text-sm">No key activity data for selected period</div>
+	} else {
+		<div class="space-y-6">
+			<div class="rounded-lg border bg-card text-card-foreground shadow-xs p-6">
+				<h3 class="text-sm font-semibold mb-4">Requests by Key</h3>
+				<div style="height: 300px;">
+					<canvas id="keyRequestsChart"></canvas>
+				</div>
+				@keyRequestsChartScript(data.Keys)
+			</div>
+		</div>
+	}
+}
+
+templ keyRequestsChartScript(keys []KeyDailyActivity) {
+	@templ.JSONScript("keyRequestsData", keys)
+	<script>
+		(function() {
+			var raw = JSON.parse(document.getElementById('keyRequestsData').textContent);
+			var colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];
+			var allDates = {};
+			raw.forEach(function(k) {
+				k.DailyData.forEach(function(d) { allDates[d.Date] = true; });
+			});
+			var labels = Object.keys(allDates).sort();
+			var datasets = raw.map(function(k, i) {
+				var dateMap = {};
+				k.DailyData.forEach(function(d) { dateMap[d.Date] = d.RequestCount; });
+				return {
+					label: k.APIKey,
+					data: labels.map(function(d) { return dateMap[d] || 0; }),
+					borderColor: colors[i % colors.length],
+					backgroundColor: colors[i % colors.length] + '33',
+					fill: true,
+					tension: 0.3,
+					pointRadius: 2
+				};
+			});
+			new Chart(document.getElementById('keyRequestsChart'), {
+				type: 'line',
+				data: { labels: labels, datasets: datasets },
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+					scales: {
+						x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#737373' } },
+						y: { grid: { color: '#e5e5e5' }, ticks: { font: { size: 11 }, color: '#737373' } }
+					}
+				}
+			});
+		})();
+	</script>
+}
+
+// --- Endpoint Activity Tab ---
+
+templ UsageEndpointActivityTab(data EndpointActivityData) {
+	if len(data.Endpoints) == 0 {
+		<div class="flex items-center justify-center h-[300px] text-muted-foreground text-sm">No endpoint activity data for selected period</div>
+	} else {
+		<div class="space-y-6">
+			<div class="rounded-lg border bg-card text-card-foreground shadow-xs p-6">
+				<h3 class="text-sm font-semibold mb-4">Requests by Endpoint</h3>
+				<div style="height: 300px;">
+					<canvas id="endpointRequestsChart"></canvas>
+				</div>
+				@endpointRequestsChartScript(data.Endpoints)
+			</div>
+		</div>
+	}
+}
+
+templ endpointRequestsChartScript(endpoints []EndpointDailyActivity) {
+	@templ.JSONScript("endpointRequestsData", endpoints)
+	<script>
+		(function() {
+			var raw = JSON.parse(document.getElementById('endpointRequestsData').textContent);
+			var colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];
+			var allDates = {};
+			raw.forEach(function(e) {
+				e.DailyData.forEach(function(d) { allDates[d.Date] = true; });
+			});
+			var labels = Object.keys(allDates).sort();
+			var datasets = raw.map(function(e, i) {
+				var dateMap = {};
+				e.DailyData.forEach(function(d) { dateMap[d.Date] = d.RequestCount; });
+				return {
+					label: e.CallType,
+					data: labels.map(function(d) { return dateMap[d] || 0; }),
+					backgroundColor: colors[i % colors.length],
+					borderRadius: 4,
+					barPercentage: 0.7
+				};
+			});
+			new Chart(document.getElementById('endpointRequestsChart'), {
+				type: 'bar',
+				data: { labels: labels, datasets: datasets },
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+					scales: {
+						x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#737373' }, stacked: true },
+						y: { grid: { color: '#e5e5e5' }, ticks: { font: { size: 11 }, color: '#737373' }, stacked: true }
+					}
+				}
+			});
+		})();
+	</script>
+}

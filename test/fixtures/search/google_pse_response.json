@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "title": "The Go Programming Language",
+      "link": "https://go.dev",
+      "snippet": "Go is an open source programming language supported by Google."
+    },
+    {
+      "title": "Go Playground",
+      "link": "https://go.dev/play",
+      "snippet": "The Go Playground is a web service that runs on go.dev servers."
+    }
+  ],
+  "searchInformation": {
+    "totalResults": "2"
+  }
+}

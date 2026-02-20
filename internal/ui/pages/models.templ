@@ -1,0 +1,498 @@
+package pages
+
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/pagination"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/table"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/toast"
+)
+
+type ModelRow struct {
+	ID            string // DB primary key (ProxyModelTable.model_id)
+	ModelName     string // User-friendly name
+	Provider      string // Parsed from tianji_params.model ("provider/id" → "provider")
+	ProviderModel string // Parsed from tianji_params.model ("provider/id" → "id")
+	APIBase       string // From tianji_params.api_base
+	APIKey        string // Masked: "sk-...XXXX" (last 4 chars only)
+	TPM           int64  // From tianji_params.tpm
+	RPM           int64  // From tianji_params.rpm
+	Source        string // "db" or "config" — controls edit/delete availability
+}
+
+type ModelsPageData struct {
+	Models      []ModelRow
+	Page        int
+	TotalPages  int
+	Search      string
+	DBAvailable bool // false when h.DB == nil (show warning + config fallback)
+}
+
+templ ModelsPage(data ModelsPageData) {
+	@AppLayout("Models", "/ui/models") {
+		@dialog.Script()
+		@input.Script()
+		@toast.Script()
+		<div class="space-y-3">
+			<!-- Filter toolbar -->
+			<div id="model-filters" class="flex items-center gap-2">
+				<div class="relative flex-1">
+					@icon.Search(icon.Props{Size: 16, Class: "absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"})
+					<input
+						type="text"
+						name="search"
+						placeholder="Search models..."
+						value={ data.Search }
+						class="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+						hx-get="/ui/models/table"
+						hx-trigger="input changed delay:300ms"
+						hx-target="#models-table"
+						hx-include="#model-filters"
+					/>
+				</div>
+				if data.DBAvailable {
+					@dialog.Dialog(dialog.Props{ID: "create-model-dialog"}) {
+						@dialog.Trigger(dialog.TriggerProps{}) {
+							@button.Button(button.Props{Size: button.SizeSm}) {
+								@icon.Plus(icon.Props{Size: 16, Class: "mr-1"})
+								Add Model
+							}
+						}
+						@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+							@dialog.Header() {
+								@dialog.Title() {
+									Add Model
+								}
+								@dialog.Description() {
+									Configure a new model for the proxy.
+								}
+							}
+							@createModelForm()
+						}
+					}
+				}
+			</div>
+			if !data.DBAvailable {
+				<div class="rounded-md border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm text-yellow-700 dark:text-yellow-400">
+					Database unavailable — showing config file models (read-only)
+				</div>
+			}
+			<div id="models-table" hx-trigger="models-changed from:body" hx-get="/ui/models/table" hx-target="#models-table">
+				@ModelsTable(data)
+			</div>
+		</div>
+		<!-- Edit dialog container (loaded via HTMX) -->
+		<div id="edit-model-container"></div>
+		<div id="dialog-actions" style="display:none"></div>
+	}
+}
+
+templ createModelForm() {
+	<form
+		hx-post="/ui/models/create"
+		hx-target="#models-table"
+	>
+		<div class="space-y-4 py-4">
+			<div class="space-y-2">
+				<label for="model_name" class="text-sm font-medium">Model Name <span class="text-destructive">*</span></label>
+				@input.Input(input.Props{
+					ID:          "model_name",
+					Name:        "model_name",
+					Placeholder: "my-gpt4-model",
+					Attributes:  templ.Attributes{"required": "true"},
+				})
+			</div>
+			<div class="space-y-2">
+				<label for="model" class="text-sm font-medium">Model <span class="text-destructive">*</span></label>
+				@input.Input(input.Props{
+					ID:          "model",
+					Name:        "model",
+					Placeholder: "anthropic/claude-sonnet-4-5-20250929",
+					Attributes:  templ.Attributes{"required": "true"},
+				})
+				<p class="text-xs text-muted-foreground">Format: provider/model-id</p>
+			</div>
+			<div class="space-y-2">
+				<label for="api_base" class="text-sm font-medium">API Base</label>
+				@input.Input(input.Props{
+					ID:          "api_base",
+					Name:        "api_base",
+					Placeholder: "https://custom.endpoint.com",
+				})
+			</div>
+			<div class="space-y-2">
+				<label for="api_key" class="text-sm font-medium">API Key</label>
+				@input.Input(input.Props{
+					ID:          "api_key",
+					Name:        "api_key",
+					Type:        input.TypePassword,
+					Placeholder: "sk-...",
+				})
+			</div>
+			<div class="grid grid-cols-2 gap-4">
+				<div class="space-y-2">
+					<label for="tpm" class="text-sm font-medium">TPM Limit</label>
+					@input.Input(input.Props{
+						ID: "tpm", Name: "tpm", Type: input.TypeNumber,
+						Placeholder: "100000",
+						Attributes:  templ.Attributes{"min": "0"},
+					})
+				</div>
+				<div class="space-y-2">
+					<label for="rpm" class="text-sm font-medium">RPM Limit</label>
+					@input.Input(input.Props{
+						ID: "rpm", Name: "rpm", Type: input.TypeNumber,
+						Placeholder: "1000",
+						Attributes:  templ.Attributes{"min": "0"},
+					})
+				</div>
+			</div>
+		</div>
+		@dialog.Footer() {
+			@dialog.Close() {
+				@button.Button(button.Props{Variant: button.VariantOutline}) {
+					Cancel
+				}
+			}
+			@button.Button(button.Props{Type: "submit"}) {
+				Create
+			}
+		}
+	</form>
+}
+
+templ ModelsTable(data ModelsPageData) {
+	@card.Card() {
+		@card.Content(card.ContentProps{Class: "p-0"}) {
+			@table.Table() {
+				@table.Header() {
+					@table.Row() {
+						@table.Head() { Model Name }
+						@table.Head() { Provider }
+						@table.Head() { Model ID }
+						@table.Head() { API Base }
+						@table.Head() { API Key }
+						@table.Head() { TPM }
+						@table.Head() { RPM }
+						if data.DBAvailable {
+							@table.Head(table.HeadProps{Class: "text-right"}) { Actions }
+						}
+					}
+				}
+				@table.Body() {
+					if len(data.Models) == 0 {
+						@table.Row() {
+							{{ colspan := "7" }}
+							if data.DBAvailable {
+								{{ colspan = "8" }}
+							}
+							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": colspan}}) {
+								if data.Search != "" {
+									<div class="py-8 text-center text-muted-foreground">No models match your search</div>
+								} else {
+									<div class="py-8 text-center text-muted-foreground">No models configured. Add your first model to get started.</div>
+								}
+							}
+						}
+					}
+					for _, m := range data.Models {
+						@modelRow(m, data.DBAvailable)
+					}
+				}
+			}
+		}
+	}
+	<!-- Pagination -->
+	if data.TotalPages > 1 {
+		<div class="mt-4 flex items-center justify-between">
+			<span class="text-sm text-muted-foreground">
+				Page { fmt.Sprintf("%d", data.Page) } of { fmt.Sprintf("%d", data.TotalPages) }
+			</span>
+			{{ pg := pagination.CreatePagination(data.Page, data.TotalPages, 5) }}
+			@pagination.Pagination() {
+				@pagination.Content() {
+					@pagination.Item() {
+						@pagination.Previous(pagination.PreviousProps{
+							Disabled: !pg.HasPrevious,
+							Attributes: templ.Attributes{
+								"hx-get":     fmt.Sprintf("/ui/models/table?page=%d&search=%s", data.Page-1, data.Search),
+								"hx-target":  "#models-table",
+								"aria-label": "Go to previous page",
+							},
+						})
+					}
+					if pg.Pages[0] > 1 {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/models/table?page=1&search=%s", data.Search),
+									"hx-target": "#models-table",
+								},
+							}) {
+								1
+							}
+						}
+						if pg.Pages[0] > 2 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+					}
+					for _, p := range pg.Pages {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								IsActive: p == pg.CurrentPage,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/models/table?page=%d&search=%s", p, data.Search),
+									"hx-target": "#models-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", p) }
+							}
+						}
+					}
+					if pg.Pages[len(pg.Pages)-1] < pg.TotalPages {
+						if pg.Pages[len(pg.Pages)-1] < pg.TotalPages-1 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/models/table?page=%d&search=%s", pg.TotalPages, data.Search),
+									"hx-target": "#models-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", pg.TotalPages) }
+							}
+						}
+					}
+					@pagination.Item() {
+						@pagination.Next(pagination.NextProps{
+							Disabled: !pg.HasNext,
+							Attributes: templ.Attributes{
+								"hx-get":     fmt.Sprintf("/ui/models/table?page=%d&search=%s", data.Page+1, data.Search),
+								"hx-target":  "#models-table",
+								"aria-label": "Go to next page",
+							},
+						})
+					}
+				}
+			}
+		</div>
+	}
+}
+
+templ modelRow(m ModelRow, dbAvailable bool) {
+	@table.Row() {
+		@table.Cell() {
+			<span class="font-medium">{ m.ModelName }</span>
+		}
+		@table.Cell() {
+			{ m.Provider }
+		}
+		@table.Cell() {
+			<code class="text-xs">{ m.ProviderModel }</code>
+		}
+		@table.Cell() {
+			if m.APIBase != "" {
+				<code class="text-xs">{ m.APIBase }</code>
+			} else {
+				<span class="text-muted-foreground text-xs">Default</span>
+			}
+		}
+		@table.Cell() {
+			if m.APIKey != "" {
+				<code class="text-xs">{ m.APIKey }</code>
+			} else {
+				<span class="text-muted-foreground text-xs">-</span>
+			}
+		}
+		@table.Cell() {
+			if m.TPM > 0 {
+				<span class="text-xs">{ formatInt64(m.TPM) }</span>
+			} else {
+				<span class="text-muted-foreground text-xs">-</span>
+			}
+		}
+		@table.Cell() {
+			if m.RPM > 0 {
+				<span class="text-xs">{ formatInt64(m.RPM) }</span>
+			} else {
+				<span class="text-muted-foreground text-xs">-</span>
+			}
+		}
+		if dbAvailable {
+			@table.Cell(table.CellProps{Class: "text-right"}) {
+				if m.Source == "config" {
+					<span class="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">Config</span>
+				} else {
+					<div class="flex justify-end gap-1">
+						@button.Button(button.Props{
+							Variant: button.VariantOutline,
+							Size:    button.SizeSm,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/models/edit?model_id=%s", m.ID),
+								"hx-target": "#edit-model-container",
+							},
+						}) {
+							Edit
+						}
+						@button.Button(button.Props{
+							Variant: button.VariantDestructive,
+							Size:    button.SizeSm,
+							Attributes: templ.Attributes{
+								"hx-post":    "/ui/models/delete",
+								"hx-vals":    fmt.Sprintf(`{"model_id":"%s"}`, m.ID),
+								"hx-target":  "#models-table",
+								"hx-confirm": fmt.Sprintf("Are you sure you want to delete model '%s'?", m.ModelName),
+							},
+						}) {
+							Delete
+						}
+					</div>
+				}
+			}
+		}
+	}
+}
+
+templ ModelsTableWithToast(data ModelsPageData, toastMsg string, toastVariant toast.Variant) {
+	@ModelsTable(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+	<!-- Close any open dialog after successful mutation -->
+	<div id="dialog-actions" hx-swap-oob="innerHTML" style="display:none">
+		<script>
+			(function() {
+				var form = document.querySelector('#create-model-dialog form');
+				if (form) form.reset();
+				if (window.tui && window.tui.dialog) {
+					window.tui.dialog.close("create-model-dialog");
+					window.tui.dialog.close("edit-model-dialog");
+				}
+			})();
+		</script>
+	</div>
+}
+
+templ EditModelForm(m ModelRow) {
+	@dialog.Dialog(dialog.Props{ID: "edit-model-dialog", Open: true}) {
+		@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+				@dialog.Header() {
+					@dialog.Title() {
+						Edit Model
+					}
+					@dialog.Description() {
+						Update model configuration. Leave API Key empty to keep existing.
+					}
+				}
+				<form
+					hx-post="/ui/models/update"
+					hx-target="#models-table"
+				>
+					<input type="hidden" name="model_id" value={ m.ID }/>
+					<div class="space-y-4 py-4">
+						<div class="space-y-2">
+							<label for="edit_model_name" class="text-sm font-medium">Model Name <span class="text-destructive">*</span></label>
+							@input.Input(input.Props{
+								ID:          "edit_model_name",
+								Name:        "model_name",
+								Value:       m.ModelName,
+								Attributes:  templ.Attributes{"required": "true"},
+							})
+						</div>
+						<div class="space-y-2">
+							<label for="edit_model" class="text-sm font-medium">Model <span class="text-destructive">*</span></label>
+							@input.Input(input.Props{
+								ID:          "edit_model",
+								Name:        "model",
+								Value:       fmt.Sprintf("%s/%s", m.Provider, m.ProviderModel),
+								Attributes:  templ.Attributes{"required": "true"},
+							})
+							<p class="text-xs text-muted-foreground">Format: provider/model-id</p>
+						</div>
+						<div class="space-y-2">
+							<label for="edit_api_base" class="text-sm font-medium">API Base</label>
+							@input.Input(input.Props{
+								ID:    "edit_api_base",
+								Name:  "api_base",
+								Value: m.APIBase,
+							})
+						</div>
+						<div class="space-y-2">
+							<label for="edit_api_key" class="text-sm font-medium">API Key</label>
+							@input.Input(input.Props{
+								ID:          "edit_api_key",
+								Name:        "api_key",
+								Type:        input.TypePassword,
+								Placeholder: apiKeyPlaceholder(m.APIKey),
+							})
+							<p class="text-xs text-muted-foreground">Leave empty to keep existing key</p>
+						</div>
+						<div class="grid grid-cols-2 gap-4">
+							<div class="space-y-2">
+								<label for="edit_tpm" class="text-sm font-medium">TPM Limit</label>
+								@input.Input(input.Props{
+									ID: "edit_tpm", Name: "tpm", Type: input.TypeNumber,
+									Value:      int64ToStr(m.TPM),
+									Attributes: templ.Attributes{"min": "0"},
+								})
+							</div>
+							<div class="space-y-2">
+								<label for="edit_rpm" class="text-sm font-medium">RPM Limit</label>
+								@input.Input(input.Props{
+									ID: "edit_rpm", Name: "rpm", Type: input.TypeNumber,
+									Value:      int64ToStr(m.RPM),
+									Attributes: templ.Attributes{"min": "0"},
+								})
+							</div>
+						</div>
+					</div>
+					@dialog.Footer() {
+						@dialog.Close() {
+							@button.Button(button.Props{Variant: button.VariantOutline}) {
+								Cancel
+							}
+						}
+						@button.Button(button.Props{Type: "submit"}) {
+							Save Changes
+						}
+					}
+				</form>
+			}
+		}
+}
+
+func formatInt64(v int64) string {
+	return strconv.FormatInt(v, 10)
+}
+
+func int64ToStr(v int64) string {
+	if v == 0 {
+		return ""
+	}
+	return strconv.FormatInt(v, 10)
+}
+
+func apiKeyPlaceholder(maskedKey string) string {
+	if maskedKey != "" {
+		return maskedKey + " (leave empty to keep)"
+	}
+	return "sk-..."
+}

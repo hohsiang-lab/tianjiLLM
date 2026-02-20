@@ -1,0 +1,609 @@
+package pages
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/pagination"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/table"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/toast"
+)
+
+type KeyRow struct {
+	Token          string
+	KeyName        string
+	KeyAlias       string
+	Spend          float64
+	MaxBudget      *float64
+	Models         []string
+	Blocked        bool
+	CreatedAt      time.Time
+	Expires        *time.Time
+	TeamID         string
+	TeamAlias      string
+	UserID         string
+	TPMLimit       *int64
+	RPMLimit       *int64
+	BudgetDuration string
+	BudgetResetAt  *time.Time
+}
+
+type TeamOption struct {
+	ID    string
+	Alias string
+}
+
+type UserOption struct {
+	ID string
+}
+
+type KeysPageData struct {
+	Keys       []KeyRow
+	Page       int
+	TotalPages int
+	TotalCount int
+	Search     string
+	// Filter state
+	FilterTeamID   string
+	FilterKeyAlias string
+	FilterUserID   string
+	FilterKeyHash  string
+	// Dropdown options for create form
+	Teams []TeamOption
+	Users []UserOption
+}
+
+func (d KeysPageData) filterQueryString() string {
+	var parts []string
+	if d.FilterTeamID != "" {
+		parts = append(parts, "team_id="+d.FilterTeamID)
+	}
+	if d.FilterKeyAlias != "" {
+		parts = append(parts, "key_alias="+d.FilterKeyAlias)
+	}
+	if d.FilterUserID != "" {
+		parts = append(parts, "user_id="+d.FilterUserID)
+	}
+	if d.FilterKeyHash != "" {
+		parts = append(parts, "key_hash="+d.FilterKeyHash)
+	}
+	if d.Search != "" {
+		parts = append(parts, "search="+d.Search)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "&" + strings.Join(parts, "&")
+}
+
+func (k KeyRow) isExpired() bool {
+	return k.Expires != nil && k.Expires.Before(time.Now())
+}
+
+func formatModels(models []string, max int) string {
+	if len(models) <= max {
+		return strings.Join(models, ", ")
+	}
+	return strings.Join(models[:max], ", ") + fmt.Sprintf(" +%d more", len(models)-max)
+}
+
+script copyToClipboard(text string) {
+	navigator.clipboard.writeText(text).then(function() {
+		var btn = event.currentTarget;
+		var orig = btn.textContent;
+		btn.textContent = "Copied!";
+		setTimeout(function() { btn.textContent = orig; }, 1500);
+	});
+}
+
+templ KeysPage(data KeysPageData) {
+	@AppLayout("API Keys", "/ui/keys") {
+		@dialog.Script()
+		@input.Script()
+		@toast.Script()
+		<div class="space-y-3">
+			<!-- Filter toolbar: grid gives precise column control regardless of child wrapper divs -->
+			<div id="key-filters" class="grid items-center gap-2" style="grid-template-columns: 2fr 1fr 1fr 1fr auto;">
+				<div class="relative">
+					@icon.Search(icon.Props{Size: 16, Class: "absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"})
+					<input
+						type="text"
+						name="key_alias"
+						placeholder="Filter by alias..."
+						value={ data.FilterKeyAlias }
+						class="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+						hx-get="/ui/keys/table"
+						hx-trigger="input changed delay:300ms"
+						hx-target="#keys-table"
+						hx-include="#key-filters"
+					/>
+				</div>
+				<div>
+					@input.Input(input.Props{
+						Placeholder: "Team ID...",
+						Attributes: templ.Attributes{
+							"name":       "team_id",
+							"value":      data.FilterTeamID,
+							"hx-get":     "/ui/keys/table",
+							"hx-trigger": "input changed delay:300ms",
+							"hx-target":  "#keys-table",
+							"hx-include": "#key-filters",
+						},
+					})
+				</div>
+				<div>
+					@input.Input(input.Props{
+						Placeholder: "User ID...",
+						Attributes: templ.Attributes{
+							"name":       "user_id",
+							"value":      data.FilterUserID,
+							"hx-get":     "/ui/keys/table",
+							"hx-trigger": "input changed delay:300ms",
+							"hx-target":  "#keys-table",
+							"hx-include": "#key-filters",
+						},
+					})
+				</div>
+				<div>
+					@input.Input(input.Props{
+						Placeholder: "Key Hash...",
+						Attributes: templ.Attributes{
+							"name":       "key_hash",
+							"value":      data.FilterKeyHash,
+							"hx-get":     "/ui/keys/table",
+							"hx-trigger": "input changed delay:300ms",
+							"hx-target":  "#keys-table",
+							"hx-include": "#key-filters",
+						},
+					})
+				</div>
+				@dialog.Dialog(dialog.Props{ID: "create-key-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Size: button.SizeSm}) {
+							@icon.Plus(icon.Props{Size: 16, Class: "mr-1"})
+							Create New Key
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Create API Key
+							}
+							@dialog.Description() {
+								Generate a new API key with optional budget and rate limits.
+							}
+						}
+						@createKeyForm(data)
+					}
+				}
+			</div>
+			<div id="keys-table">
+				@KeysTablePartial(data)
+			</div>
+		</div>
+		<div id="key-reveal-container"></div>
+		<div id="dialog-actions" style="display:none"></div>
+	}
+}
+
+templ createKeyForm(data KeysPageData) {
+	<form
+		hx-post="/ui/keys/create"
+		hx-target="#keys-table"
+	>
+		<div class="space-y-4 py-4">
+			<div class="space-y-2">
+				<label for="key_alias" class="text-sm font-medium">Key Alias <span class="text-destructive">*</span></label>
+				@input.Input(input.Props{
+					ID:          "key_alias",
+					Name:        "key_alias",
+					Placeholder: "my-api-key",
+					Attributes:  templ.Attributes{"required": "true"},
+				})
+			</div>
+			<details class="space-y-4">
+				<summary class="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">Optional Settings</summary>
+				<div class="space-y-4 pt-2">
+					<div class="grid grid-cols-2 gap-4">
+						<div class="space-y-2">
+							<label for="max_budget" class="text-sm font-medium">Max Budget ($)</label>
+							@input.Input(input.Props{
+								ID: "max_budget", Name: "max_budget", Type: "number",
+								Placeholder: "100.00",
+								Attributes:  templ.Attributes{"step": "0.01", "min": "0"},
+							})
+						</div>
+						<div class="space-y-2">
+							<label for="budget_duration" class="text-sm font-medium">Budget Duration</label>
+							<select name="budget_duration" id="budget_duration" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+								<option value="">No reset</option>
+								<option value="daily">Daily</option>
+								<option value="weekly">Weekly</option>
+								<option value="monthly">Monthly</option>
+							</select>
+						</div>
+					</div>
+					<div class="grid grid-cols-2 gap-4">
+						<div class="space-y-2">
+							<label for="tpm_limit" class="text-sm font-medium">TPM Limit</label>
+							@input.Input(input.Props{
+								ID: "tpm_limit", Name: "tpm_limit", Type: "number",
+								Placeholder: "10000",
+								Attributes:  templ.Attributes{"min": "1"},
+							})
+						</div>
+						<div class="space-y-2">
+							<label for="rpm_limit" class="text-sm font-medium">RPM Limit</label>
+							@input.Input(input.Props{
+								ID: "rpm_limit", Name: "rpm_limit", Type: "number",
+								Placeholder: "100",
+								Attributes:  templ.Attributes{"min": "1"},
+							})
+						</div>
+					</div>
+					<div class="space-y-2">
+						<label for="models" class="text-sm font-medium">Models (comma-separated)</label>
+						@input.Input(input.Props{
+							ID: "models", Name: "models",
+							Placeholder: "gpt-4, claude-sonnet-4-5-20250929",
+						})
+					</div>
+					<div class="grid grid-cols-2 gap-4">
+						<div class="space-y-2">
+							<label for="team_id" class="text-sm font-medium">Team</label>
+							<select name="team_id" id="team_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+								<option value="">None</option>
+								for _, t := range data.Teams {
+									<option value={ t.ID }>
+										if t.Alias != "" {
+											{ t.Alias } ({ t.ID })
+										} else {
+											{ t.ID }
+										}
+									</option>
+								}
+							</select>
+						</div>
+						<div class="space-y-2">
+							<label for="user_id" class="text-sm font-medium">User</label>
+							<select name="user_id" id="user_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+								<option value="">None</option>
+								for _, u := range data.Users {
+									<option value={ u.ID }>{ u.ID }</option>
+								}
+							</select>
+						</div>
+					</div>
+					<div class="space-y-2">
+						<label for="duration" class="text-sm font-medium">Duration (e.g. 30d, 24h)</label>
+						@input.Input(input.Props{
+							ID: "duration", Name: "duration",
+							Placeholder: "30d",
+							Attributes: templ.Attributes{"pattern": `\d+[smhd]`, "title": "Format: number + s/m/h/d (e.g. 30d, 24h, 60m)"},
+						})
+					</div>
+					<div class="space-y-2">
+						<label for="metadata" class="text-sm font-medium">Metadata (JSON)</label>
+						<textarea name="metadata" id="metadata" rows="2" placeholder="{}" class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[60px]"></textarea>
+					</div>
+				</div>
+			</details>
+		</div>
+		@dialog.Footer() {
+			@dialog.Close() {
+				@button.Button(button.Props{Variant: button.VariantOutline}) {
+					Cancel
+				}
+			}
+			@button.Button(button.Props{Type: "submit"}) {
+				Create
+			}
+		}
+	</form>
+}
+
+templ KeysTablePartial(data KeysPageData) {
+	@card.Card() {
+		@card.Content(card.ContentProps{Class: "p-0"}) {
+			@table.Table() {
+				@table.Header() {
+					@table.Row() {
+						@table.Head() { Key ID }
+						@table.Head() { Alias }
+						@table.Head() { Team }
+						@table.Head() { Spend / Budget }
+						@table.Head() { Models }
+						@table.Head() { Expires }
+						@table.Head() { Status }
+						@table.Head(table.HeadProps{Class: "text-right"}) { Actions }
+					}
+				}
+				@table.Body() {
+					if len(data.Keys) == 0 {
+						@table.Row() {
+							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": "8"}}) {
+								if data.FilterTeamID != "" || data.FilterKeyAlias != "" || data.FilterUserID != "" || data.FilterKeyHash != "" {
+									<div class="py-8 text-center text-muted-foreground">No keys match your filters</div>
+								} else {
+									<div class="py-8 text-center text-muted-foreground">No keys found</div>
+								}
+							}
+						}
+					}
+					for _, k := range data.Keys {
+						@keyRow(k)
+					}
+				}
+			}
+		}
+	}
+	<!-- Pagination -->
+	<div class="mt-4 flex items-center justify-between">
+		<span class="text-sm text-muted-foreground">
+			{ fmt.Sprintf("Showing %d–%d of %d results", (data.Page-1)*50+1, min((data.Page)*50, data.TotalCount), data.TotalCount) }
+		</span>
+		if data.TotalPages > 1 {
+			{{ pg := pagination.CreatePagination(data.Page, data.TotalPages, 5) }}
+			{{ qs := data.filterQueryString() }}
+			@pagination.Pagination() {
+				@pagination.Content() {
+					@pagination.Item() {
+						@pagination.Previous(pagination.PreviousProps{
+							Disabled: !pg.HasPrevious,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/keys/table?page=%d%s", data.Page-1, qs),
+								"hx-target": "#keys-table",
+							},
+						})
+					}
+					if pg.Pages[0] > 1 {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/keys/table?page=1%s", qs),
+									"hx-target": "#keys-table",
+								},
+							}) {
+								1
+							}
+						}
+						if pg.Pages[0] > 2 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+					}
+					for _, p := range pg.Pages {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								IsActive: p == pg.CurrentPage,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/keys/table?page=%d%s", p, qs),
+									"hx-target": "#keys-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", p) }
+							}
+						}
+					}
+					if pg.Pages[len(pg.Pages)-1] < pg.TotalPages {
+						if pg.Pages[len(pg.Pages)-1] < pg.TotalPages-1 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/keys/table?page=%d%s", pg.TotalPages, qs),
+									"hx-target": "#keys-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", pg.TotalPages) }
+							}
+						}
+					}
+					@pagination.Item() {
+						@pagination.Next(pagination.NextProps{
+							Disabled: !pg.HasNext,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/keys/table?page=%d%s", data.Page+1, qs),
+								"hx-target": "#keys-table",
+							},
+						})
+					}
+				}
+			}
+		}
+	</div>
+}
+
+templ keyRow(k KeyRow) {
+	@table.Row() {
+		<!-- Key ID (clickable link to detail) -->
+		@table.Cell() {
+			<a href={ templ.SafeURL(fmt.Sprintf("/ui/keys/%s", k.Token)) } class="font-mono text-xs text-primary hover:underline">
+				{ k.Token[:12] }...
+			</a>
+		}
+		<!-- Alias -->
+		@table.Cell() {
+			if k.KeyAlias != "" {
+				{ k.KeyAlias }
+			} else {
+				<span class="text-muted-foreground">-</span>
+			}
+		}
+		<!-- Team -->
+		@table.Cell() {
+			if k.TeamAlias != "" {
+				<span class="text-xs">{ k.TeamAlias }</span>
+			} else if k.TeamID != "" {
+				<span class="text-xs font-mono">{ k.TeamID[:8] }...</span>
+			} else {
+				<span class="text-muted-foreground text-xs">-</span>
+			}
+		}
+		<!-- Spend / Budget -->
+		@table.Cell() {
+			<span class="text-xs">
+				{ fmt.Sprintf("$%.2f", k.Spend) }
+				{ " / " }
+				if k.MaxBudget != nil {
+					{ fmt.Sprintf("$%.2f", *k.MaxBudget) }
+				} else {
+					Unlimited
+				}
+			</span>
+		}
+		<!-- Models -->
+		@table.Cell() {
+			if len(k.Models) > 0 {
+				<span class="text-xs">{ formatModels(k.Models, 2) }</span>
+			} else {
+				@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+					All Models
+				}
+			}
+		}
+		<!-- Expires -->
+		@table.Cell() {
+			if k.Expires != nil {
+				if k.isExpired() {
+					@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+						Expired
+					}
+				} else {
+					<span class="text-xs">{ k.Expires.Format("2006-01-02") }</span>
+				}
+			} else {
+				<span class="text-muted-foreground text-xs">Never</span>
+			}
+		}
+		<!-- Status -->
+		@table.Cell() {
+			if k.Blocked {
+				@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+					Blocked
+				}
+			} else if k.isExpired() {
+				@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
+					Expired
+				}
+			} else {
+				@badge.Badge(badge.Props{Variant: badge.VariantDefault}) {
+					Active
+				}
+			}
+		}
+		<!-- Actions -->
+		@table.Cell(table.CellProps{Class: "text-right"}) {
+			<div class="flex justify-end gap-1">
+				if k.Blocked {
+					@button.Button(button.Props{
+						Variant: button.VariantOutline,
+						Size:    button.SizeSm,
+						Attributes: templ.Attributes{
+							"hx-post":    "/ui/keys/unblock",
+							"hx-vals":    fmt.Sprintf(`{"token":"%s"}`, k.Token),
+							"hx-target":  "#keys-table",
+							"hx-confirm": "Unblock this key?",
+						},
+					}) {
+						Unblock
+					}
+				} else {
+					@button.Button(button.Props{
+						Variant: button.VariantOutline,
+						Size:    button.SizeSm,
+						Attributes: templ.Attributes{
+							"hx-post":    "/ui/keys/block",
+							"hx-vals":    fmt.Sprintf(`{"token":"%s"}`, k.Token),
+							"hx-target":  "#keys-table",
+							"hx-confirm": "Block this key?",
+						},
+					}) {
+						Block
+					}
+				}
+			</div>
+		}
+	}
+}
+
+templ KeysTableWithToast(data KeysPageData, toastMsg string, toastVariant toast.Variant) {
+	@KeysTablePartial(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
+
+templ KeysTableWithKeyReveal(data KeysPageData, rawKey string) {
+	@KeysTablePartial(data)
+	<div id="key-reveal-container" hx-swap-oob="innerHTML">
+		@KeyRevealDialog(rawKey)
+	</div>
+	<div id="dialog-actions" hx-swap-oob="innerHTML" style="display:none">
+		<script>
+			(function() {
+				var form = document.querySelector('#create-key-dialog form');
+				if (form) form.reset();
+				if (window.tui && window.tui.dialog) {
+					window.tui.dialog.close("create-key-dialog");
+					setTimeout(function() { window.tui.dialog.open("key-reveal-dialog"); }, 350);
+				}
+			})();
+		</script>
+	</div>
+}
+
+templ KeyRevealDialog(rawKey string) {
+	@dialog.Dialog(dialog.Props{ID: "key-reveal-dialog", Open: true}) {
+		@dialog.Content(dialog.ContentProps{Class: "max-w-md"}) {
+			@dialog.Header() {
+				@dialog.Title() {
+					Save your Key
+				}
+				@dialog.Description() {
+					<span class="text-destructive font-medium">This key will only be shown once and cannot be recovered.</span>
+					Please copy it now and store it securely.
+				}
+			}
+			<div class="py-4 space-y-3">
+				<div class="rounded-md bg-muted p-3 font-mono text-sm break-all select-all">
+					{ rawKey }
+				</div>
+				@button.Button(button.Props{
+					Variant: button.VariantOutline,
+					Class:   "w-full",
+					Attributes: templ.Attributes{
+						"onclick": copyToClipboard(rawKey),
+					},
+				}) {
+					Copy Virtual Key
+				}
+			</div>
+			@dialog.Footer() {
+				@dialog.Close() {
+					@button.Button(button.Props{}) {
+						Done
+					}
+				}
+			}
+		}
+	}
+}

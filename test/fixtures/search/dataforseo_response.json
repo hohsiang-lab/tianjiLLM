@@ -1,0 +1,30 @@
+{
+  "tasks": [
+    {
+      "result": [
+        {
+          "items": [
+            {
+              "type": "organic",
+              "title": "Go Programming Language",
+              "url": "https://go.dev",
+              "description": "Go is an open source programming language."
+            },
+            {
+              "type": "paid",
+              "title": "Ad Result",
+              "url": "https://example.com/ad",
+              "description": "This is a paid result."
+            },
+            {
+              "type": "organic",
+              "title": "Go Documentation",
+              "url": "https://go.dev/doc",
+              "description": "Official Go docs."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

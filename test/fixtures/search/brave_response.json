@@ -1,0 +1,26 @@
+{
+  "web": {
+    "results": [
+      {
+        "title": "Go Programming Language",
+        "url": "https://go.dev",
+        "description": "Go is an open source programming language that makes it simple to build reliable and efficient software."
+      },
+      {
+        "title": "A Tour of Go",
+        "url": "https://go.dev/tour",
+        "description": "An interactive introduction to Go in three sections."
+      }
+    ]
+  },
+  "news": {
+    "results": [
+      {
+        "title": "Go 1.22 Released",
+        "url": "https://blog.golang.org/go1.22",
+        "description": "Go 1.22 brings many improvements including range over integers.",
+        "age": "3 days ago"
+      }
+    ]
+  }
+}

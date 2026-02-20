@@ -1,0 +1,51 @@
+# Binaries
+*.exe
+*.test
+*.out
+bin/
+/tianji
+
+# Vendor (if used)
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+
+# Local config (may contain API keys)
+proxy_config.yaml
+
+# Coverage
+coverage.out
+coverage.html
+
+# Build artifacts
+*.prof
+*.pprof
+
+# sqlc generated (optional: uncomment if you want to check in generated code)
+# internal/db/db.go
+# internal/db/models.go
+# internal/db/querier.go
+# internal/db/*.sql.go
+
+# Logs
+*.log
+.claude/settings.local.json
+lefthook-local.yml
+
+# Design specs (internal)
+specs/
+
+# UI build output
+internal/ui/assets/css/output.css

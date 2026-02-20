@@ -1,0 +1,695 @@
+package pages
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/tabs"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/toast"
+)
+
+type KeyDetailData struct {
+	Token          string
+	KeyName        *string
+	KeyAlias       *string
+	Spend          float64
+	MaxBudget      *float64
+	Expires        *time.Time
+	Models         []string
+	UserID         *string
+	TeamID         *string
+	OrganizationID *string
+	Metadata       string
+	Blocked        *bool
+	TPMLimit       *int64
+	RPMLimit       *int64
+	BudgetDuration *string
+	BudgetResetAt  *time.Time
+	Tags           []string
+	CreatedAt      time.Time
+	CreatedBy      *string
+	UpdatedAt      time.Time
+	UpdatedBy      *string
+	// Computed
+	IsExpired      bool
+	IsBlocked      bool
+	DisplayAlias   string
+	BudgetProgress float64
+	// Dropdown data for edit form
+	Teams []TeamOption
+	Users []UserOption
+}
+
+func (d KeyDetailData) displayName() string {
+	if d.DisplayAlias != "" {
+		return d.DisplayAlias
+	}
+	return "Virtual Key"
+}
+
+func (d KeyDetailData) metadataPretty() string {
+	if d.Metadata == "" || d.Metadata == "{}" {
+		return "{}"
+	}
+	var v any
+	if err := json.Unmarshal([]byte(d.Metadata), &v); err != nil {
+		return d.Metadata
+	}
+	b, _ := json.MarshalIndent(v, "", "  ")
+	return string(b)
+}
+
+templ KeyDetailPage(data KeyDetailData) {
+	@AppLayout(data.displayName()+" — Key Detail", "/ui/keys") {
+		@dialog.Script()
+		@input.Script()
+		@tabs.Script()
+		@toast.Script()
+		<div class="space-y-6">
+			<!-- Header -->
+			<div class="flex items-center justify-between">
+				<div class="space-y-1">
+					<div class="flex items-center gap-3">
+						<h2 class="text-lg font-semibold">{ data.displayName() }</h2>
+						if data.IsBlocked {
+							@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+								Blocked
+							}
+						} else if data.IsExpired {
+							@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
+								Expired
+							}
+						} else {
+							@badge.Badge(badge.Props{Variant: badge.VariantDefault}) {
+								Active
+							}
+						}
+					</div>
+					<div class="flex items-center gap-2 text-sm text-muted-foreground">
+						<span class="font-mono text-xs">{ data.Token[:16] }...</span>
+						@button.Button(button.Props{
+							Variant: button.VariantGhost,
+							Size:    button.SizeSm,
+							Class:   "h-6 px-2",
+							Attributes: templ.Attributes{
+								"onclick": copyToClipboard(data.Token),
+							},
+						}) {
+							Copy ID
+						}
+					</div>
+					<div class="text-xs text-muted-foreground">
+						Created { data.CreatedAt.Format("2006-01-02 15:04") }
+						if !data.UpdatedAt.IsZero() {
+							· Updated { data.UpdatedAt.Format("2006-01-02 15:04") }
+						}
+					</div>
+				</div>
+				<div class="flex items-center gap-2">
+					<!-- Regenerate button -->
+					@dialog.Dialog(dialog.Props{ID: "regenerate-dialog"}) {
+						@dialog.Trigger(dialog.TriggerProps{}) {
+							@button.Button(button.Props{Variant: button.VariantOutline}) {
+								Regenerate Key
+							}
+						}
+						@dialog.Content(dialog.ContentProps{Class: "max-w-md"}) {
+							@dialog.Header() {
+								@dialog.Title() {
+									Regenerate Key
+								}
+								@dialog.Description() {
+									Generate a new key and optionally update limits. The old key will stop working immediately.
+								}
+							}
+							@RegenerateForm(data)
+						}
+					}
+					<!-- Delete button -->
+					@dialog.Dialog(dialog.Props{ID: "delete-key-dialog"}) {
+						@dialog.Trigger(dialog.TriggerProps{}) {
+							@button.Button(button.Props{Variant: button.VariantDestructive}) {
+								Delete Key
+							}
+						}
+						@dialog.Content(dialog.ContentProps{Class: "max-w-md"}) {
+							@dialog.Header() {
+								@dialog.Title() {
+									Delete Key
+								}
+								@dialog.Description() {
+									This action is irreversible. The key will be permanently deleted.
+								}
+							}
+							@DeleteConfirmDialog(data)
+						}
+					}
+					<a href="/ui/keys">
+						@button.Button(button.Props{Variant: button.VariantGhost}) {
+							← Back to Keys
+						}
+					</a>
+				</div>
+			</div>
+			<!-- Tabs -->
+			@tabs.Tabs(tabs.Props{ID: "key-detail-tabs"}) {
+				@tabs.List() {
+					@tabs.Trigger(tabs.TriggerProps{Value: "overview", IsActive: true}) {
+						Overview
+					}
+					@tabs.Trigger(tabs.TriggerProps{Value: "settings"}) {
+						Settings
+					}
+				}
+				@tabs.Content(tabs.ContentProps{Value: "overview", IsActive: true}) {
+					<div id="overview-content">
+						@OverviewTab(data)
+					</div>
+				}
+				@tabs.Content(tabs.ContentProps{Value: "settings"}) {
+					<div id="settings-content">
+						@SettingsTab(data)
+					</div>
+				}
+			}
+		</div>
+	}
+}
+
+templ OverviewTab(data KeyDetailData) {
+	<div class="grid gap-4 md:grid-cols-3 pt-4">
+		<!-- Spend / Budget card -->
+		@card.Card() {
+			@card.Header() {
+				@card.Title() {
+					Spend / Budget
+				}
+			}
+			@card.Content() {
+				<div class="space-y-3">
+					<div class="text-2xl font-bold">
+						{ fmt.Sprintf("$%.2f", data.Spend) }
+						if data.MaxBudget != nil {
+							<span class="text-sm font-normal text-muted-foreground">
+								/ { fmt.Sprintf("$%.2f", *data.MaxBudget) }
+							</span>
+						}
+					</div>
+					if data.MaxBudget != nil && *data.MaxBudget > 0 {
+						<div class="h-2 w-full rounded-full bg-muted">
+							<div
+								class="h-2 rounded-full bg-primary"
+								style={ fmt.Sprintf("width: %.1f%%", data.BudgetProgress) }
+							></div>
+						</div>
+						<div class="text-xs text-muted-foreground">
+							{ fmt.Sprintf("%.1f%% used", data.BudgetProgress) }
+						</div>
+					} else {
+						<div class="text-sm text-muted-foreground">Unlimited budget</div>
+					}
+					if data.BudgetDuration != nil && *data.BudgetDuration != "" {
+						<div class="text-xs text-muted-foreground">
+							Resets { *data.BudgetDuration }
+							if data.BudgetResetAt != nil {
+								· Next: { data.BudgetResetAt.Format("Jan 02, 2006") }
+							}
+						</div>
+					}
+				</div>
+			}
+		}
+		<!-- Rate Limits card -->
+		@card.Card() {
+			@card.Header() {
+				@card.Title() {
+					Rate Limits
+				}
+			}
+			@card.Content() {
+				<div class="space-y-2">
+					<div class="flex justify-between">
+						<span class="text-sm text-muted-foreground">TPM</span>
+						<span class="font-medium">
+							if data.TPMLimit != nil {
+								{ fmt.Sprintf("%d", *data.TPMLimit) }
+							} else {
+								Unlimited
+							}
+						</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="text-sm text-muted-foreground">RPM</span>
+						<span class="font-medium">
+							if data.RPMLimit != nil {
+								{ fmt.Sprintf("%d", *data.RPMLimit) }
+							} else {
+								Unlimited
+							}
+						</span>
+					</div>
+				</div>
+			}
+		}
+		<!-- Models card -->
+		@card.Card() {
+			@card.Header() {
+				@card.Title() {
+					Allowed Models
+				}
+			}
+			@card.Content() {
+				if len(data.Models) > 0 {
+					<div class="flex flex-wrap gap-1">
+						for _, m := range data.Models {
+							@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+								{ m }
+							}
+						}
+					</div>
+				} else {
+					<div class="text-sm text-muted-foreground">All models allowed</div>
+				}
+			}
+		}
+	</div>
+}
+
+templ SettingsTab(data KeyDetailData) {
+	<div class="pt-4 space-y-4">
+		<div class="flex items-center justify-between">
+			<h3 class="text-sm font-medium">Key Properties</h3>
+			@button.Button(button.Props{
+				Variant: button.VariantOutline,
+				Size:    button.SizeSm,
+				Attributes: templ.Attributes{
+					"hx-get":    fmt.Sprintf("/ui/keys/%s/edit", data.Token),
+					"hx-target": "#settings-content",
+				},
+			}) {
+				Edit Settings
+			}
+		</div>
+		@card.Card() {
+			@card.Content(card.ContentProps{Class: "p-0"}) {
+				<dl class="divide-y divide-border">
+					@settingsRow("Key ID", data.Token)
+					if data.KeyAlias != nil && *data.KeyAlias != "" {
+						@settingsRow("Key Alias", *data.KeyAlias)
+					}
+					if data.KeyName != nil && *data.KeyName != "" {
+						@settingsRow("Key Name", *data.KeyName)
+					}
+					if data.TeamID != nil && *data.TeamID != "" {
+						@settingsRow("Team ID", *data.TeamID)
+					}
+					if data.UserID != nil && *data.UserID != "" {
+						@settingsRow("User ID", *data.UserID)
+					}
+					if data.OrganizationID != nil && *data.OrganizationID != "" {
+						@settingsRow("Organization ID", *data.OrganizationID)
+					}
+					@settingsRow("Spend", fmt.Sprintf("$%.2f", data.Spend))
+					if data.MaxBudget != nil {
+						@settingsRow("Max Budget", fmt.Sprintf("$%.2f", *data.MaxBudget))
+					} else {
+						@settingsRow("Max Budget", "Unlimited")
+					}
+					if data.BudgetDuration != nil && *data.BudgetDuration != "" {
+						@settingsRow("Budget Duration", *data.BudgetDuration)
+					}
+					if data.BudgetResetAt != nil {
+						@settingsRow("Budget Reset At", data.BudgetResetAt.Format("2006-01-02 15:04:05"))
+					}
+					if data.TPMLimit != nil {
+						@settingsRow("TPM Limit", fmt.Sprintf("%d", *data.TPMLimit))
+					}
+					if data.RPMLimit != nil {
+						@settingsRow("RPM Limit", fmt.Sprintf("%d", *data.RPMLimit))
+					}
+					if len(data.Models) > 0 {
+						@settingsRow("Models", fmt.Sprintf("%v", data.Models))
+					} else {
+						@settingsRow("Models", "All Models")
+					}
+					if data.Expires != nil {
+						@settingsRow("Expires", data.Expires.Format("2006-01-02 15:04:05"))
+					} else {
+						@settingsRow("Expires", "Never")
+					}
+					@settingsRow("Created", data.CreatedAt.Format("2006-01-02 15:04:05"))
+					if data.CreatedBy != nil && *data.CreatedBy != "" {
+						@settingsRow("Created By", *data.CreatedBy)
+					}
+					if data.Metadata != "" && data.Metadata != "{}" {
+						@settingsRowPre("Metadata", data.metadataPretty())
+					}
+				</dl>
+			}
+		}
+	</div>
+}
+
+templ settingsRow(label string, value string) {
+	<div class="flex items-center justify-between px-4 py-3">
+		<dt class="text-sm text-muted-foreground">{ label }</dt>
+		<dd class="text-sm font-mono">{ value }</dd>
+	</div>
+}
+
+templ settingsRowPre(label string, value string) {
+	<div class="px-4 py-3">
+		<dt class="text-sm text-muted-foreground mb-1">{ label }</dt>
+		<dd>
+			<pre class="text-xs bg-muted rounded p-2 overflow-x-auto">{ value }</pre>
+		</dd>
+	</div>
+}
+
+templ EditSettingsForm(data KeyDetailData) {
+	<div class="pt-4 space-y-4">
+		<div class="flex items-center justify-between">
+			<h3 class="text-sm font-medium">Edit Settings</h3>
+		</div>
+		<form
+			hx-post={ fmt.Sprintf("/ui/keys/%s/update", data.Token) }
+			hx-target="#settings-content"
+		>
+			@card.Card() {
+				@card.Content() {
+					<div class="space-y-4">
+						<div class="space-y-2">
+							<label for="edit_key_alias" class="text-sm font-medium">Key Alias</label>
+							@input.Input(input.Props{
+								ID: "edit_key_alias", Name: "key_alias",
+								Attributes: templ.Attributes{
+									"value": ptrStr(data.KeyAlias),
+								},
+							})
+						</div>
+						<div class="grid grid-cols-2 gap-4">
+							<div class="space-y-2">
+								<label for="edit_max_budget" class="text-sm font-medium">Max Budget ($)</label>
+								@input.Input(input.Props{
+									ID: "edit_max_budget", Name: "max_budget", Type: "number",
+									Attributes: templ.Attributes{
+										"value": ptrFloat(data.MaxBudget),
+										"step":  "0.01", "min": "0",
+									},
+								})
+							</div>
+							<div class="space-y-2">
+								<label for="edit_budget_duration" class="text-sm font-medium">Budget Duration</label>
+								<select name="budget_duration" id="edit_budget_duration" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+									<option value="" selected?={ data.BudgetDuration == nil || *data.BudgetDuration == "" }>No reset</option>
+									<option value="daily" selected?={ data.BudgetDuration != nil && *data.BudgetDuration == "daily" }>Daily</option>
+									<option value="weekly" selected?={ data.BudgetDuration != nil && *data.BudgetDuration == "weekly" }>Weekly</option>
+									<option value="monthly" selected?={ data.BudgetDuration != nil && *data.BudgetDuration == "monthly" }>Monthly</option>
+								</select>
+							</div>
+						</div>
+						<div class="grid grid-cols-2 gap-4">
+							<div class="space-y-2">
+								<label for="edit_tpm_limit" class="text-sm font-medium">TPM Limit</label>
+								@input.Input(input.Props{
+									ID: "edit_tpm_limit", Name: "tpm_limit", Type: "number",
+									Attributes: templ.Attributes{
+										"value": ptrInt64(data.TPMLimit),
+										"min":   "1",
+									},
+								})
+							</div>
+							<div class="space-y-2">
+								<label for="edit_rpm_limit" class="text-sm font-medium">RPM Limit</label>
+								@input.Input(input.Props{
+									ID: "edit_rpm_limit", Name: "rpm_limit", Type: "number",
+									Attributes: templ.Attributes{
+										"value": ptrInt64(data.RPMLimit),
+										"min":   "1",
+									},
+								})
+							</div>
+						</div>
+						<div class="space-y-2">
+							<label for="edit_models" class="text-sm font-medium">Models (comma-separated)</label>
+							@input.Input(input.Props{
+								ID: "edit_models", Name: "models",
+								Attributes: templ.Attributes{
+									"value": joinModels(data.Models),
+								},
+							})
+						</div>
+						<div class="space-y-2">
+							<label for="edit_metadata" class="text-sm font-medium">Metadata (JSON)</label>
+							<textarea name="metadata" id="edit_metadata" rows="3" class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[60px] font-mono">{ data.metadataPretty() }</textarea>
+						</div>
+					</div>
+				}
+			}
+			<div class="flex gap-2 justify-end pt-2">
+				@button.Button(button.Props{
+					Variant: button.VariantOutline,
+					Attributes: templ.Attributes{
+						"hx-get":    fmt.Sprintf("/ui/keys/%s/settings", data.Token),
+						"hx-target": "#settings-content",
+						"type":      "button",
+					},
+				}) {
+					Cancel
+				}
+				@button.Button(button.Props{Type: "submit"}) {
+					Save Changes
+				}
+			</div>
+		</form>
+	</div>
+}
+
+templ DeleteConfirmDialog(data KeyDetailData) {
+	<form
+		hx-post={ fmt.Sprintf("/ui/keys/%s/delete", data.Token) }
+	>
+		<div class="space-y-4 py-4">
+			<div class="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm">
+				<p class="font-medium text-destructive">This action cannot be undone.</p>
+				<p class="mt-1 text-muted-foreground">
+					The key
+					if data.KeyAlias != nil && *data.KeyAlias != "" {
+						<strong>{ *data.KeyAlias }</strong>
+					}
+					({ data.Token[:12] }...) will be permanently deleted.
+				</p>
+				if data.Spend > 0 {
+					<p class="mt-1 text-muted-foreground">Total spend: { fmt.Sprintf("$%.2f", data.Spend) }</p>
+				}
+			</div>
+			<div class="space-y-2">
+				<label for="confirm_alias" class="text-sm font-medium">
+					Type the key alias to confirm:
+					if data.KeyAlias != nil && *data.KeyAlias != "" {
+						<code class="text-destructive">{ *data.KeyAlias }</code>
+					} else {
+						<code class="text-destructive">{ data.Token[:12] }</code>
+					}
+				</label>
+				@input.Input(input.Props{
+					ID:   "confirm_alias",
+					Name: "confirm_alias",
+					Attributes: templ.Attributes{
+						"oninput": validateDeleteConfirm(expectedDeleteConfirm(data)),
+					},
+				})
+			</div>
+		</div>
+		@dialog.Footer() {
+			@dialog.Close() {
+				@button.Button(button.Props{Variant: button.VariantOutline}) {
+					Cancel
+				}
+			}
+			@button.Button(button.Props{
+				Type:    "submit",
+				Variant: button.VariantDestructive,
+				Attributes: templ.Attributes{
+					"id":       "delete-confirm-btn",
+					"disabled": "true",
+				},
+			}) {
+				Delete Key
+			}
+		}
+	</form>
+}
+
+func expectedDeleteConfirm(data KeyDetailData) string {
+	if data.KeyAlias != nil && *data.KeyAlias != "" {
+		return *data.KeyAlias
+	}
+	return data.Token[:12]
+}
+
+script validateDeleteConfirm(expected string) {
+	var btn = document.getElementById("delete-confirm-btn");
+	if (event.target.value === expected) {
+		btn.removeAttribute("disabled");
+	} else {
+		btn.setAttribute("disabled", "true");
+	}
+}
+
+templ RegenerateForm(data KeyDetailData) {
+	<form
+		hx-post={ fmt.Sprintf("/ui/keys/%s/regenerate", data.Token) }
+		hx-target="#regenerate-result"
+	>
+		<div class="space-y-4 py-4">
+			<div class="space-y-2">
+				<label class="text-sm font-medium">Key Alias</label>
+				<div class="text-sm text-muted-foreground">{ data.displayName() }</div>
+			</div>
+			<div class="grid grid-cols-2 gap-4">
+				<div class="space-y-2">
+					<label for="regen_max_budget" class="text-sm font-medium">Max Budget ($)</label>
+					@input.Input(input.Props{
+						ID: "regen_max_budget", Name: "max_budget", Type: "number",
+						Attributes: templ.Attributes{
+							"value": ptrFloat(data.MaxBudget),
+							"step":  "0.01", "min": "0",
+						},
+					})
+				</div>
+				<div class="space-y-2">
+					<label for="regen_budget_duration" class="text-sm font-medium">Budget Duration</label>
+					<select name="budget_duration" id="regen_budget_duration" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+						<option value="" selected?={ data.BudgetDuration == nil || *data.BudgetDuration == "" }>No reset</option>
+						<option value="daily" selected?={ data.BudgetDuration != nil && *data.BudgetDuration == "daily" }>Daily</option>
+						<option value="weekly" selected?={ data.BudgetDuration != nil && *data.BudgetDuration == "weekly" }>Weekly</option>
+						<option value="monthly" selected?={ data.BudgetDuration != nil && *data.BudgetDuration == "monthly" }>Monthly</option>
+					</select>
+				</div>
+			</div>
+			<div class="grid grid-cols-2 gap-4">
+				<div class="space-y-2">
+					<label for="regen_tpm_limit" class="text-sm font-medium">TPM Limit</label>
+					@input.Input(input.Props{
+						ID: "regen_tpm_limit", Name: "tpm_limit", Type: "number",
+						Attributes: templ.Attributes{
+							"value": ptrInt64(data.TPMLimit),
+							"min":   "1",
+						},
+					})
+				</div>
+				<div class="space-y-2">
+					<label for="regen_rpm_limit" class="text-sm font-medium">RPM Limit</label>
+					@input.Input(input.Props{
+						ID: "regen_rpm_limit", Name: "rpm_limit", Type: "number",
+						Attributes: templ.Attributes{
+							"value": ptrInt64(data.RPMLimit),
+							"min":   "1",
+						},
+					})
+				</div>
+			</div>
+		</div>
+		<div id="regenerate-result"></div>
+		@dialog.Footer() {
+			@dialog.Close() {
+				@button.Button(button.Props{Variant: button.VariantOutline}) {
+					Cancel
+				}
+			}
+			@button.Button(button.Props{Type: "submit", Variant: button.VariantDestructive}) {
+				Regenerate
+			}
+		}
+	</form>
+}
+
+templ RegenerateResultDialog(rawKey string) {
+	<div class="space-y-3 py-2">
+		<div class="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive font-medium">
+			This key will only be shown once and cannot be recovered.
+		</div>
+		<div class="rounded-md bg-muted p-3 font-mono text-sm break-all select-all">
+			{ rawKey }
+		</div>
+		@button.Button(button.Props{
+			Variant: button.VariantOutline,
+			Class:   "w-full",
+			Attributes: templ.Attributes{
+				"onclick": copyToClipboard(rawKey),
+			},
+		}) {
+			Copy New Key
+		}
+	</div>
+}
+
+templ SettingsTabWithToast(data KeyDetailData, msg string, variant toast.Variant) {
+	@SettingsTab(data)
+	if msg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       msg,
+				Variant:     variant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
+
+templ KeyNotFoundPage() {
+	@AppLayout("Key Not Found", "/ui/keys") {
+		<div class="flex flex-col items-center justify-center py-16 space-y-4">
+			<h2 class="text-lg font-semibold">Key Not Found</h2>
+			<p class="text-muted-foreground">The requested key does not exist or has been deleted.</p>
+			<a href="/ui/keys">
+				@button.Button(button.Props{}) {
+					← Back to Keys
+				}
+			</a>
+		</div>
+	}
+}
+
+func ptrStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func ptrFloat(f *float64) string {
+	if f == nil {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", *f)
+}
+
+func ptrInt64(i *int64) string {
+	if i == nil {
+		return ""
+	}
+	return fmt.Sprintf("%d", *i)
+}
+
+func joinModels(models []string) string {
+	if len(models) == 0 {
+		return ""
+	}
+	result := ""
+	for i, m := range models {
+		if i > 0 {
+			result += ", "
+		}
+		result += m
+	}
+	return result
+}
