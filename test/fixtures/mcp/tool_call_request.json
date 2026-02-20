@@ -1,0 +1,6 @@
+{
+  "name": "weather-get_weather",
+  "arguments": {
+    "location": "San Francisco"
+  }
+}

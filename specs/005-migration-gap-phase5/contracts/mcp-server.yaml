@@ -1,0 +1,112 @@
+# MCP Server API Contract
+# Note: MCP uses JSON-RPC 2.0 over SSE/HTTP, not REST.
+# This contract defines the HTTP mounting points and JSON-RPC methods.
+
+transport:
+  sse:
+    mount: "GET /mcp/sse"
+    description: "SSE transport — client connects here for event stream"
+    messages: "POST /mcp/sse/messages?session_id={id}"
+  streamable_http:
+    mount: "POST /mcp"
+    description: "Streamable HTTP transport — single endpoint for all JSON-RPC"
+    headers:
+      mcp-session-id: "optional — for stateful sessions"
+
+rest_endpoints:
+  list_tools:
+    method: GET
+    path: "/mcp-rest/tools/list"
+    auth: Bearer token (same as proxy auth)
+    response:
+      content_type: application/json
+      schema:
+        tools:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              description: { type: string }
+              inputSchema: { type: object, description: "JSON Schema" }
+  call_tool:
+    method: POST
+    path: "/mcp-rest/tools/call"
+    auth: Bearer token
+    request:
+      content_type: application/json
+      schema:
+        name: { type: string, required: true }
+        arguments: { type: object, required: true }
+    response:
+      content_type: application/json
+      schema:
+        content:
+          type: array
+          items:
+            type: { type: string, enum: [text, image, resource] }
+            text: { type: string }
+        isError: { type: boolean }
+
+management_endpoints:
+  list_servers:
+    method: GET
+    path: "/v1/mcp/server"
+    auth: Bearer token (admin)
+  create_server:
+    method: POST
+    path: "/v1/mcp/server"
+    auth: Bearer token (admin)
+    request:
+      content_type: application/json
+      schema:
+        server_id: { type: string, required: true }
+        transport: { type: string, enum: [stdio, sse, http], required: true }
+        url: { type: string }
+        command: { type: string }
+        args: { type: array, items: { type: string } }
+        auth_type: { type: string, enum: [api_key, bearer_token, basic, oauth2] }
+        authentication_token: { type: string }
+  update_server:
+    method: PUT
+    path: "/v1/mcp/server/{server_id}"
+    auth: Bearer token (admin)
+  delete_server:
+    method: DELETE
+    path: "/v1/mcp/server/{server_id}"
+    auth: Bearer token (admin)
+  list_tools:
+    method: GET
+    path: "/v1/mcp/tools"
+    auth: Bearer token (admin)
+    query_params:
+      server_id: { type: string, description: "Filter by server" }
+
+jsonrpc_methods:
+  tools/list:
+    description: "List all available tools"
+    params: {}
+    result:
+      tools:
+        type: array
+        items:
+          name: string
+          description: string
+          inputSchema: object
+  tools/call:
+    description: "Invoke a tool"
+    params:
+      name: { type: string, required: true }
+      arguments: { type: object, required: true }
+    result:
+      content:
+        type: array
+        items:
+          type: string
+          text: string
+      isError: boolean
+
+error_codes:
+  tool_not_found: { code: -32602, message: "Tool not found: {name}" }
+  server_unavailable: { code: -32603, message: "MCP server unavailable: {server}" }
+  permission_denied: { code: -32600, message: "Not authorized to call tool: {name}" }

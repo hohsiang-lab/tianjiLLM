@@ -1,0 +1,12 @@
+.git/
+bin/
+coverage.out
+*.log
+.env*
+.DS_Store
+.idea/
+.vscode/
+Dockerfile
+.dockerignore
+test/
+*.md

@@ -1,0 +1,160 @@
+# Router Strategy Contracts (B1-B6)
+# Configuration-driven strategy selection
+
+openapi: "3.0.3"
+info:
+  title: Router Advanced Strategies
+  version: "1.0.0"
+  description: |
+    Router strategies are selected via config:
+      router_settings:
+        routing_strategy: "lowest-tpm-rpm"  # or region-based, priority, auto
+        enable_tag_filtering: true
+        tag_filtering_match_any: true
+        model_group_retry_policy:
+          gpt-4:
+            num_retries: 5
+          claude:
+            num_retries: 2
+
+# These are internal contracts — not HTTP APIs.
+# Documented as config schemas for verification.
+
+components:
+  schemas:
+    # B1: Region-based routing
+    RegionRoutingConfig:
+      type: object
+      description: |
+        Filters deployments by geographic region.
+        Request-level: `allowed_model_region` in request metadata.
+        Deployment-level: `region` field in tianji_params.
+      properties:
+        deployment_region:
+          type: string
+          description: Region tag on deployment (e.g., "us-east1", "eu-west1")
+        allowed_model_region:
+          type: string
+          description: Region filter from request (e.g., "eu" matches "eu-*")
+
+    # B2: TPM/RPM-based routing
+    TPMRPMRoutingConfig:
+      type: object
+      description: |
+        Routes to deployment with lowest current TPM or RPM usage.
+        Uses sliding window counters from usage.go tracker.
+        Config: routing_strategy: "lowest-tpm-rpm"
+      properties:
+        routing_strategy:
+          type: string
+          enum: ["lowest-tpm-rpm"]
+        tpm_window_seconds:
+          type: integer
+          default: 60
+
+    # B3: Priority queue
+    PriorityQueueConfig:
+      type: object
+      description: |
+        Request priority queue with weighted scheduling.
+        Higher priority (lower number) requests served first.
+        Config: routing_strategy: "priority"
+      properties:
+        default_priority:
+          type: integer
+          default: 1
+          description: "0 = highest priority"
+
+    # B4: Content-based routing (AutoRouter)
+    AutoRouterConfig:
+      type: object
+      description: |
+        Semantic analysis of prompt content to route to appropriate model group.
+        Config: routing_strategy: "auto"
+        P3 priority — implement only if demanded.
+
+    # B5: Per-group retry policy
+    ModelGroupRetryPolicy:
+      type: object
+      description: |
+        Per-model-group retry and timeout configuration.
+        Overrides global NumRetries for specific model groups.
+      additionalProperties:
+        type: object
+        properties:
+          num_retries:
+            type: integer
+          timeout:
+            type: integer
+            description: "Per-attempt timeout in seconds"
+          retry_after:
+            type: integer
+            description: "Backoff between retries in seconds"
+      example:
+        gpt-4:
+          num_retries: 5
+          timeout: 30
+        claude:
+          num_retries: 2
+          timeout: 60
+
+    # B6: Tag routing
+    TagRoutingConfig:
+      type: object
+      description: |
+        Filter deployments by tags.
+        match_any=true: deployment matches if ANY requested tag is present.
+        match_any=false: deployment matches only if ALL requested tags are present.
+      properties:
+        enable_tag_filtering:
+          type: boolean
+          default: false
+        tag_filtering_match_any:
+          type: boolean
+          default: false
+          description: "true = OR logic, false = AND logic"
+
+    # A4: General fallback chain
+    FallbackConfig:
+      type: object
+      description: |
+        Error-based fallback to alternative models.
+        Resolution: model-specific fallbacks → default_fallbacks → error.
+      properties:
+        fallbacks:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: array
+              items:
+                type: string
+          example:
+            - gpt-4: ["claude-3-sonnet", "gemini-pro"]
+        default_fallbacks:
+          type: array
+          items:
+            type: string
+          example: ["fallback-model"]
+        context_window_fallbacks:
+          type: array
+          items:
+            type: object
+          description: "Already implemented — context window overflow fallback"
+        content_policy_fallbacks:
+          type: array
+          items:
+            type: object
+          description: "Fallback on HTTP 400 content policy violations"
+
+    # A5: Model group alias
+    ModelGroupAliasConfig:
+      type: object
+      description: |
+        Maps alias names to actual model group names.
+        Resolved before deployment lookup in Route().
+      additionalProperties:
+        type: string
+      example:
+        gpt-4: "gpt-4-turbo-preview"
+        claude: "claude-3-sonnet-20240229"

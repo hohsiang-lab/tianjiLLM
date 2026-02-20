@@ -1,0 +1,194 @@
+openapi: "3.0.3"
+info:
+  title: Assistants API Pass-through
+  version: "1.0.0"
+  description: Pass-through endpoints for OpenAI Assistants, Threads, and Runs API
+
+paths:
+  /v1/assistants:
+    post:
+      summary: Create an assistant
+      operationId: createAssistant
+      tags: [assistants]
+      description: Pass-through to upstream provider (OpenAI or Azure)
+      responses:
+        "200":
+          description: Assistant created (upstream response)
+        "400":
+          description: Unsupported provider
+
+    get:
+      summary: List assistants
+      operationId: listAssistants
+      tags: [assistants]
+      responses:
+        "200":
+          description: List of assistants
+
+  /v1/assistants/{assistant_id}:
+    get:
+      summary: Get an assistant
+      operationId: getAssistant
+      tags: [assistants]
+      parameters:
+        - name: assistant_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Assistant details
+
+    post:
+      summary: Modify an assistant
+      operationId: modifyAssistant
+      tags: [assistants]
+      parameters:
+        - name: assistant_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Assistant modified
+
+    delete:
+      summary: Delete an assistant
+      operationId: deleteAssistant
+      tags: [assistants]
+      parameters:
+        - name: assistant_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Assistant deleted
+
+  /v1/threads:
+    post:
+      summary: Create a thread
+      operationId: createThread
+      tags: [assistants]
+      responses:
+        "200":
+          description: Thread created
+
+  /v1/threads/{thread_id}:
+    get:
+      summary: Get a thread
+      operationId: getThread
+      tags: [assistants]
+      parameters:
+        - name: thread_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thread details
+
+  /v1/threads/{thread_id}/messages:
+    post:
+      summary: Create a message in a thread
+      operationId: createMessage
+      tags: [assistants]
+      parameters:
+        - name: thread_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Message created
+
+    get:
+      summary: List messages in a thread
+      operationId: listMessages
+      tags: [assistants]
+      parameters:
+        - name: thread_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of messages
+
+  /v1/threads/{thread_id}/runs:
+    post:
+      summary: Create a run
+      operationId: createRun
+      tags: [assistants]
+      description: |
+        Supports streaming via `"stream": true` in request body.
+        When streaming, response uses `text/event-stream` (SSE) media type.
+      parameters:
+        - name: thread_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assistant_id:
+                  type: string
+                stream:
+                  type: boolean
+                  default: false
+                  description: "When true, returns SSE stream (text/event-stream)"
+      responses:
+        "200":
+          description: Run created (JSON or SSE stream depending on `stream` parameter)
+          content:
+            application/json:
+              schema:
+                type: object
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE events for streaming runs
+
+    get:
+      summary: List runs
+      operationId: listRuns
+      tags: [assistants]
+      parameters:
+        - name: thread_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of runs
+
+  /v1/threads/{thread_id}/runs/{run_id}:
+    get:
+      summary: Get a run
+      operationId: getRun
+      tags: [assistants]
+      parameters:
+        - name: thread_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Run details

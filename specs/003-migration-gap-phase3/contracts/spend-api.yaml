@@ -1,0 +1,173 @@
+openapi: "3.0.3"
+info:
+  title: Spend Analytics & Cold Storage API
+  version: "1.0.0"
+  description: Global spend endpoints, spend log queries, and cold storage archival
+
+paths:
+  # Global Spend
+  /global/spend:
+    get:
+      summary: Get total global spend
+      operationId: getGlobalSpend
+      tags: [spend]
+      parameters:
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Total spend amount
+
+  /global/spend/keys:
+    get:
+      summary: Get spend by key
+      operationId: getGlobalSpendByKeys
+      tags: [spend]
+      parameters:
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Spend breakdown by key
+
+  /global/spend/models:
+    get:
+      summary: Get spend by model
+      operationId: getGlobalSpendByModels
+      tags: [spend]
+      responses:
+        "200":
+          description: Spend breakdown by model
+
+  /global/spend/teams:
+    get:
+      summary: Get spend by team
+      operationId: getGlobalSpendByTeams
+      tags: [spend]
+      responses:
+        "200":
+          description: Spend breakdown by team
+
+  /global/spend/tags:
+    get:
+      summary: Get spend by tag
+      operationId: getGlobalSpendByTags
+      tags: [spend]
+      responses:
+        "200":
+          description: Spend breakdown by tag
+
+  /global/spend/provider:
+    get:
+      summary: Get spend by provider
+      operationId: getGlobalSpendByProvider
+      tags: [spend]
+      responses:
+        "200":
+          description: Spend breakdown by provider
+
+  # Spend Logs
+  /spend/logs:
+    get:
+      summary: Query spend logs
+      operationId: getSpendLogs
+      tags: [spend]
+      parameters:
+        - name: api_key
+          in: query
+          schema:
+            type: string
+        - name: team_id
+          in: query
+          schema:
+            type: string
+        - name: model
+          in: query
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Spend log entries
+
+  # IP Whitelist
+  /ip/whitelist:
+    get:
+      summary: List whitelisted IPs
+      operationId: listIPWhitelist
+      tags: [ip]
+      responses:
+        "200":
+          description: List of whitelisted IPs
+
+    post:
+      summary: Add IP to whitelist
+      operationId: addIPWhitelist
+      tags: [ip]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ip_address]
+              properties:
+                ip_address:
+                  type: string
+                  description: IPv4/IPv6 address or CIDR range
+                description:
+                  type: string
+      responses:
+        "201":
+          description: IP added
+
+  /ip/whitelist/{entry_id}:
+    delete:
+      summary: Remove IP from whitelist
+      operationId: removeIPWhitelist
+      tags: [ip]
+      parameters:
+        - name: entry_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: IP removed

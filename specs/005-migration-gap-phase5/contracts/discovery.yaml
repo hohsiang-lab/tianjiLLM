@@ -1,0 +1,77 @@
+# Discovery Endpoints API Contract
+
+endpoints:
+  model_group_info:
+    method: GET
+    path: "/model_group/info"
+    auth: Bearer token
+    query_params:
+      model_group:
+        type: string
+        required: false
+        description: "Filter to specific model group"
+    response:
+      content_type: application/json
+      schema:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              model_group: { type: string }
+              providers: { type: array, items: { type: string } }
+              max_input_tokens: { type: number, nullable: true }
+              max_output_tokens: { type: number, nullable: true }
+              input_cost_per_token: { type: number, nullable: true }
+              output_cost_per_token: { type: number, nullable: true }
+              mode: { type: string, enum: [chat, embedding, image, audio, moderation, rerank] }
+              tpm: { type: number, nullable: true }
+              rpm: { type: number, nullable: true }
+              supports_vision: { type: boolean }
+              supports_function_calling: { type: boolean }
+              supports_parallel_function_calling: { type: boolean }
+              supports_web_search: { type: boolean }
+              supports_reasoning: { type: boolean }
+              supports_streaming: { type: boolean }
+              supported_openai_params: { type: array, items: { type: string } }
+
+  public_providers:
+    method: GET
+    path: "/public/providers"
+    auth: none
+    response:
+      content_type: application/json
+      schema:
+        type: array
+        items: { type: string }
+        description: "Sorted list of all supported provider names"
+        example: ["anthropic", "azure", "bedrock", "gemini", "openai", ...]
+
+  public_model_cost_map:
+    method: GET
+    path: "/public/tianji_model_cost_map"
+    auth: none
+    response:
+      content_type: application/json
+      schema:
+        type: object
+        description: "Full model_prices_and_context_window.json content"
+        additionalProperties:
+          type: object
+          properties:
+            max_tokens: { type: integer }
+            max_input_tokens: { type: integer }
+            max_output_tokens: { type: integer }
+            input_cost_per_token: { type: number }
+            output_cost_per_token: { type: number }
+            mode: { type: string }
+            supports_vision: { type: boolean }
+            supports_function_calling: { type: boolean }
+
+aggregation_rules:
+  model_group:
+    boolean_fields: "OR across all deployments in group"
+    numeric_fields: "MAX across all deployments"
+    tpm_rpm: "SUM across all deployments"
+    string_arrays: "UNION (deduplicated)"
+    providers: "DISTINCT provider names"

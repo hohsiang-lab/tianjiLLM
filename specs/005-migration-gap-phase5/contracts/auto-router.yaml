@@ -1,0 +1,64 @@
+# AutoRouter (Semantic Routing) Contract
+# Not an HTTP API — this is a routing strategy activated via config.
+
+config_format:
+  yaml:
+    model_list:
+      - model_name: "my-auto-router"
+        tianji_params:
+          model: "auto_router/my-auto-router"
+          auto_router_config: |
+            {
+              "routes": [
+                {
+                  "name": "gpt-4o",
+                  "utterances": ["complex reasoning", "detailed analysis", "write production code"],
+                  "description": "High capability tasks",
+                  "score_threshold": 0.5
+                },
+                {
+                  "name": "gpt-4o-mini",
+                  "utterances": ["quick question", "simple lookup", "translate this"],
+                  "description": "Simple tasks",
+                  "score_threshold": 0.5
+                }
+              ]
+            }
+          auto_router_default_model: "gpt-4o-mini"
+          auto_router_embedding_model: "openai/text-embedding-3-small"
+      # Or load from file:
+      - model_name: "file-router"
+        tianji_params:
+          model: "auto_router/file-router"
+          auto_router_config_path: "/path/to/routes.json"
+          auto_router_default_model: "gpt-4o-mini"
+          auto_router_embedding_model: "openai/text-embedding-3-small"
+
+route_schema:
+  routes:
+    type: array
+    items:
+      name: { type: string, required: true, description: "Target model group name" }
+      utterances: { type: array, items: { type: string }, min_items: 1, required: true }
+      description: { type: string, required: false }
+      score_threshold: { type: number, required: false, default: 0.3 }
+
+routing_algorithm:
+  1: "Extract last user message text from messages array"
+  2: "Embed text using configured embedding model"
+  3: "Compute cosine similarity against all route utterance vectors"
+  4: "Select route with highest similarity above threshold"
+  5: "Replace model in request with matched route name"
+  6: "If no match, use default_model"
+  7: "Continue standard routing with new model name"
+
+fallback_behavior:
+  no_match: "Use auto_router_default_model"
+  no_messages: "Skip routing, use original model"
+  embedding_failure: "Fall back to default_model with logged warning"
+  init_failure: "Server startup logs warning, auto-router deployment unavailable"
+
+performance:
+  per_request_overhead: "1 embedding API call (~50-200ms)"
+  memory: "Route vectors cached in-process (negligible for <100 routes)"
+  initialization: "Lazy — first request triggers route vector computation"

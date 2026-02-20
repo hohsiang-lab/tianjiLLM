@@ -1,0 +1,245 @@
+openapi: "3.0.3"
+info:
+  title: Management API Extensions
+  version: "1.0.0"
+  description: Extended management endpoints for models, tags, customers, config, and keys
+
+paths:
+  # Model Management
+  /model/new:
+    post:
+      summary: Add a new model
+      operationId: createModel
+      tags: [model]
+      responses:
+        "201":
+          description: Model added
+
+  /model/info:
+    get:
+      summary: Get model info
+      operationId: getModelInfo
+      tags: [model]
+      parameters:
+        - name: model
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Model information
+
+  /model/update:
+    post:
+      summary: Update a model
+      operationId: updateModel
+      tags: [model]
+      responses:
+        "200":
+          description: Model updated
+
+  /model/delete:
+    post:
+      summary: Delete a model
+      operationId: deleteModel
+      tags: [model]
+      responses:
+        "200":
+          description: Model deleted
+
+  # Tag Management
+  /tag/new:
+    post:
+      summary: Create a tag
+      operationId: createTag
+      tags: [tag]
+      responses:
+        "201":
+          description: Tag created
+
+  /tag/list:
+    get:
+      summary: List all tags
+      operationId: listTags
+      tags: [tag]
+      responses:
+        "200":
+          description: List of tags
+
+  /tag/summary:
+    get:
+      summary: Get tag spend summary
+      operationId: getTagSummary
+      tags: [tag]
+      responses:
+        "200":
+          description: Tag spend summaries
+
+  /tag/update:
+    post:
+      summary: Update a tag
+      operationId: updateTag
+      tags: [tag]
+      responses:
+        "200":
+          description: Tag updated
+
+  /tag/delete:
+    post:
+      summary: Delete a tag
+      operationId: deleteTag
+      tags: [tag]
+      responses:
+        "200":
+          description: Tag deleted
+
+  # End User / Customer Management
+  /end_user/new:
+    post:
+      summary: Create an end user
+      operationId: createEndUser
+      tags: [end_user]
+      responses:
+        "201":
+          description: End user created
+
+  /end_user/list:
+    get:
+      summary: List end users
+      operationId: listEndUsers
+      tags: [end_user]
+      responses:
+        "200":
+          description: List of end users
+
+  /end_user/info:
+    get:
+      summary: Get end user info
+      operationId: getEndUserInfo
+      tags: [end_user]
+      parameters:
+        - name: end_user_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: End user details
+
+  /end_user/update:
+    post:
+      summary: Update an end user
+      operationId: updateEndUser
+      tags: [end_user]
+      responses:
+        "200":
+          description: End user updated
+
+  /end_user/delete:
+    post:
+      summary: Delete an end user
+      operationId: deleteEndUser
+      tags: [end_user]
+      responses:
+        "200":
+          description: End user deleted
+
+  /end_user/block:
+    post:
+      summary: Block an end user
+      operationId: blockEndUser
+      tags: [end_user]
+      responses:
+        "200":
+          description: End user blocked
+
+  /end_user/unblock:
+    post:
+      summary: Unblock an end user
+      operationId: unblockEndUser
+      tags: [end_user]
+      responses:
+        "200":
+          description: End user unblocked
+
+  # Config Management
+  /config/update:
+    post:
+      summary: Update proxy config (callbacks, pass-through endpoints)
+      operationId: updateConfig
+      tags: [config]
+      responses:
+        "200":
+          description: Config updated (no restart required)
+
+  /config/list:
+    get:
+      summary: List current config
+      operationId: listConfig
+      tags: [config]
+      responses:
+        "200":
+          description: Current configuration
+
+  # Key Extensions
+  /key/{key_id}/regenerate:
+    post:
+      summary: Regenerate a key (new key, same permissions)
+      operationId: regenerateKey
+      tags: [key]
+      parameters:
+        - name: key_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: New key issued, old key invalidated
+
+  # Team Extensions
+  /team/info:
+    get:
+      summary: Get team info with daily activity
+      operationId: getTeamInfo
+      tags: [team]
+      responses:
+        "200":
+          description: Team details with activity
+
+  /team/block:
+    post:
+      summary: Block a team
+      operationId: blockTeam
+      tags: [team]
+      responses:
+        "200":
+          description: Team blocked
+
+  /team/unblock:
+    post:
+      summary: Unblock a team
+      operationId: unblockTeam
+      tags: [team]
+      responses:
+        "200":
+          description: Team unblocked
+
+  /team/model/add:
+    post:
+      summary: Add a model to a team
+      operationId: addTeamModel
+      tags: [team]
+      responses:
+        "200":
+          description: Model added to team
+
+  /team/model/remove:
+    post:
+      summary: Remove a model from a team
+      operationId: removeTeamModel
+      tags: [team]
+      responses:
+        "200":
+          description: Model removed from team

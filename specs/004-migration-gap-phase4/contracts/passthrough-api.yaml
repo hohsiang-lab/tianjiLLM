@@ -1,0 +1,121 @@
+# Pass-through API Contract (A1)
+# Routes defined in proxy_config.yaml are dynamically registered
+# and forward requests verbatim to upstream providers.
+
+openapi: "3.0.3"
+info:
+  title: TianjiLLM Pass-through Endpoints
+  version: "1.0.0"
+
+paths:
+  /vertex-ai/{path}:
+    x-tianji-passthrough: true
+    post:
+      summary: Forward request to Vertex AI
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema: {}
+      responses:
+        "200":
+          description: Upstream response forwarded verbatim
+          content:
+            application/json:
+              schema: {}
+        "502":
+          description: Upstream unreachable
+
+  /anthropic/{path}:
+    x-tianji-passthrough: true
+    post:
+      summary: Forward request to Anthropic API
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema: {}
+      responses:
+        "200":
+          description: Upstream response forwarded verbatim
+
+  /bedrock/{path}:
+    x-tianji-passthrough: true
+    post:
+      summary: Forward request to AWS Bedrock
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema: {}
+      responses:
+        "200":
+          description: Upstream response forwarded verbatim
+
+  /azure/{path}:
+    x-tianji-passthrough: true
+    post:
+      summary: Forward request to Azure OpenAI
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema: {}
+      responses:
+        "200":
+          description: Upstream response forwarded verbatim
+
+  /gemini/{path}:
+    x-tianji-passthrough: true
+    post:
+      summary: Forward request to Google Gemini
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema: {}
+      responses:
+        "200":
+          description: Upstream response forwarded verbatim
+
+  # User-defined pass-through (from config)
+  /{custom_path}:
+    x-tianji-passthrough: true
+    x-tianji-config-driven: true
+    description: |
+      User-defined pass-through routes from proxy_config.yaml:
+        pass_through_endpoints:
+          - path: /custom/api
+            target: https://internal.service/v1
+            headers:
+              X-Custom-Header: value
+    post:
+      summary: Forward to user-configured upstream
+      responses:
+        "200":
+          description: Upstream response forwarded verbatim

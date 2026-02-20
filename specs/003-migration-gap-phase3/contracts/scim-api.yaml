@@ -1,0 +1,405 @@
+openapi: "3.0.3"
+info:
+  title: SCIM 2.0 API
+  version: "1.0.0"
+  description: RFC 7644 compliant SCIM 2.0 endpoints for user and group provisioning
+
+paths:
+  /scim/v2:
+    get:
+      summary: SCIM base resource discovery
+      operationId: getSCIMBase
+      tags: [scim]
+      responses:
+        "200":
+          description: Base SCIM resources and endpoints
+
+  /scim/v2/ServiceProviderConfig:
+    get:
+      summary: SCIM Service Provider Configuration
+      operationId: getServiceProviderConfig
+      tags: [scim]
+      responses:
+        "200":
+          description: Service provider capabilities (patch, bulk, filter, sort, etc.)
+
+  /scim/v2/Schemas:
+    get:
+      summary: List SCIM Schemas
+      operationId: listSchemas
+      tags: [scim]
+      responses:
+        "200":
+          description: All supported SCIM schemas
+
+  /scim/v2/Schemas/{schema_id}:
+    get:
+      summary: Get a specific SCIM Schema
+      operationId: getSchema
+      tags: [scim]
+      parameters:
+        - name: schema_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "Schema URN (e.g., urn:ietf:params:scim:schemas:core:2.0:User)"
+      responses:
+        "200":
+          description: Schema definition
+        "404":
+          description: Schema not found
+
+  /scim/v2/ResourceTypes:
+    get:
+      summary: List SCIM Resource Types
+      operationId: listResourceTypes
+      tags: [scim]
+      responses:
+        "200":
+          description: Supported resource types (User, Group)
+
+  /scim/v2/ResourceTypes/{resource_type_id}:
+    get:
+      summary: Get a specific SCIM Resource Type
+      operationId: getResourceType
+      tags: [scim]
+      parameters:
+        - name: resource_type_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "Resource type name (e.g., User, Group)"
+      responses:
+        "200":
+          description: Resource type definition
+        "404":
+          description: Resource type not found
+
+  /scim/v2/Users:
+    post:
+      summary: Create SCIM User
+      operationId: createSCIMUser
+      tags: [scim]
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: "#/components/schemas/SCIMUser"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/SCIMUser"
+        "409":
+          description: User already exists
+
+    get:
+      summary: List SCIM Users
+      operationId: listSCIMUsers
+      tags: [scim]
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: 'SCIM filter (e.g., userName eq "john@example.com")'
+        - name: startIndex
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: count
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/SCIMListResponse"
+
+  /scim/v2/Users/{user_id}:
+    get:
+      summary: Get SCIM User
+      operationId: getSCIMUser
+      tags: [scim]
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: User details
+        "404":
+          description: User not found
+
+    put:
+      summary: Replace SCIM User
+      operationId: replaceSCIMUser
+      tags: [scim]
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: "#/components/schemas/SCIMUser"
+      responses:
+        "200":
+          description: User replaced
+
+    patch:
+      summary: Patch SCIM User
+      operationId: patchSCIMUser
+      tags: [scim]
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: "#/components/schemas/SCIMPatchRequest"
+      responses:
+        "200":
+          description: User patched
+
+    delete:
+      summary: Delete SCIM User
+      operationId: deleteSCIMUser
+      tags: [scim]
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: User deleted
+
+  /scim/v2/Groups:
+    post:
+      summary: Create SCIM Group
+      operationId: createSCIMGroup
+      tags: [scim]
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: "#/components/schemas/SCIMGroup"
+      responses:
+        "201":
+          description: Group created
+
+    get:
+      summary: List SCIM Groups
+      operationId: listSCIMGroups
+      tags: [scim]
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+        - name: startIndex
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: count
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: List of groups
+
+  /scim/v2/Groups/{group_id}:
+    get:
+      summary: Get SCIM Group
+      operationId: getSCIMGroup
+      tags: [scim]
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Group details
+
+    put:
+      summary: Replace SCIM Group
+      operationId: replaceSCIMGroup
+      tags: [scim]
+      responses:
+        "200":
+          description: Group replaced
+
+    patch:
+      summary: Patch SCIM Group
+      operationId: patchSCIMGroup
+      tags: [scim]
+      responses:
+        "200":
+          description: Group patched
+
+    delete:
+      summary: Delete SCIM Group
+      operationId: deleteSCIMGroup
+      tags: [scim]
+      responses:
+        "204":
+          description: Group deleted
+
+components:
+  schemas:
+    SCIMUser:
+      type: object
+      required: [schemas, userName]
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          default: ["urn:ietf:params:scim:schemas:core:2.0:User"]
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        externalId:
+          type: string
+        userName:
+          type: string
+        name:
+          type: object
+          properties:
+            givenName:
+              type: string
+            familyName:
+              type: string
+        displayName:
+          type: string
+        emails:
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+              primary:
+                type: boolean
+        active:
+          type: boolean
+          default: true
+        meta:
+          type: object
+          readOnly: true
+          properties:
+            resourceType:
+              type: string
+            created:
+              type: string
+              format: date-time
+            lastModified:
+              type: string
+              format: date-time
+            location:
+              type: string
+
+    SCIMGroup:
+      type: object
+      required: [schemas, displayName]
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          default: ["urn:ietf:params:scim:schemas:core:2.0:Group"]
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        displayName:
+          type: string
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+                description: SCIM User ID
+              display:
+                type: string
+        meta:
+          type: object
+          readOnly: true
+
+    SCIMPatchRequest:
+      type: object
+      required: [schemas, Operations]
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          default: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"]
+        Operations:
+          type: array
+          items:
+            type: object
+            required: [op]
+            properties:
+              op:
+                type: string
+                enum: [add, remove, replace]
+              path:
+                type: string
+              value:
+                description: Value to set (type depends on path)
+
+    SCIMListResponse:
+      type: object
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+        totalResults:
+          type: integer
+        startIndex:
+          type: integer
+        itemsPerPage:
+          type: integer
+        Resources:
+          type: array
+          items:
+            type: object

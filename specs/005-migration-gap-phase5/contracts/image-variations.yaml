@@ -1,0 +1,58 @@
+# Image Variations Endpoint Contract
+
+endpoints:
+  create_variation:
+    method: POST
+    path: "/v1/images/variations"
+    auth: Bearer token
+    request:
+      content_type: multipart/form-data
+      fields:
+        image:
+          type: file
+          required: true
+          description: "The image to use as the basis for variation(s). Must be a valid PNG, less than 4MB, and square."
+        model:
+          type: string
+          required: false
+          default: "dall-e-2"
+        n:
+          type: integer
+          required: false
+          default: 1
+          min: 1
+          max: 10
+        response_format:
+          type: string
+          required: false
+          enum: ["url", "b64_json"]
+          default: "url"
+        size:
+          type: string
+          required: false
+          enum: ["256x256", "512x512", "1024x1024"]
+          default: "1024x1024"
+        user:
+          type: string
+          required: false
+    response:
+      content_type: application/json
+      schema:
+        created: { type: integer, description: "Unix timestamp" }
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              url: { type: string, description: "Present when response_format=url" }
+              b64_json: { type: string, description: "Present when response_format=b64_json" }
+              revised_prompt: { type: string, nullable: true }
+    errors:
+      400: "Invalid image format or size"
+      401: "Authentication required"
+      413: "Image too large (>4MB)"
+
+implementation_note: |
+  Pass-through proxy — identical pattern to ImagesEdit handler.
+  Forward multipart form data to upstream provider unchanged.
+  Handler: h.assistantsProxy(w, r)

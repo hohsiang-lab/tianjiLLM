@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "title": "Introduction to Go",
+      "url": "https://go.dev/doc",
+      "content": "Go is a statically typed, compiled programming language designed at Google.",
+      "score": 0.98
+    },
+    {
+      "title": "Go by Example",
+      "url": "https://gobyexample.com",
+      "content": "Go by Example is a hands-on introduction to Go using annotated example programs.",
+      "score": 0.95
+    }
+  ]
+}

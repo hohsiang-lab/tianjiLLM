@@ -1,0 +1,94 @@
+# Search Provider API Contract
+
+endpoints:
+  search:
+    method: POST
+    path: "/v1/search/{search_tool_name}"
+    auth: Bearer token (same as proxy auth)
+    request:
+      content_type: application/json
+      schema:
+        query:
+          type: string
+          required: true
+          description: "Search query text"
+        max_results:
+          type: integer
+          required: false
+          description: "Maximum results to return"
+        search_domain_filter:
+          type: array
+          items: { type: string }
+          required: false
+          description: "Domains to include in search"
+        country:
+          type: string
+          required: false
+          description: "2-letter country code"
+    response:
+      content_type: application/json
+      schema:
+        object: { type: string, value: "search" }
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              title: { type: string, required: true }
+              url: { type: string, required: true }
+              snippet: { type: string, required: true }
+              date: { type: string, required: false, format: "ISO 8601" }
+              last_updated: { type: string, required: false, format: "ISO 8601" }
+    errors:
+      400: "Invalid request (missing query)"
+      404: "Search tool not found: {search_tool_name}"
+      401: "Authentication required"
+      502: "Upstream search provider error"
+
+config_format:
+  yaml:
+    search_tools:
+      - search_tool_name: "my-brave-search"
+        tianji_params:
+          search_provider: "brave"
+          api_key: "$BRAVE_API_KEY"
+        search_tool_info:
+          description: "Brave web search"
+
+provider_specifics:
+  brave:
+    default_api_base: "https://api.search.brave.com/res/v1/web/search"
+    env_vars: ["BRAVE_API_KEY"]
+    auth: "Header X-Subscription-Token"
+    http_method: GET
+    max_results_cap: 20
+  tavily:
+    default_api_base: "https://api.tavily.com/search"
+    env_vars: ["TAVILY_API_KEY"]
+    auth: "Body api_key field"
+    http_method: POST
+    max_results_cap: 20
+  searxng:
+    default_api_base: null  # user must provide
+    env_vars: ["SEARXNG_API_BASE", "SEARXNG_API_KEY"]
+    auth: "Optional Bearer token"
+    http_method: GET
+    max_results_cap: null  # uncontrolled
+  exa_ai:
+    default_api_base: "https://api.exa.ai/search"
+    env_vars: ["EXA_API_KEY"]
+    auth: "Header x-api-key"
+    http_method: POST
+    max_results_cap: 100
+  google_pse:
+    default_api_base: "https://www.googleapis.com/customsearch/v1"
+    env_vars: ["GOOGLE_PSE_API_KEY", "GOOGLE_PSE_ENGINE_ID"]
+    auth: "Query param key= and cx="
+    http_method: GET
+    max_results_cap: 10
+  dataforseo:
+    default_api_base: "https://api.dataforseo.com/v3/serp/google/organic/live/advanced"
+    env_vars: ["DATAFORSEO_LOGIN", "DATAFORSEO_PASSWORD"]
+    auth: "HTTP Basic Auth"
+    http_method: POST
+    max_results_cap: 700

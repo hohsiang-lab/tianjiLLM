@@ -1,0 +1,9 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "The current weather in San Francisco is 62°F (17°C), partly cloudy."
+    }
+  ],
+  "isError": false
+}

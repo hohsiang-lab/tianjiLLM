@@ -1,0 +1,275 @@
+openapi: "3.0.3"
+info:
+  title: Guardrail & Prompt Management API
+  version: "1.0.0"
+  description: CRUD endpoints for guardrail configurations and prompt templates
+
+paths:
+  # Guardrail Management
+  /guardrails:
+    post:
+      summary: Create a guardrail configuration
+      operationId: createGuardrail
+      tags: [guardrail]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGuardrailRequest"
+      responses:
+        "201":
+          description: Guardrail created
+
+    get:
+      summary: List guardrail configurations
+      operationId: listGuardrails
+      tags: [guardrail]
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+          description: Filter by guardrail type
+        - name: enabled
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of guardrails
+
+  /guardrails/{guardrail_id}:
+    get:
+      summary: Get a guardrail configuration
+      operationId: getGuardrail
+      tags: [guardrail]
+      parameters:
+        - name: guardrail_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Guardrail details
+        "404":
+          description: Guardrail not found
+
+    put:
+      summary: Update a guardrail configuration
+      operationId: updateGuardrail
+      tags: [guardrail]
+      parameters:
+        - name: guardrail_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGuardrailRequest"
+      responses:
+        "200":
+          description: Guardrail updated
+
+    delete:
+      summary: Delete a guardrail configuration
+      operationId: deleteGuardrail
+      tags: [guardrail]
+      parameters:
+        - name: guardrail_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Guardrail deleted
+
+  # Prompt Management
+  /prompts:
+    post:
+      summary: Create a prompt template
+      operationId: createPrompt
+      tags: [prompt]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePromptRequest"
+      responses:
+        "201":
+          description: Prompt created (version auto-incremented if name exists)
+
+    get:
+      summary: List prompt templates
+      operationId: listPrompts
+      tags: [prompt]
+      responses:
+        "200":
+          description: List of prompts (latest version of each)
+
+  /prompts/{prompt_id}:
+    get:
+      summary: Get a prompt template
+      operationId: getPrompt
+      tags: [prompt]
+      parameters:
+        - name: prompt_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Prompt details
+
+    put:
+      summary: Update a prompt template
+      operationId: updatePrompt
+      tags: [prompt]
+      parameters:
+        - name: prompt_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Prompt updated
+
+    delete:
+      summary: Delete a prompt template
+      operationId: deletePrompt
+      tags: [prompt]
+      parameters:
+        - name: prompt_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Prompt deleted
+
+  /prompts/{prompt_id}/versions:
+    get:
+      summary: List prompt versions
+      operationId: listPromptVersions
+      tags: [prompt]
+      parameters:
+        - name: prompt_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of versions for this prompt
+
+  /prompts/test:
+    post:
+      summary: Test prompt template resolution (without calling LLM)
+      operationId: testPrompt
+      tags: [prompt]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestPromptRequest"
+      responses:
+        "200":
+          description: Resolved prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestPromptResponse"
+
+components:
+  schemas:
+    CreateGuardrailRequest:
+      type: object
+      required: [guardrail_name, guardrail_type, config]
+      properties:
+        guardrail_name:
+          type: string
+        guardrail_type:
+          type: string
+          enum: [bedrock, presidio, lakera, content_filter, generic_api, tool_permission, azure_content_safety, prompt_injection]
+        config:
+          type: object
+          description: Type-specific configuration
+        failure_policy:
+          type: string
+          enum: [fail_open, fail_closed]
+          default: fail_closed
+        enabled:
+          type: boolean
+          default: true
+
+    UpdateGuardrailRequest:
+      type: object
+      properties:
+        guardrail_name:
+          type: string
+        config:
+          type: object
+        failure_policy:
+          type: string
+          enum: [fail_open, fail_closed]
+        enabled:
+          type: boolean
+
+    CreatePromptRequest:
+      type: object
+      required: [name, template]
+      properties:
+        name:
+          type: string
+        template:
+          type: string
+          description: "Template with {{variable}} placeholders"
+        variables:
+          type: array
+          items:
+            type: string
+        model:
+          type: string
+        metadata:
+          type: object
+
+    TestPromptRequest:
+      type: object
+      required: [prompt_id, variables]
+      properties:
+        prompt_id:
+          type: string
+          format: uuid
+        variables:
+          type: object
+          description: "Key-value pairs for template variables"
+
+    TestPromptResponse:
+      type: object
+      properties:
+        resolved_prompt:
+          type: string
+        model:
+          type: string
+        missing_variables:
+          type: array
+          items:
+            type: string

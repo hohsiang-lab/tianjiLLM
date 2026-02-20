@@ -1,0 +1,136 @@
+# Responses API Contract (A2)
+# Phase 1: Pass-through to OpenAI
+# Phase 2: Cross-provider bridge (future)
+
+openapi: "3.0.3"
+info:
+  title: OpenAI Responses API (Pass-through)
+  version: "1.0.0"
+
+paths:
+  /v1/responses:
+    post:
+      summary: Create a response (pass-through to OpenAI)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [model, input]
+              properties:
+                model:
+                  type: string
+                  example: "gpt-4o"
+                input:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: object
+                instructions:
+                  type: string
+                max_output_tokens:
+                  type: integer
+                temperature:
+                  type: number
+                tools:
+                  type: array
+                  items:
+                    type: object
+                previous_response_id:
+                  type: string
+                store:
+                  type: boolean
+                stream:
+                  type: boolean
+      responses:
+        "200":
+          description: Response object (non-streaming)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+        "200-stream":
+          description: SSE event stream (when stream=true)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /v1/responses/{response_id}:
+    get:
+      summary: Retrieve a response by ID
+      parameters:
+        - name: response_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Response object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+    delete:
+      summary: Cancel a response
+      parameters:
+        - name: response_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cancelled response
+
+  /v1/responses/{response_id}/input_items:
+    get:
+      summary: List input items for a response
+      parameters:
+        - name: response_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of input items
+
+components:
+  schemas:
+    ResponseObject:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "resp_abc123"
+        object:
+          type: string
+          enum: [response]
+        status:
+          type: string
+          enum: [completed, failed, in_progress, cancelled]
+        output:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              role:
+                type: string
+              content:
+                type: array
+                items:
+                  type: object
+        usage:
+          type: object
+          properties:
+            input_tokens:
+              type: integer
+            output_tokens:
+              type: integer

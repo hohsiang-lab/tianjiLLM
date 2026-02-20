@@ -1,0 +1,25 @@
+model_list:
+  - model_name: gpt-4o
+    tianji_params:
+      model: openai/gpt-4o
+      api_key: "$OPENAI_API_KEY"
+
+mcp_servers:
+  weather:
+    transport: sse
+    url: "http://localhost:8080/sse"
+    allowed_tools:
+      - get_weather
+      - get_forecast
+  filesystem:
+    transport: stdio
+    command: npx
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-filesystem"
+      - "/tmp"
+    disallowed_tools:
+      - delete_file
+
+general_settings:
+  master_key: "sk-1234"

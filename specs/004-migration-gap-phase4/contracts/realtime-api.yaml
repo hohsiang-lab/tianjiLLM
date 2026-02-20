@@ -1,0 +1,82 @@
+# Realtime API Contract (A6)
+# WebSocket bidirectional proxy
+
+openapi: "3.0.3"
+info:
+  title: OpenAI Realtime API (WebSocket Proxy)
+  version: "1.0.0"
+  description: |
+    WebSocket endpoint that proxies bidirectional messages between
+    client and upstream provider (OpenAI Realtime, Vertex Live API).
+
+    Connection flow:
+    1. Client opens WebSocket to /v1/realtime?model={model}
+    2. Proxy authenticates via Bearer token (same as HTTP endpoints)
+    3. Proxy opens upstream WebSocket to provider's realtime endpoint
+    4. Messages relay bidirectionally until either side disconnects
+
+paths:
+  /v1/realtime:
+    get:
+      summary: WebSocket upgrade for realtime API
+      description: |
+        Upgrades HTTP connection to WebSocket.
+        Query parameter `model` determines upstream provider.
+        Authorization via Bearer token in header.
+      parameters:
+        - name: model
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "gpt-4o-realtime-preview"
+      responses:
+        "101":
+          description: WebSocket upgrade successful
+        "401":
+          description: Authentication failed
+        "502":
+          description: Cannot connect to upstream provider
+
+  # Vertex AI variant
+  /vertex-ai/v1/projects/{project}/locations/{location}/publishers/{publisher}/models/{model}:streamGenerateContent:
+    get:
+      summary: Vertex AI Live API WebSocket proxy
+      parameters:
+        - name: project
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: location
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: publisher
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: model
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "101":
+          description: WebSocket upgrade successful
+
+components:
+  schemas:
+    RealtimeMessage:
+      description: |
+        Messages are provider-specific JSON.
+        Proxy relays them verbatim without parsing.
+        OpenAI Realtime uses typed events:
+        - session.create, session.update
+        - input_audio_buffer.append, input_audio_buffer.commit
+        - response.create
+        - response.audio.delta, response.text.delta
+        - conversation.item.create
+      type: object

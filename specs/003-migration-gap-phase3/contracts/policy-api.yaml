@@ -1,0 +1,475 @@
+openapi: "3.0.3"
+info:
+  title: Policy Engine API
+  version: "1.0.0"
+  description: Policy CRUD and evaluation endpoints for conditional guardrail assignment
+
+paths:
+  /policies:
+    post:
+      summary: Create a new policy
+      operationId: createPolicy
+      tags: [policy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePolicyRequest"
+      responses:
+        "201":
+          description: Policy created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "400":
+          description: Validation error (e.g., circular inheritance)
+        "401":
+          description: Unauthorized
+
+  /policies/list:
+    get:
+      summary: List all policies
+      operationId: listPolicies
+      tags: [policy]
+      responses:
+        "200":
+          description: List of policies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Policy"
+
+  /policies/{policy_id}:
+    get:
+      summary: Get a policy by ID
+      operationId: getPolicy
+      tags: [policy]
+      parameters:
+        - name: policy_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Policy details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "404":
+          description: Policy not found
+
+    put:
+      summary: Update a policy
+      operationId: updatePolicy
+      tags: [policy]
+      parameters:
+        - name: policy_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePolicyRequest"
+      responses:
+        "200":
+          description: Policy updated
+        "400":
+          description: Validation error
+        "404":
+          description: Policy not found
+
+    delete:
+      summary: Delete a policy
+      operationId: deletePolicy
+      tags: [policy]
+      parameters:
+        - name: policy_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Policy deleted
+        "404":
+          description: Policy not found
+
+  /policies/{policy_id}/resolved-guardrails:
+    get:
+      summary: Get resolved guardrails for a policy (with inheritance)
+      operationId: getResolvedGuardrails
+      tags: [policy]
+      parameters:
+        - name: policy_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Resolved guardrail list after inheritance chain merge
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policy_name:
+                    type: string
+                  inheritance_chain:
+                    type: array
+                    items:
+                      type: string
+                  resolved_guardrails:
+                    type: array
+                    items:
+                      type: string
+
+  /policies/attachments:
+    post:
+      summary: Create a policy attachment
+      operationId: createPolicyAttachment
+      tags: [policy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePolicyAttachmentRequest"
+      responses:
+        "201":
+          description: Attachment created
+        "400":
+          description: Invalid scope
+
+  /policies/attachments/list:
+    get:
+      summary: List policy attachments
+      operationId: listPolicyAttachments
+      tags: [policy]
+      parameters:
+        - name: policy_name
+          in: query
+          schema:
+            type: string
+          description: Filter by policy name
+      responses:
+        "200":
+          description: List of attachments
+
+  /policies/attachments/{attachment_id}:
+    get:
+      summary: Get a policy attachment
+      operationId: getPolicyAttachment
+      tags: [policy]
+      parameters:
+        - name: attachment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Attachment details
+
+    delete:
+      summary: Delete a policy attachment
+      operationId: deletePolicyAttachment
+      tags: [policy]
+      parameters:
+        - name: attachment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Attachment deleted
+
+  /policies/test-pipeline:
+    post:
+      summary: Test policy pipeline against sample input
+      operationId: testPolicyPipeline
+      tags: [policy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestPolicyRequest"
+      responses:
+        "200":
+          description: Pipeline test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestPolicyResponse"
+
+  /policy/validate:
+    post:
+      summary: Validate a policy configuration without persisting
+      operationId: validatePolicy
+      tags: [policy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePolicyRequest"
+      responses:
+        "200":
+          description: Validation passed
+        "400":
+          description: Validation errors returned
+
+  /policy/info/{policy_name}:
+    get:
+      summary: Get policy info by name (including resolved state)
+      operationId: getPolicyInfo
+      tags: [policy]
+      parameters:
+        - name: policy_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Policy details with resolved guardrails
+        "404":
+          description: Policy not found
+
+  /policy/test:
+    post:
+      summary: Test policy matching for a given request context
+      operationId: testPolicyMatch
+      tags: [policy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model:
+                  type: string
+                team_id:
+                  type: string
+                key_hash:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Matching policies and resolved guardrails
+
+components:
+  schemas:
+    CreatePolicyRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        inherit:
+          type: string
+          description: "Parent policy name for inheritance"
+        description:
+          type: string
+        conditions:
+          type: object
+          properties:
+            model:
+              oneOf:
+                - type: string
+                - type: array
+                  items:
+                    type: string
+              description: "Model name pattern(s) — uses regexp matching (e.g., 'gpt-4.*')"
+        guardrails_add:
+          type: array
+          items:
+            type: string
+        guardrails_remove:
+          type: array
+          items:
+            type: string
+        pipeline:
+          $ref: "#/components/schemas/GuardrailPipeline"
+
+    UpdatePolicyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        inherit:
+          type: string
+          nullable: true
+        description:
+          type: string
+        conditions:
+          type: object
+        guardrails_add:
+          type: array
+          items:
+            type: string
+        guardrails_remove:
+          type: array
+          items:
+            type: string
+        pipeline:
+          $ref: "#/components/schemas/GuardrailPipeline"
+
+    Policy:
+      type: object
+      properties:
+        policy_id:
+          type: string
+          format: uuid
+        policy_name:
+          type: string
+        inherit:
+          type: string
+          nullable: true
+        description:
+          type: string
+        conditions:
+          type: object
+        guardrails_add:
+          type: array
+          items:
+            type: string
+        guardrails_remove:
+          type: array
+          items:
+            type: string
+        pipeline:
+          $ref: "#/components/schemas/GuardrailPipeline"
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    GuardrailPipeline:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [pre_call, post_call]
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineStep"
+
+    PipelineStep:
+      type: object
+      required: [guardrail, on_pass, on_fail]
+      properties:
+        guardrail:
+          type: string
+        on_pass:
+          type: string
+          enum: [next, allow, modify_response]
+        on_fail:
+          type: string
+          enum: [next, block, modify_response]
+        pass_data:
+          type: boolean
+          default: false
+          description: "Forward modified data to next step (e.g., PII-masked content)"
+        modify_response_message:
+          type: string
+          description: "Custom response message when action is modify_response"
+
+    CreatePolicyAttachmentRequest:
+      type: object
+      required: [policy_name]
+      properties:
+        policy_name:
+          type: string
+          description: "Name of the policy to attach"
+        scope:
+          type: string
+          description: "'*' for global scope"
+        teams:
+          type: array
+          items:
+            type: string
+          description: "Team IDs (supports wildcards, e.g., 'team-finance-*')"
+        keys:
+          type: array
+          items:
+            type: string
+          description: "Key hashes (supports wildcards)"
+        models:
+          type: array
+          items:
+            type: string
+          description: "Model names (supports wildcards)"
+        tags:
+          type: array
+          items:
+            type: string
+          description: "Request tags (supports wildcards)"
+
+    TestPolicyRequest:
+      type: object
+      required: [policy_id]
+      properties:
+        policy_id:
+          type: string
+          format: uuid
+        sample_input:
+          type: object
+          properties:
+            model:
+              type: string
+            messages:
+              type: array
+              items:
+                type: object
+
+    TestPolicyResponse:
+      type: object
+      properties:
+        resolved_guardrails:
+          type: array
+          items:
+            type: string
+        pipeline_result:
+          type: string
+          enum: [allowed, blocked, modified, skipped]
+        step_results:
+          type: array
+          items:
+            type: object
+            properties:
+              guardrail:
+                type: string
+              passed:
+                type: boolean
+              action_taken:
+                type: string
+              data_forwarded:
+                type: boolean
