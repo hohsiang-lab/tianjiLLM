@@ -35,6 +35,14 @@ func (h *UIHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/keys/block", h.handleKeyBlock)
 		r.Post("/keys/unblock", h.handleKeyUnblock)
 
+		// Key Detail
+		r.Get("/keys/{token}", h.handleKeyDetail)
+		r.Get("/keys/{token}/edit", h.handleKeyEdit)
+		r.Get("/keys/{token}/settings", h.handleKeySettings)
+		r.Post("/keys/{token}/update", h.handleKeyUpdate)
+		r.Post("/keys/{token}/delete", h.handleKeyDetailDelete)
+		r.Post("/keys/{token}/regenerate", h.handleKeyRegenerate)
+
 		// Models
 		r.Get("/models", h.handleModels)
 
