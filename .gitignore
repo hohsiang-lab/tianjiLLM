@@ -22,6 +22,9 @@ Thumbs.db
 .env
 .env.*
 
+# Local config (may contain API keys)
+proxy_config.yaml
+
 # Coverage
 coverage.out
 coverage.html
