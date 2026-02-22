@@ -1,6 +1,6 @@
 TAILWIND := ./bin/tailwindcss
 
-.PHONY: build test lint generate check docker run clean templ-generate tailwind-build ui ui-dev tools dev
+.PHONY: build test lint generate check docker run clean templ-generate tailwind-build ui ui-dev tools dev e2e e2e-headed playwright-install
 
 tools:
 	go install github.com/a-h/templ/cmd/templ@latest
@@ -46,3 +46,14 @@ dev:
 ui-dev:
 	templ generate --watch --proxy="http://localhost:4000" &
 	$(TAILWIND) -i internal/ui/input.css -o internal/ui/assets/css/output.css --watch &
+
+playwright-install:
+	go run github.com/playwright-community/playwright-go/cmd/playwright install --with-deps chromium
+
+e2e: ui playwright-install
+	E2E_DATABASE_URL="postgres://tianji:tianji@localhost:5433/tianji_e2e?sslmode=disable" \
+		go test -tags e2e -count=1 -v -timeout 5m ./test/e2e/...
+
+e2e-headed: ui playwright-install
+	E2E_HEADLESS=false E2E_DATABASE_URL="postgres://tianji:tianji@localhost:5433/tianji_e2e?sslmode=disable" \
+		go test -tags e2e -count=1 -v -timeout 5m ./test/e2e/...
