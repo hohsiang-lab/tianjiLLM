@@ -5,7 +5,6 @@ package e2e
 import (
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,16 +23,10 @@ func TestKeyCreate_FullLifecycle(t *testing.T) {
 	f.InputByID("key_alias", "e2e-created-key")
 
 	// 3. Submit
-	require.NoError(t, f.Page.Locator("#create-key-dialog button[type=submit]").Filter(playwright.LocatorFilterOptions{
-		HasText: "Create",
-	}).Click())
-	f.WaitStable()
+	f.SubmitDialog("create-key-dialog", "Create")
 
 	// 4. Create dialog should close, reveal dialog should open
-	require.NoError(t, f.Page.Locator("text=Save your Key").WaitFor(playwright.LocatorWaitForOptions{
-		Timeout: playwright.Float(5000),
-	}))
-	f.WaitStable()
+	f.WaitKeyReveal()
 
 	// 5. Raw key (sk-...) should be visible
 	rawKey, err := f.Page.Locator(".select-all").TextContent()
@@ -44,10 +37,7 @@ func TestKeyCreate_FullLifecycle(t *testing.T) {
 	assert.True(t, f.Has("#key-reveal-dialog button"), "copy button should exist")
 
 	// 7. Close reveal dialog
-	require.NoError(t, f.Page.Locator("#key-reveal-dialog button").Filter(playwright.LocatorFilterOptions{
-		HasText: "Done",
-	}).Click())
-	f.WaitStable()
+	f.CloseKeyReveal()
 
 	// 8. Key should now appear in the table
 	assert.Contains(t, f.Text("#keys-table"), "e2e-created-key")
@@ -75,10 +65,7 @@ func TestKeyCreate_DuplicateAlias(t *testing.T) {
 	f.WaitDialogOpen("create-key-dialog")
 
 	f.InputByID("key_alias", "existing-alias")
-	require.NoError(t, f.Page.Locator("#create-key-dialog button[type=submit]").Filter(playwright.LocatorFilterOptions{
-		HasText: "Create",
-	}).Click())
-	f.WaitStable()
+	f.SubmitDialog("create-key-dialog", "Create")
 
 	// Should show error toast
 	text := f.WaitToast()
@@ -104,21 +91,9 @@ func TestKeyCreate_WithOptionalSettings(t *testing.T) {
 	f.InputByID("models", "gpt-4o, claude-sonnet")
 	f.InputByID("duration", "30d")
 
-	require.NoError(t, f.Page.Locator("#create-key-dialog button[type=submit]").Filter(playwright.LocatorFilterOptions{
-		HasText: "Create",
-	}).Click())
-	f.WaitStable()
-
-	// Wait for key reveal
-	require.NoError(t, f.Page.Locator("text=Save your Key").WaitFor(playwright.LocatorWaitForOptions{
-		Timeout: playwright.Float(5000),
-	}))
-
-	// Close reveal
-	require.NoError(t, f.Page.Locator("#key-reveal-dialog button").Filter(playwright.LocatorFilterOptions{
-		HasText: "Done",
-	}).Click())
-	f.WaitStable()
+	f.SubmitDialog("create-key-dialog", "Create")
+	f.WaitKeyReveal()
+	f.CloseKeyReveal()
 
 	// Verify key appears in list
 	assert.Contains(t, f.Text("#keys-table"), "full-options-key")
@@ -132,9 +107,7 @@ func TestKeyCreate_CancelClosesDialog(t *testing.T) {
 	f.WaitDialogOpen("create-key-dialog")
 
 	// Click Cancel
-	require.NoError(t, f.Page.Locator("#create-key-dialog button").Filter(playwright.LocatorFilterOptions{
-		HasText: "Cancel",
-	}).Click())
+	f.ClickButtonIn("#create-key-dialog", "Cancel")
 	f.WaitDialogClose("create-key-dialog")
 
 	// Table should still show empty state

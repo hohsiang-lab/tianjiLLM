@@ -5,7 +5,6 @@ package e2e
 import (
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -74,13 +73,7 @@ func TestKeyDetail_SettingsTab(t *testing.T) {
 	f := setup(t)
 	hash := f.SeedKey(SeedOpts{Alias: "settings-key"})
 
-	f.NavigateToKeyDetail(hash)
-
-	// Click Settings tab
-	require.NoError(t, f.Page.Locator("[data-tui-tabs-trigger]").Filter(playwright.LocatorFilterOptions{
-		HasText: "Settings",
-	}).Click())
-	f.WaitStable()
+	f.NavigateToSettings(hash)
 
 	body := f.Text("#settings-content")
 	assert.Contains(t, body, "Key ID")

@@ -181,18 +181,19 @@ func (f *Fixture) WaitStable() {
 // WaitDialogOpen waits until the templUI dialog content is open.
 func (f *Fixture) WaitDialogOpen(dialogID string) {
 	f.T.Helper()
-	sel := fmt.Sprintf(`[data-dialog-instance="%s"][data-tui-dialog-content][data-tui-dialog-open="true"]`, dialogID)
-	require.NoError(f.T, f.Page.Locator(sel).WaitFor(playwright.LocatorWaitForOptions{
-		Timeout: playwright.Float(5000),
-	}))
+	f.waitDialog(dialogID, playwright.WaitForSelectorStateVisible)
 }
 
 // WaitDialogClose waits until the templUI dialog content is no longer open.
 func (f *Fixture) WaitDialogClose(dialogID string) {
 	f.T.Helper()
+	f.waitDialog(dialogID, playwright.WaitForSelectorStateHidden)
+}
+
+func (f *Fixture) waitDialog(dialogID string, state *playwright.WaitForSelectorState) {
 	sel := fmt.Sprintf(`[data-dialog-instance="%s"][data-tui-dialog-content][data-tui-dialog-open="true"]`, dialogID)
 	require.NoError(f.T, f.Page.Locator(sel).WaitFor(playwright.LocatorWaitForOptions{
-		State:   playwright.WaitForSelectorStateHidden,
+		State:   state,
 		Timeout: playwright.Float(5000),
 	}))
 }
@@ -217,12 +218,72 @@ func (f *Fixture) ClickButton(text string) {
 	}).Click())
 }
 
-// ClickLink finds an <a> by visible text and clicks it.
-func (f *Fixture) ClickLink(text string) {
+// ClickButtonIn finds a <button> by visible text within a container and clicks it.
+func (f *Fixture) ClickButtonIn(container, text string) {
 	f.T.Helper()
-	require.NoError(f.T, f.Page.GetByRole("link", playwright.PageGetByRoleOptions{
-		Name: text,
+	require.NoError(f.T, f.Page.Locator(container+" button").Filter(playwright.LocatorFilterOptions{
+		HasText: text,
 	}).Click())
+}
+
+// ClickTab clicks a templUI tab trigger by visible text.
+func (f *Fixture) ClickTab(text string) {
+	f.T.Helper()
+	require.NoError(f.T, f.Page.Locator("[data-tui-tabs-trigger]").Filter(playwright.LocatorFilterOptions{
+		HasText: text,
+	}).Click())
+	f.WaitStable()
+}
+
+// SubmitDialog clicks the submit button inside a dialog by visible text.
+func (f *Fixture) SubmitDialog(dialogID, text string) {
+	f.T.Helper()
+	sel := fmt.Sprintf("#%s button[type=submit]", dialogID)
+	require.NoError(f.T, f.Page.Locator(sel).Filter(playwright.LocatorFilterOptions{
+		HasText: text,
+	}).Click())
+	f.WaitStable()
+}
+
+// ConfirmDelete types the alias into the delete confirmation input,
+// enables the button (workaround for templ ComponentScript), and clicks it.
+func (f *Fixture) ConfirmDelete(alias string) {
+	f.T.Helper()
+	f.InputByID("confirm_alias", alias)
+	f.EnableByValue("confirm_alias", alias, "delete-confirm-btn")
+	f.WaitStable()
+	require.NoError(f.T, f.Page.Locator("#delete-confirm-btn").Click())
+}
+
+// WaitKeyReveal waits for the key reveal dialog to appear after creation.
+func (f *Fixture) WaitKeyReveal() {
+	f.T.Helper()
+	require.NoError(f.T, f.Page.Locator("text=Save your Key").WaitFor(playwright.LocatorWaitForOptions{
+		Timeout: playwright.Float(5000),
+	}))
+	f.WaitStable()
+}
+
+// CloseKeyReveal closes the key reveal dialog by clicking "Done".
+func (f *Fixture) CloseKeyReveal() {
+	f.T.Helper()
+	f.ClickButtonIn("#key-reveal-dialog", "Done")
+	f.WaitStable()
+}
+
+// NavigateToSettings navigates to key detail and clicks the Settings tab.
+func (f *Fixture) NavigateToSettings(token string) {
+	f.T.Helper()
+	f.NavigateToKeyDetail(token)
+	f.ClickTab("Settings")
+}
+
+// NavigateToSettingsEdit navigates to key detail → Settings → Edit Settings.
+func (f *Fixture) NavigateToSettingsEdit(token string) {
+	f.T.Helper()
+	f.NavigateToSettings(token)
+	f.ClickButton("Edit Settings")
+	f.WaitStable()
 }
 
 // FilterByName fills a filter input inside #key-filters by name attribute.
@@ -259,14 +320,12 @@ func (f *Fixture) EnableByValue(inputID, expected, btnID string) {
 	require.NoError(f.T, err)
 }
 
-// SelectByName sets a <select name="..."> to a value.
-func (f *Fixture) SelectByName(name, value string) {
+// InputValue returns the current value of an input element by #id.
+func (f *Fixture) InputValue(id string) string {
 	f.T.Helper()
-	sel := fmt.Sprintf(`select[name="%s"]`, name)
-	_, err := f.Page.Locator(sel).SelectOption(playwright.SelectOptionValues{
-		Values: &[]string{value},
-	})
+	val, err := f.Page.Locator("#" + id).InputValue()
 	require.NoError(f.T, err)
+	return val
 }
 
 // Text returns the text content of a CSS selector, or "" if not found.
@@ -301,19 +360,6 @@ func (f *Fixture) Count(selector string) int {
 	return count
 }
 
-// Attribute returns the attribute value of the first element matching selector.
-func (f *Fixture) Attribute(selector, attr string) *string {
-	f.T.Helper()
-	val, err := f.Page.Locator(selector).GetAttribute(attr)
-	if err != nil {
-		return nil
-	}
-	if val == "" {
-		return nil
-	}
-	return &val
-}
-
 // URL returns the current page URL.
 func (f *Fixture) URL() string {
 	return f.Page.URL()
@@ -340,4 +386,3 @@ func hashTestKey(key string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func ptr[T any](v T) *T { return &v }

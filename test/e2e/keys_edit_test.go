@@ -5,9 +5,7 @@ package e2e
 import (
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // US4 — Edit Settings: form prefill, save, toast, cancel.
@@ -23,58 +21,26 @@ func TestKeyEdit_FormPrefilled(t *testing.T) {
 		Models:    []string{"gpt-4o"},
 	})
 
-	f.NavigateToKeyDetail(hash)
+	f.NavigateToSettingsEdit(hash)
 
-	// Switch to Settings tab
-	require.NoError(t, f.Page.Locator("[data-tui-tabs-trigger]").Filter(playwright.LocatorFilterOptions{
-		HasText: "Settings",
-	}).Click())
-	f.WaitStable()
-
-	// Click Edit Settings
-	f.ClickButton("Edit Settings")
-	f.WaitStable()
-
-	// Verify form fields are prefilled via InputValue (reads current input value)
-	alias, err := f.Page.Locator("#edit_key_alias").InputValue()
-	require.NoError(t, err)
-	assert.Equal(t, "edit-prefill", alias)
-
-	maxBudget, err := f.Page.Locator("#edit_max_budget").InputValue()
-	require.NoError(t, err)
-	assert.Equal(t, "200.00", maxBudget)
-
-	tpmVal, err := f.Page.Locator("#edit_tpm_limit").InputValue()
-	require.NoError(t, err)
-	assert.Equal(t, "8000", tpmVal)
-
-	models, err := f.Page.Locator("#edit_models").InputValue()
-	require.NoError(t, err)
-	assert.Equal(t, "gpt-4o", models)
+	assert.Equal(t, "edit-prefill", f.InputValue("edit_key_alias"))
+	assert.Equal(t, "200.00", f.InputValue("edit_max_budget"))
+	assert.Equal(t, "8000", f.InputValue("edit_tpm_limit"))
+	assert.Equal(t, "gpt-4o", f.InputValue("edit_models"))
 }
 
 func TestKeyEdit_SaveUpdatesAndShowsToast(t *testing.T) {
 	f := setup(t)
 	hash := f.SeedKey(SeedOpts{Alias: "edit-save"})
 
-	f.NavigateToKeyDetail(hash)
-
-	// Settings → Edit
-	require.NoError(t, f.Page.Locator("[data-tui-tabs-trigger]").Filter(playwright.LocatorFilterOptions{
-		HasText: "Settings",
-	}).Click())
-	f.WaitStable()
-	f.ClickButton("Edit Settings")
-	f.WaitStable()
+	f.NavigateToSettingsEdit(hash)
 
 	// Change alias
 	f.InputByID("edit_key_alias", "edit-save-updated")
 	f.InputByID("edit_max_budget", "999")
 
 	// Submit
-	require.NoError(t, f.Page.Locator("button[type=submit]").Filter(playwright.LocatorFilterOptions{
-		HasText: "Save Changes",
-	}).Click())
+	f.ClickButton("Save Changes")
 	f.WaitStable()
 
 	// Toast should appear
@@ -91,20 +57,10 @@ func TestKeyEdit_CancelReturnsToView(t *testing.T) {
 	f := setup(t)
 	hash := f.SeedKey(SeedOpts{Alias: "edit-cancel"})
 
-	f.NavigateToKeyDetail(hash)
-
-	// Settings → Edit
-	require.NoError(t, f.Page.Locator("[data-tui-tabs-trigger]").Filter(playwright.LocatorFilterOptions{
-		HasText: "Settings",
-	}).Click())
-	f.WaitStable()
-	f.ClickButton("Edit Settings")
-	f.WaitStable()
+	f.NavigateToSettingsEdit(hash)
 
 	// Click Cancel
-	require.NoError(t, f.Page.Locator("#settings-content button").Filter(playwright.LocatorFilterOptions{
-		HasText: "Cancel",
-	}).Click())
+	f.ClickButtonIn("#settings-content", "Cancel")
 	f.WaitStable()
 
 	// Should be back in view mode with Edit Settings button

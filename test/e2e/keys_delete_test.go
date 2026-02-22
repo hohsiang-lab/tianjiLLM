@@ -5,7 +5,6 @@ package e2e
 import (
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -58,13 +57,8 @@ func TestKeyDelete_SubmitRedirectsToList(t *testing.T) {
 	f.ClickButton("Delete Key")
 	f.WaitDialogOpen("delete-key-dialog")
 
-	// Type correct alias and enable button
-	f.InputByID("confirm_alias", "will-be-deleted")
-	f.EnableByValue("confirm_alias", "will-be-deleted", "delete-confirm-btn")
-	f.WaitStable()
-
-	// Click Delete Key submit
-	require.NoError(t, f.Page.Locator("#delete-confirm-btn").Click())
+	// Type correct alias, enable button, and submit
+	f.ConfirmDelete("will-be-deleted")
 	require.NoError(t, f.Page.WaitForURL("**/ui/keys"))
 	f.WaitStable()
 
@@ -85,9 +79,7 @@ func TestKeyDelete_CancelClosesDialog(t *testing.T) {
 	f.WaitDialogOpen("delete-key-dialog")
 
 	// Click Cancel
-	require.NoError(t, f.Page.Locator("#delete-key-dialog button").Filter(playwright.LocatorFilterOptions{
-		HasText: "Cancel",
-	}).Click())
+	f.ClickButtonIn("#delete-key-dialog", "Cancel")
 	f.WaitDialogClose("delete-key-dialog")
 
 	// Still on detail page

@@ -23,11 +23,9 @@ func TestKeyBlock_BlockChangesStatus(t *testing.T) {
 	f.ClickButton("Block")
 	f.WaitStable()
 
-	// Status should now be Blocked
-	assert.Contains(t, f.Text("#keys-table"), "Blocked")
-
-	// Button should now say "Unblock"
+	// Status should now be Blocked, button should say "Unblock"
 	body := f.Text("#keys-table")
+	assert.Contains(t, body, "Blocked")
 	assert.Contains(t, body, "Unblock")
 }
 
@@ -43,9 +41,9 @@ func TestKeyBlock_UnblockRestoresActive(t *testing.T) {
 	f.ClickButton("Unblock")
 	f.WaitStable()
 
-	// Status should now be Active
-	assert.Contains(t, f.Text("#keys-table"), "Active")
+	// Status should now be Active, button should say "Block" (not "Unblock")
 	body := f.Text("#keys-table")
+	assert.Contains(t, body, "Active")
 	assert.Contains(t, body, "Block")
 	assert.NotContains(t, body, "Unblock")
 }
