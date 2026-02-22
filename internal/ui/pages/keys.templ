@@ -108,81 +108,81 @@ templ KeysPage(data KeysPageData) {
 		@dialog.Script()
 		@input.Script()
 		@toast.Script()
-		<div class="space-y-4">
-			<h2 class="text-lg font-semibold">API Keys</h2>
-			<!-- Filter toolbar -->
-			<div id="key-filters" class="flex flex-wrap items-center gap-2">
+		<div class="space-y-3">
+			<!-- Filter toolbar: grid gives precise column control regardless of child wrapper divs -->
+			<div id="key-filters" class="grid items-center gap-2" style="grid-template-columns: 2fr 1fr 1fr 1fr auto;">
 				<div class="relative">
-					@icon.Search(icon.Props{Size: 16, Class: "absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"})
+					@icon.Search(icon.Props{Size: 16, Class: "absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"})
 					<input
 						type="text"
 						name="key_alias"
 						placeholder="Filter by alias..."
 						value={ data.FilterKeyAlias }
-						class="flex h-10 w-[180px] rounded-md border border-input bg-background pl-8 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+						class="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
 						hx-get="/ui/keys/table"
 						hx-trigger="input changed delay:300ms"
 						hx-target="#keys-table"
 						hx-include="#key-filters"
 					/>
 				</div>
-				@input.Input(input.Props{
-					Placeholder: "Team ID...",
-					Class:       "w-[160px]",
-					Attributes: templ.Attributes{
-						"name":       "team_id",
-						"value":      data.FilterTeamID,
-						"hx-get":     "/ui/keys/table",
-						"hx-trigger": "input changed delay:300ms",
-						"hx-target":  "#keys-table",
-						"hx-include": "#key-filters",
-					},
-				})
-				@input.Input(input.Props{
-					Placeholder: "User ID...",
-					Class:       "w-[160px]",
-					Attributes: templ.Attributes{
-						"name":       "user_id",
-						"value":      data.FilterUserID,
-						"hx-get":     "/ui/keys/table",
-						"hx-trigger": "input changed delay:300ms",
-						"hx-target":  "#keys-table",
-						"hx-include": "#key-filters",
-					},
-				})
-				@input.Input(input.Props{
-					Placeholder: "Key Hash...",
-					Class:       "w-[160px]",
-					Attributes: templ.Attributes{
-						"name":       "key_hash",
-						"value":      data.FilterKeyHash,
-						"hx-get":     "/ui/keys/table",
-						"hx-trigger": "input changed delay:300ms",
-						"hx-target":  "#keys-table",
-						"hx-include": "#key-filters",
-					},
-				})
-				<div class="ml-auto">
-					@dialog.Dialog(dialog.Props{ID: "create-key-dialog"}) {
-						@dialog.Trigger(dialog.TriggerProps{}) {
-							@button.Button(button.Props{}) {
-								@icon.Plus(icon.Props{Size: 16, Class: "mr-1"})
-								Create New Key
-							}
-						}
-						@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
-							@dialog.Header() {
-								@dialog.Title() {
-									Create API Key
-								}
-								@dialog.Description() {
-									Generate a new API key with optional budget and rate limits.
-								}
-							}
-							@createKeyForm(data)
+				<div>
+					@input.Input(input.Props{
+						Placeholder: "Team ID...",
+						Attributes: templ.Attributes{
+							"name":       "team_id",
+							"value":      data.FilterTeamID,
+							"hx-get":     "/ui/keys/table",
+							"hx-trigger": "input changed delay:300ms",
+							"hx-target":  "#keys-table",
+							"hx-include": "#key-filters",
+						},
+					})
+				</div>
+				<div>
+					@input.Input(input.Props{
+						Placeholder: "User ID...",
+						Attributes: templ.Attributes{
+							"name":       "user_id",
+							"value":      data.FilterUserID,
+							"hx-get":     "/ui/keys/table",
+							"hx-trigger": "input changed delay:300ms",
+							"hx-target":  "#keys-table",
+							"hx-include": "#key-filters",
+						},
+					})
+				</div>
+				<div>
+					@input.Input(input.Props{
+						Placeholder: "Key Hash...",
+						Attributes: templ.Attributes{
+							"name":       "key_hash",
+							"value":      data.FilterKeyHash,
+							"hx-get":     "/ui/keys/table",
+							"hx-trigger": "input changed delay:300ms",
+							"hx-target":  "#keys-table",
+							"hx-include": "#key-filters",
+						},
+					})
+				</div>
+				@dialog.Dialog(dialog.Props{ID: "create-key-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Size: button.SizeSm}) {
+							@icon.Plus(icon.Props{Size: 16, Class: "mr-1"})
+							Create New Key
 						}
 					}
-				</div>
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Create API Key
+							}
+							@dialog.Description() {
+								Generate a new API key with optional budget and rate limits.
+							}
+						}
+						@createKeyForm(data)
+					}
+				}
 			</div>
 			<div id="keys-table">
 				@KeysTablePartial(data)
