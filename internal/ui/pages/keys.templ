@@ -9,7 +9,9 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/pagination"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/table"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/toast"
 )
@@ -107,44 +109,26 @@ templ KeysPage(data KeysPageData) {
 		@input.Script()
 		@toast.Script()
 		<div class="space-y-4">
-			<div class="flex items-center justify-between">
-				<h2 class="text-lg font-semibold">API Keys</h2>
-				@dialog.Dialog(dialog.Props{ID: "create-key-dialog"}) {
-					@dialog.Trigger(dialog.TriggerProps{}) {
-						@button.Button(button.Props{}) {
-							Create New Key
-						}
-					}
-					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
-						@dialog.Header() {
-							@dialog.Title() {
-								Create API Key
-							}
-							@dialog.Description() {
-								Generate a new API key with optional budget and rate limits.
-							}
-						}
-						@createKeyForm(data)
-					}
-				}
-			</div>
-			<!-- Filters -->
-			<div id="key-filters" class="flex flex-wrap gap-3">
-				@input.Input(input.Props{
-					Placeholder: "Key Alias...",
-					Class:       "max-w-[180px]",
-					Attributes: templ.Attributes{
-						"name":       "key_alias",
-						"value":      data.FilterKeyAlias,
-						"hx-get":     "/ui/keys/table",
-						"hx-trigger": "input changed delay:300ms",
-						"hx-target":  "#keys-table",
-						"hx-include": "#key-filters",
-					},
-				})
+			<h2 class="text-lg font-semibold">API Keys</h2>
+			<!-- Filter toolbar -->
+			<div id="key-filters" class="flex flex-wrap items-center gap-2">
+				<div class="relative">
+					@icon.Search(icon.Props{Size: 16, Class: "absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"})
+					<input
+						type="text"
+						name="key_alias"
+						placeholder="Filter by alias..."
+						value={ data.FilterKeyAlias }
+						class="flex h-10 w-[180px] rounded-md border border-input bg-background pl-8 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+						hx-get="/ui/keys/table"
+						hx-trigger="input changed delay:300ms"
+						hx-target="#keys-table"
+						hx-include="#key-filters"
+					/>
+				</div>
 				@input.Input(input.Props{
 					Placeholder: "Team ID...",
-					Class:       "max-w-[180px]",
+					Class:       "w-[160px]",
 					Attributes: templ.Attributes{
 						"name":       "team_id",
 						"value":      data.FilterTeamID,
@@ -156,7 +140,7 @@ templ KeysPage(data KeysPageData) {
 				})
 				@input.Input(input.Props{
 					Placeholder: "User ID...",
-					Class:       "max-w-[180px]",
+					Class:       "w-[160px]",
 					Attributes: templ.Attributes{
 						"name":       "user_id",
 						"value":      data.FilterUserID,
@@ -168,7 +152,7 @@ templ KeysPage(data KeysPageData) {
 				})
 				@input.Input(input.Props{
 					Placeholder: "Key Hash...",
-					Class:       "max-w-[180px]",
+					Class:       "w-[160px]",
 					Attributes: templ.Attributes{
 						"name":       "key_hash",
 						"value":      data.FilterKeyHash,
@@ -178,6 +162,27 @@ templ KeysPage(data KeysPageData) {
 						"hx-include": "#key-filters",
 					},
 				})
+				<div class="ml-auto">
+					@dialog.Dialog(dialog.Props{ID: "create-key-dialog"}) {
+						@dialog.Trigger(dialog.TriggerProps{}) {
+							@button.Button(button.Props{}) {
+								@icon.Plus(icon.Props{Size: 16, Class: "mr-1"})
+								Create New Key
+							}
+						}
+						@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+							@dialog.Header() {
+								@dialog.Title() {
+									Create API Key
+								}
+								@dialog.Description() {
+									Generate a new API key with optional budget and rate limits.
+								}
+							}
+							@createKeyForm(data)
+						}
+					}
+				</div>
 			</div>
 			<div id="keys-table">
 				@KeysTablePartial(data)
@@ -312,24 +317,18 @@ templ KeysTablePartial(data KeysPageData) {
 					@table.Row() {
 						@table.Head() { Key ID }
 						@table.Head() { Alias }
-						@table.Head() { Secret Key }
 						@table.Head() { Team }
-						@table.Head() { User }
-						@table.Head() { Spend }
-						@table.Head() { Budget }
-						@table.Head() { Budget Reset }
+						@table.Head() { Spend / Budget }
 						@table.Head() { Models }
-						@table.Head() { Rate Limits }
 						@table.Head() { Expires }
 						@table.Head() { Status }
-						@table.Head() { Created }
-						@table.Head() { Actions }
+						@table.Head(table.HeadProps{Class: "text-right"}) { Actions }
 					}
 				}
 				@table.Body() {
 					if len(data.Keys) == 0 {
 						@table.Row() {
-							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": "14"}}) {
+							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": "8"}}) {
 								if data.FilterTeamID != "" || data.FilterKeyAlias != "" || data.FilterUserID != "" || data.FilterKeyHash != "" {
 									<div class="py-8 text-center text-muted-foreground">No keys match your filters</div>
 								} else {
@@ -346,36 +345,84 @@ templ KeysTablePartial(data KeysPageData) {
 		}
 	}
 	<!-- Pagination -->
-	if data.TotalPages > 1 {
-		<div class="mt-4 flex items-center justify-between">
-			<span class="text-sm text-muted-foreground">
-				{ fmt.Sprintf("Showing %d-%d of %d results", (data.Page-1)*50+1, min((data.Page)*50, data.TotalCount), data.TotalCount) }
-			</span>
-			<div class="flex items-center gap-2">
-				<span class="text-sm text-muted-foreground">
-					{ fmt.Sprintf("Page %d of %d", data.Page, data.TotalPages) }
-				</span>
-				for i := 1; i <= data.TotalPages; i++ {
-					if i == data.Page {
-						@button.Button(button.Props{Variant: button.VariantDefault, Size: button.SizeSm, Disabled: true}) {
-							{ fmt.Sprintf("%d", i) }
-						}
-					} else {
-						@button.Button(button.Props{
-							Variant: button.VariantOutline,
-							Size:    button.SizeSm,
+	<div class="mt-4 flex items-center justify-between">
+		<span class="text-sm text-muted-foreground">
+			{ fmt.Sprintf("Showing %d–%d of %d results", (data.Page-1)*50+1, min((data.Page)*50, data.TotalCount), data.TotalCount) }
+		</span>
+		if data.TotalPages > 1 {
+			{{ pg := pagination.CreatePagination(data.Page, data.TotalPages, 5) }}
+			{{ qs := data.filterQueryString() }}
+			@pagination.Pagination() {
+				@pagination.Content() {
+					@pagination.Item() {
+						@pagination.Previous(pagination.PreviousProps{
+							Disabled: !pg.HasPrevious,
 							Attributes: templ.Attributes{
-								"hx-get":     fmt.Sprintf("/ui/keys/table?page=%d%s", i, data.filterQueryString()),
-								"hx-target":  "#keys-table",
+								"hx-get":    fmt.Sprintf("/ui/keys/table?page=%d%s", data.Page-1, qs),
+								"hx-target": "#keys-table",
 							},
-						}) {
-							{ fmt.Sprintf("%d", i) }
+						})
+					}
+					if pg.Pages[0] > 1 {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/keys/table?page=1%s", qs),
+									"hx-target": "#keys-table",
+								},
+							}) {
+								1
+							}
+						}
+						if pg.Pages[0] > 2 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
 						}
 					}
+					for _, p := range pg.Pages {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								IsActive: p == pg.CurrentPage,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/keys/table?page=%d%s", p, qs),
+									"hx-target": "#keys-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", p) }
+							}
+						}
+					}
+					if pg.Pages[len(pg.Pages)-1] < pg.TotalPages {
+						if pg.Pages[len(pg.Pages)-1] < pg.TotalPages-1 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/keys/table?page=%d%s", pg.TotalPages, qs),
+									"hx-target": "#keys-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", pg.TotalPages) }
+							}
+						}
+					}
+					@pagination.Item() {
+						@pagination.Next(pagination.NextProps{
+							Disabled: !pg.HasNext,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/keys/table?page=%d%s", data.Page+1, qs),
+								"hx-target": "#keys-table",
+							},
+						})
+					}
 				}
-			</div>
-		</div>
-	}
+			}
+		}
+	</div>
 }
 
 templ keyRow(k KeyRow) {
@@ -394,16 +441,6 @@ templ keyRow(k KeyRow) {
 				<span class="text-muted-foreground">-</span>
 			}
 		}
-		<!-- Secret Key (masked) -->
-		@table.Cell() {
-			<span class="font-mono text-xs text-muted-foreground">
-				if k.KeyName != "" {
-					{ k.KeyName }
-				} else {
-					<span class="text-muted-foreground">-</span>
-				}
-			</span>
-		}
 		<!-- Team -->
 		@table.Cell() {
 			if k.TeamAlias != "" {
@@ -414,62 +451,26 @@ templ keyRow(k KeyRow) {
 				<span class="text-muted-foreground text-xs">-</span>
 			}
 		}
-		<!-- User -->
+		<!-- Spend / Budget -->
 		@table.Cell() {
-			if k.UserID != "" {
-				<span class="text-xs">{ k.UserID }</span>
-			} else {
-				<span class="text-muted-foreground text-xs">-</span>
-			}
-		}
-		<!-- Spend -->
-		@table.Cell() {
-			{ fmt.Sprintf("$%.2f", k.Spend) }
-		}
-		<!-- Budget -->
-		@table.Cell() {
-			if k.MaxBudget != nil {
-				{ fmt.Sprintf("$%.2f", *k.MaxBudget) }
-			} else {
-				<span class="text-muted-foreground">Unlimited</span>
-			}
-		}
-		<!-- Budget Reset -->
-		@table.Cell() {
-			if k.BudgetDuration != "" && k.BudgetResetAt != nil {
-				<span class="text-xs">{ k.BudgetDuration } / { k.BudgetResetAt.Format("Jan 02") }</span>
-			} else if k.BudgetDuration != "" {
-				<span class="text-xs">{ k.BudgetDuration }</span>
-			} else {
-				<span class="text-muted-foreground text-xs">-</span>
-			}
+			<span class="text-xs">
+				{ fmt.Sprintf("$%.2f", k.Spend) }
+				{ " / " }
+				if k.MaxBudget != nil {
+					{ fmt.Sprintf("$%.2f", *k.MaxBudget) }
+				} else {
+					Unlimited
+				}
+			</span>
 		}
 		<!-- Models -->
 		@table.Cell() {
 			if len(k.Models) > 0 {
-				<span class="text-xs">{ formatModels(k.Models, 3) }</span>
+				<span class="text-xs">{ formatModels(k.Models, 2) }</span>
 			} else {
 				@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
 					All Models
 				}
-			}
-		}
-		<!-- Rate Limits -->
-		@table.Cell() {
-			if k.TPMLimit != nil || k.RPMLimit != nil {
-				<span class="text-xs">
-					if k.TPMLimit != nil {
-						TPM: { fmt.Sprintf("%d", *k.TPMLimit) }
-					}
-					if k.TPMLimit != nil && k.RPMLimit != nil {
-						{ " / " }
-					}
-					if k.RPMLimit != nil {
-						RPM: { fmt.Sprintf("%d", *k.RPMLimit) }
-					}
-				</span>
-			} else {
-				<span class="text-muted-foreground text-xs">-</span>
 			}
 		}
 		<!-- Expires -->
@@ -502,13 +503,9 @@ templ keyRow(k KeyRow) {
 				}
 			}
 		}
-		<!-- Created -->
-		@table.Cell() {
-			<span class="text-xs text-muted-foreground">{ k.CreatedAt.Format("2006-01-02") }</span>
-		}
 		<!-- Actions -->
-		@table.Cell() {
-			<div class="flex gap-1">
+		@table.Cell(table.CellProps{Class: "text-right"}) {
+			<div class="flex justify-end gap-1">
 				if k.Blocked {
 					@button.Button(button.Props{
 						Variant: button.VariantOutline,
