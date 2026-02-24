@@ -146,6 +146,8 @@ Go 1.24.4, chi/v5 (router), pgx/v5 (PostgreSQL), go-redis/v9 (Redis), templ + te
 - PostgreSQL（SpendLogs + ErrorLogs 表，via pgx/v5） (009-request-logs)
 - Go 1.24.4 + chi/v5 (router), templ (templates), HTMX 2.x (interactions), templUI v1.5.0 (components), Tailwind CSS v4 (styling), Chart.js 4.x (charts) (010-spend-usage)
 - PostgreSQL via pgx/v5, queries via sqlc (010-spend-usage)
+- Go 1.26 (as per `go.mod`) + `github.com/jackc/pgx/v5` (already in go.mod) + stdlib `embed`, `io/fs` (002-auto-db-migration)
+- PostgreSQL — new `schema_migrations` table (created at runtime) (002-auto-db-migration)
 
 ## Recent Changes
 - 009-request-logs: Added Go 1.24.4 + chi/v5（路由）、templ（模板）、HTMX 2.x（交互）、templUI v1.5.0（UI 組件）、Tailwind CSS v4
