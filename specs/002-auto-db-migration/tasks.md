@@ -15,18 +15,18 @@
 
 > Add golang-migrate dependency and rename schema files
 
-- [ ] T001 Add golang-migrate dependencies to go.mod: `go get github.com/golang-migrate/migrate/v4 github.com/golang-migrate/migrate/v4/source/iofs github.com/golang-migrate/migrate/v4/database/pgx/v5`
-- [ ] T002 Rename `internal/db/schema/001_initial.sql` → `001_initial.up.sql`
-- [ ] T003 Rename `internal/db/schema/002_management.sql` → `002_management.up.sql`
-- [ ] T004 Rename `internal/db/schema/003_organization.sql` → `003_organization.up.sql`
-- [ ] T005 Rename `internal/db/schema/004_credentials.sql` → `004_credentials.up.sql`
-- [ ] T006 Rename `internal/db/schema/005_phase3.sql` → `005_phase3.up.sql`
-- [ ] T007 Rename `internal/db/schema/006_mcp.sql` → `006_mcp.up.sql`
-- [ ] T008 Rename `internal/db/schema/007_audit.sql` → `007_audit.up.sql`
-- [ ] T009 Rename `internal/db/schema/008_skills_agents.sql` → `008_skills_agents.up.sql`
-- [ ] T010 Rename `internal/db/schema/009_extensions.sql` → `009_extensions.up.sql`
-- [ ] T011 Rename `internal/db/schema/010_org_membership.sql` → `010_org_membership.up.sql`
-- [ ] T012 Verify sqlc pipeline still passes: run `make generate` and confirm no errors (`sqlc.yaml` schema path unchanged)
+- [X] T001 Add golang-migrate dependencies to go.mod: `go get github.com/golang-migrate/migrate/v4 github.com/golang-migrate/migrate/v4/source/iofs github.com/golang-migrate/migrate/v4/database/pgx/v5`
+- [X] T002 Rename `internal/db/schema/001_initial.sql` → `001_initial.up.sql`
+- [X] T003 Rename `internal/db/schema/002_management.sql` → `002_management.up.sql`
+- [X] T004 Rename `internal/db/schema/003_organization.sql` → `003_organization.up.sql`
+- [X] T005 Rename `internal/db/schema/004_credentials.sql` → `004_credentials.up.sql`
+- [X] T006 Rename `internal/db/schema/005_phase3.sql` → `005_phase3.up.sql`
+- [X] T007 Rename `internal/db/schema/006_mcp.sql` → `006_mcp.up.sql`
+- [X] T008 Rename `internal/db/schema/007_audit.sql` → `007_audit.up.sql`
+- [X] T009 Rename `internal/db/schema/008_skills_agents.sql` → `008_skills_agents.up.sql`
+- [X] T010 Rename `internal/db/schema/009_extensions.sql` → `009_extensions.up.sql`
+- [X] T011 Rename `internal/db/schema/010_org_membership.sql` → `010_org_membership.up.sql`
+- [X] T012 Verify sqlc pipeline still passes: run `make generate` and confirm no errors (`sqlc.yaml` schema path unchanged)
 
 ---
 
@@ -34,17 +34,17 @@
 
 > Core migration runner package — prerequisite for all user stories
 
-- [ ] T013 Create directory `internal/db/migrate/`
-- [ ] T014 Create `internal/db/migrate/migrate.go` with `//go:embed ../schema/*.up.sql` directive and `embed.FS` variable
-- [ ] T015 Implement `RunMigrations(ctx context.Context, pool *pgxpool.Pool) error` in `internal/db/migrate/migrate.go`:
+- [X] T013 Create directory `internal/db/migrate/`
+- [X] T014 Create `internal/db/migrate/migrate.go` with embed via `internal/db/schema_fs.go` (Go embed disallows `../`; SchemaFiles exported from db package)
+- [X] T015 Implement `RunMigrations(ctx context.Context, pool *pgxpool.Pool) error` in `internal/db/migrate/migrate.go`:
   - Bridge pool via `stdlib.OpenDBFromPool(pool)`
   - Create pgx/v5 driver via `pgxv5.WithInstance(sqlDB, &pgxv5.Config{})`
   - Create iofs source via `iofs.New(migrationFiles, "schema")`
   - Create migrator via `migrate.NewWithInstance(...)`
   - Call `m.Up()`, treat `migrate.ErrNoChange` as success
   - Attach `migrateLogger` to `m.Log`
-- [ ] T016 [P] Implement `migrateLogger` struct (bridges golang-migrate log to stdlib `log`) in `internal/db/migrate/migrate.go`
-- [ ] T017 Ensure proper error wrapping with `fmt.Errorf("migrate: ...: %w", err)` for all error paths in `internal/db/migrate/migrate.go`
+- [X] T016 [P] Implement `migrateLogger` struct (bridges golang-migrate log to stdlib `log`) in `internal/db/migrate/migrate.go`
+- [X] T017 Ensure proper error wrapping with `fmt.Errorf("migrate: ...: %w", err)` for all error paths in `internal/db/migrate/migrate.go`
 
 ---
 
@@ -52,10 +52,10 @@
 
 > Wire RunMigrations into main.go; covers both "fresh DB" and "incremental upgrade" stories
 
-- [ ] T018 [US1] [US2] Add import for `dbmigrate "github.com/praxisllmlab/tianjiLLM/internal/db/migrate"` in `cmd/tianji/main.go`
-- [ ] T019 [US1] [US2] Insert `dbmigrate.RunMigrations(ctx, pool)` call in `cmd/tianji/main.go` immediately after `pool.Ping()` succeeds, before `queries = db.New(pool)`; call `log.Fatalf` on error
-- [ ] T020 [US1] [US2] Add startup log lines: `"running database migrations..."` before and `"migrations complete"` after `RunMigrations` call in `cmd/tianji/main.go`
-- [ ] T021 [US1] [US2] Write integration test `test/integration/migration_test.go`:
+- [X] T018 [US1] [US2] Add import for `dbmigrate "github.com/praxisllmlab/tianjiLLM/internal/db/migrate"` in `cmd/tianji/main.go`
+- [X] T019 [US1] [US2] Insert `dbmigrate.RunMigrations(ctx, pool)` call in `cmd/tianji/main.go` immediately after `pool.Ping()` succeeds, before `queries = db.New(pool)`; call `log.Fatalf` on error
+- [X] T020 [US1] [US2] Add startup log lines: `"running database migrations..."` before and `"migrations complete"` after `RunMigrations` call in `cmd/tianji/main.go`
+- [X] T021 [US1] [US2] Write integration test `test/integration/migration_test.go`:
   - Test 1: Fresh DB → `RunMigrations` succeeds, `schema_migrations` table has 10 rows
   - Test 2: Call `RunMigrations` again on same DB → no error (idempotent / ErrNoChange)
   - Test 3: Verify `schema_migrations` row for version 1 has `name = "001_initial.up.sql"`

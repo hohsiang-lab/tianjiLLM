@@ -23,6 +23,7 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
+	dbmigrate "github.com/praxisllmlab/tianjiLLM/internal/db/migrate"
 	"github.com/praxisllmlab/tianjiLLM/internal/guardrail"
 	"github.com/praxisllmlab/tianjiLLM/internal/mcp"
 	"github.com/praxisllmlab/tianjiLLM/internal/policy"
@@ -140,6 +141,13 @@ func main() {
 			log.Fatalf("ping database: %v", err)
 		}
 		log.Println("database connected")
+
+		log.Println("running database migrations...")
+		if err := dbmigrate.RunMigrations(ctx, pool); err != nil {
+			log.Fatalf("migration failed: %v", err)
+		}
+		log.Println("migrations complete")
+
 		queries = db.New(pool)
 	}
 
