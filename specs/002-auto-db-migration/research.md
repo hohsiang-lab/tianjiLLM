@@ -2,92 +2,107 @@
 
 **Feature**: 002-auto-db-migration
 **Date**: 2026-02-25
+**Updated**: 2026-02-25 (revised after context7 / source verification)
 
 ---
 
-## Decision 1: Migration Library vs Custom Runner
+## Decision 1: Migration Library — golang-migrate/v4 ✅
 
-**Decision**: Custom lightweight runner (~80 LOC) using `pgx/v5` directly
+**Decision**: Use `github.com/golang-migrate/migrate/v4` with:
+- Source: `github.com/golang-migrate/migrate/v4/source/iofs` (embed.FS)
+- Driver: `github.com/golang-migrate/migrate/v4/database/pgx/v5` (native pgx v5)
+- File rename: `001_initial.sql` → `001_initial.up.sql` (all 10 files)
 
-**Rationale**:
-- `golang-migrate/v4`: requires files named `{version}_{title}.up.sql`. Our existing
-  schema files use `{NNN}_{title}.sql` (no `.up.sql` suffix). Renaming all 10 files
-  would also require updating `sqlc.yaml` schema references and risks introducing
-  errors into the validated schema pipeline. Overhead not justified for a feature
-  this bounded.
-- `pressly/goose`: requires `-- +goose Up` directive comments in every migration file.
-  Modifying existing, proven migration SQL is risky; goose also requires a
-  `pgx/v5/stdlib` bridge (`sql.DB` adapter) whereas we use `pgxpool` natively.
-- Custom runner: ~80 lines, no new dependencies, existing file naming preserved,
-  native pgx/v5 pool usage, full control over advisory lock and transaction semantics.
+**Why the file rename is safe — confirmed sources**:
 
-**Alternatives Considered**:
-- `golang-migrate/v4` + `source/iofs` + pgx/v5 driver: rejected due to file rename requirement
-- `pressly/goose` v3: rejected due to directive comments requirement and stdlib bridge
-- `jackc/tern`: minimal library, fewer stars, less community adoption
+1. **sqlc officially supports golang-migrate `.up.sql` naming** (verified from sqlc 1.30.0 docs):
+   > "sqlc is able to differentiate between up and down migrations.
+   > sqlc ignores down migrations when parsing SQL files."
+   > "sqlc supports parsing migrations from: golang-migrate, goose, ..."
+   - sqlc docs show `001_initial.up.sql` as the exact recommended format
+   - Existing 3-digit zero-padded prefix (`001_`..`010_`) matches sqlc's lexicographic
+     ordering requirement — no additional changes needed
 
-**Sources**:
-- <https://pkg.go.dev/github.com/golang-migrate/migrate/v4/source/iofs> (confirmed `.up.sql` requirement)
-- <https://stackoverflow.com/questions/76865674/how-to-use-goose-migrations-with-pgx> (goose + pgx bridge pattern)
-- Constitution §III: "prefer well-maintained, widely-adopted Go libraries" — custom justified when library friction is high and feature is bounded
+2. **golang-migrate iofs driver** (`source/parse.go`) requires `^([0-9]+)_(.*)\.(up|down)\.(.*)$`
+   — silently skips non-matching files. Files must end in `.up.sql` ✅
 
----
+3. **golang-migrate pgx/v5 driver** (`database/pgx/v5/pgx.go`):
+   - Uses `database/sql` via `pgx/v5/stdlib` internally
+   - Provides `WithInstance(*sql.DB, *Config)` for passing existing connections
+   - Default migrations table: `schema_migrations` ✅
+   - Advisory lock: handled internally by the driver ✅
+   - `DefaultMigrationsTable = "schema_migrations"` confirmed in source
 
-## Decision 2: Advisory Lock Key
+**Integration with existing pgxpool**:
+```go
+// Convert pool to *sql.DB using the stdlib bridge (already a transitive dep)
+sqlDB := stdlib.OpenDBFromPool(pool)
 
-**Decision**: Use PostgreSQL advisory lock with a fixed numeric key derived from
-the application name hash. Specifically: `pg_advisory_lock(hashtext('tianjiLLM-migrations'))`
-cast to `bigint`.
-
-**Rationale**: Advisory lock key must be stable across all instances and releases.
-Using a hash of a well-known string ensures uniqueness without manual coordination.
-`pg_advisory_lock` (session-level) blocks until lock is acquired (vs `pg_try_advisory_lock`
-which returns false immediately). Session-level lock is appropriate here: we want
-the second instance to *wait* until the first finishes, not fail.
-
-**Sources**:
-- PostgreSQL docs on advisory locks
-- Constitution §V: "Use context.Context for cancellation" → lock acquisition respects ctx timeout
-
----
-
-## Decision 3: Tracking Table Schema
-
-**Decision**:
-```sql
-CREATE TABLE IF NOT EXISTS schema_migrations (
-    version   INTEGER     PRIMARY KEY,
-    name      TEXT        NOT NULL,
-    applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+driver, err := pgxv5.WithInstance(sqlDB, &pgxv5.Config{})
+src, err    := iofs.New(migrationFiles, "schema")
+m, err      := migrate.NewWithInstance("iofs", src, "pgx5", driver)
+err          = m.Up() // migrate.ErrNoChange is not an error
 ```
 
-**Rationale**: Minimal schema. `version` as integer PK enables fast lookup and
-ordering. `name` for human-readable log output. `applied_at` for audit.
-`CREATE TABLE IF NOT EXISTS` makes the runner idempotent (safe for legacy databases
-with no prior migration history).
+**Why not a custom runner** (original decision revised):
+- Custom runner was chosen because file rename was thought to break sqlc — INCORRECT
+- sqlc officially and explicitly supports golang-migrate `.up.sql` format
+- Using a proven library is better: advisory lock, tracking table, error handling all
+  battle-tested; ~0 LOC of migration logic to maintain
+
+**Alternatives considered**:
+- `pressly/goose`: requires `-- +goose Up` directive in file body (modifying existing SQL)
+- Custom runner: ~80 LOC, no new deps, but reinvents logic already in golang-migrate
+
+**Sources**:
+- sqlc docs (DDL / Handling SQL migrations): <https://docs.sqlc.dev/en/latest/howto/ddl.html>
+- golang-migrate source/parse.go: <https://github.com/golang-migrate/migrate/blob/master/source/parse.go>
+- golang-migrate database/pgx/v5/pgx.go: <https://github.com/golang-migrate/migrate/blob/master/database/pgx/v5/pgx.go>
+- golang-migrate source/iofs/iofs.go: <https://github.com/golang-migrate/migrate/blob/master/source/iofs/iofs.go>
 
 ---
 
-## Decision 4: File Naming / Versioning
+## Decision 2: Pool → sql.DB Bridge
 
-**Decision**: Parse version number from filename prefix using regex `^(\d+)_`.
-Files: `001_initial.sql`, `010_org_membership.sql` → versions 1, 10.
+**Decision**: `pgx/v5/stdlib.OpenDBFromPool(pool)` → pass to `golang-migrate`
 
-**Rationale**: Preserves existing naming convention. Sorted by parsed integer
-(not lexicographic) to handle versions 001–099 correctly and beyond 100 without
-zero-padding issues.
+**Rationale**: `pgx/v5/stdlib` is already an indirect dependency (pgx/v5 brings it in).
+`WithInstance` accepts `*sql.DB`, so we bridge once at startup for migration only.
+The main application continues using `pgxpool` directly.
+
+**Sources**: golang-migrate pgx/v5 driver source confirms `WithInstance(*sql.DB, *Config)`
 
 ---
 
-## Decision 5: embed.FS Pattern
+## Decision 3: embed.FS Directory
 
 **Decision**: New file `internal/db/migrate/migrate.go` with:
 ```go
-//go:embed ../schema/*.sql
-var migrations embed.FS
+//go:embed ../schema/*.up.sql
+var migrationFiles embed.FS
 ```
 
-**Rationale**: Follows existing project pattern (pricing.go uses `//go:embed`,
-assets uses `//go:embed all:css all:js`). Embed path is relative to the package file.
-`embed.FS` is accessed via `fs.ReadDir` + `fs.ReadFile`.
+**Rationale**: After renaming to `.up.sql`, the embed glob picks up only up-migrations.
+Follows existing project pattern (`pricing.go` uses `//go:embed`).
+
+---
+
+## Decision 4: File Rename Plan
+
+10 files to rename in `internal/db/schema/`:
+
+| Before | After |
+|--------|-------|
+| `001_initial.sql` | `001_initial.up.sql` |
+| `002_management.sql` | `002_management.up.sql` |
+| `003_organization.sql` | `003_organization.up.sql` |
+| `004_credentials.sql` | `004_credentials.up.sql` |
+| `005_phase3.sql` | `005_phase3.up.sql` |
+| `006_mcp.sql` | `006_mcp.up.sql` |
+| `007_audit.sql` | `007_audit.up.sql` |
+| `008_skills_agents.sql` | `008_skills_agents.up.sql` |
+| `009_extensions.sql` | `009_extensions.up.sql` |
+| `010_org_membership.sql` | `010_org_membership.up.sql` |
+
+`sqlc.yaml` schema path `"internal/db/schema/"` — **no change needed**.
+sqlc reads the directory and natively handles `.up.sql` files.
