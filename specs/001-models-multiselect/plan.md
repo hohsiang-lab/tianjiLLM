@@ -467,3 +467,305 @@ No constitution violations. No complexity justification required.
 - [ ] Write/extend unit tests for `loadAvailableModelNames`
 - [ ] Write/extend contract tests for create-key with models
 - [ ] Manual verification against quickstart checklist
+
+---
+
+## E2E Testing Plan
+
+### Testing Tool
+
+The project uses **Playwright** for E2E testing (see `Makefile` — `make e2e`). All new E2E tests should follow the same runner setup.
+
+### Test File Path
+
+```
+e2e/key_models_multiselect_test.ts
+```
+
+### Setup / Teardown
+
+Each test (or `describe` block) should:
+
+1. **Setup**: Authenticate as an admin user; ensure at least 2 configured proxy models exist in the DB/config.
+2. **Teardown**: Delete any API keys created during the test via the UI or a direct DB cleanup helper.
+
+```ts
+// Pseudocode
+test.beforeEach(async ({ page }) => {
+  await loginAsAdmin(page);
+  await ensureModelsExist(page, ['gpt-4', 'claude-3']);
+});
+
+test.afterEach(async ({ page }) => {
+  await deleteAllTestKeys(page); // cleans up keys with test-prefixed names
+});
+```
+
+### Test Scenarios
+
+#### Scenario 1 — Create API Key dialog shows Models multi-select with all configured models
+
+```ts
+test('Create API Key dialog renders Models multi-select with all configured models', async ({ page }) => {
+  await page.goto('/ui/keys');
+  await page.getByRole('button', { name: /create api key/i }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Models')).toBeVisible();
+  // Expand the dropdown
+  await dialog.locator('details summary').click();
+  // All configured models must appear as checkboxes
+  await expect(dialog.getByLabel('All Models')).toBeChecked();
+  await expect(dialog.getByLabel('gpt-4')).toBeVisible();
+  await expect(dialog.getByLabel('claude-3')).toBeVisible();
+});
+```
+
+#### Scenario 2 — Select a single model → Create key → Confirm DB stores only that model
+
+```ts
+test('Creating key with one model selected stores only that model in DB', async ({ page }) => {
+  await page.goto('/ui/keys');
+  await page.getByRole('button', { name: /create api key/i }).click();
+  const dialog = page.getByRole('dialog');
+  // Expand dropdown and deselect All Models, select gpt-4 only
+  await dialog.locator('details summary').click();
+  await dialog.getByLabel('All Models').uncheck(); // triggers auto-enable of individuals
+  await dialog.getByLabel('gpt-4').check();
+  // Fill other required fields and submit
+  await dialog.getByLabel('Key Name').fill('test-single-model');
+  await dialog.getByRole('button', { name: /create/i }).click();
+  // Verify the key row shows "gpt-4"
+  await expect(page.getByText('gpt-4')).toBeVisible();
+  // DB assertion (via API or UI detail page)
+  await page.getByText('test-single-model').click();
+  await expect(page.getByTestId('key-models')).toHaveText('gpt-4');
+});
+```
+
+#### Scenario 3 — Select multiple models → Create key → Confirm all are stored
+
+```ts
+test('Creating key with multiple models stores all selected models', async ({ page }) => {
+  await page.goto('/ui/keys');
+  await page.getByRole('button', { name: /create api key/i }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.locator('details summary').click();
+  await dialog.getByLabel('All Models').uncheck();
+  await dialog.getByLabel('gpt-4').check();
+  await dialog.getByLabel('claude-3').check();
+  await dialog.getByLabel('Key Name').fill('test-multi-model');
+  await dialog.getByRole('button', { name: /create/i }).click();
+  // Verify summary shows "2 model(s) selected"
+  await expect(page.getByText('test-multi-model')).toBeVisible();
+  await page.getByText('test-multi-model').click();
+  await expect(page.getByTestId('key-models')).toContainText('gpt-4');
+  await expect(page.getByTestId('key-models')).toContainText('claude-3');
+});
+```
+
+#### Scenario 4 — Select "All Models" → Create key → Confirm DB models is empty array
+
+```ts
+test('Creating key with All Models selected stores empty array in DB', async ({ page }) => {
+  await page.goto('/ui/keys');
+  await page.getByRole('button', { name: /create api key/i }).click();
+  const dialog = page.getByRole('dialog');
+  // All Models is pre-checked by default — just submit
+  await dialog.getByLabel('Key Name').fill('test-all-models');
+  await dialog.getByRole('button', { name: /create/i }).click();
+  await page.getByText('test-all-models').click();
+  // Key detail should show "All Models (unrestricted)"
+  await expect(page.getByTestId('key-models')).toHaveText(/all models/i);
+});
+```
+
+#### Scenario 5 — Default (no model selection) → Equivalent to "All Models"
+
+```ts
+test('Submitting without changing model selection defaults to All Models', async ({ page }) => {
+  // Identical to Scenario 4 — "All Models" is the default checked state.
+  // This test validates the initial form state without any interaction.
+  await page.goto('/ui/keys');
+  await page.getByRole('button', { name: /create api key/i }).click();
+  const dialog = page.getByRole('dialog');
+  // Verify "All Models" is checked without any user interaction
+  await dialog.locator('details summary').click();
+  await expect(dialog.getByLabel('All Models')).toBeChecked();
+  // Individual model checkboxes should be disabled when All Models is selected
+  const firstModelCheckbox = dialog.locator('.model-checkbox').first();
+  await expect(firstModelCheckbox).toBeDisabled();
+});
+```
+
+#### Scenario 6 — Edit key settings → Change model selection → Save → Confirm update
+
+```ts
+test('Editing key model selection updates DB correctly', async ({ page }) => {
+  // Pre-condition: a key named "test-edit-models" exists with All Models
+  await createTestKey(page, 'test-edit-models', []);
+  await page.goto('/ui/keys');
+  await page.getByText('test-edit-models').click();
+  // Open edit settings
+  await page.getByRole('button', { name: /edit settings/i }).click();
+  // Expand model dropdown, deselect All Models, pick specific model
+  await page.locator('details summary').click();
+  await page.getByLabel('All Models').uncheck();
+  await page.getByLabel('gpt-4').check();
+  await page.getByRole('button', { name: /save/i }).click();
+  // Confirm update reflected in detail view
+  await expect(page.getByTestId('key-models')).toHaveText('gpt-4');
+});
+```
+
+---
+
+## UI/UX Design
+
+### Component Choice
+
+Use a **custom `<details>` + checkbox list** pattern — consistent with the existing Go/templ/HTMX stack, zero new dependencies.
+
+- A `<details>`/`<summary>` element acts as the popover toggle.
+- Checkboxes inside render the selectable model list.
+- A small inline `<script>` (templ `script` block) handles state sync (summary text, disabled states, hidden sentinel).
+
+> Alternative: templUI `Checkbox` + `Popover` components if they expose the required APIs. Prefer the custom pattern for full control over disabled/sentinel logic without overriding component internals.
+
+---
+
+### Visual Design Specification
+
+| State | Summary Label | Individual Checkboxes |
+|-------|---------------|-----------------------|
+| Default / "All Models" selected | `All Models (unrestricted)` (muted/gray) | All **disabled** |
+| N specific models selected | `N model(s) selected` | Enabled; selected ones checked |
+| No model checked (transient) | Auto-reverts to "All Models" | — |
+
+**Trigger (closed state)**:
+
+```
+┌─────────────────────────────────────┐
+│  All Models (unrestricted)        ▾ │
+└─────────────────────────────────────┘
+```
+
+**Trigger — N models selected**:
+
+```
+┌─────────────────────────────────────┐
+│  2 model(s) selected              ▾ │
+└─────────────────────────────────────┘
+```
+
+**Search input** (shown when `len(availableModels) > 10`):
+
+```
+┌─────────────────────────────────────┐
+│  🔍 Filter models...                │
+└─────────────────────────────────────┘
+```
+
+---
+
+### ASCII Wireframe
+
+#### Dropdown — Closed
+
+```
+┌─────────────────────────────────────────┐
+│ Models                                  │
+│ ┌───────────────────────────────────┐   │
+│ │  All Models (unrestricted)      ▾ │   │
+│ └───────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+```
+
+#### Dropdown — Open (≤ 10 models, "All Models" selected)
+
+```
+┌─────────────────────────────────────────┐
+│ Models                                  │
+│ ┌───────────────────────────────────┐   │
+│ │  All Models (unrestricted)      ▴ │   │
+│ ├───────────────────────────────────┤   │
+│ │ ☑  All Models          (bold)     │   │
+│ │ ───────────────────────────────── │   │
+│ │ ☐  gpt-4               (disabled) │   │
+│ │ ☐  claude-3             (disabled) │   │
+│ │ ☐  gemini-pro           (disabled) │   │
+│ └───────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+```
+
+#### Dropdown — Open (specific models selected)
+
+```
+┌─────────────────────────────────────────┐
+│ Models                                  │
+│ ┌───────────────────────────────────┐   │
+│ │  2 model(s) selected            ▴ │   │
+│ ├───────────────────────────────────┤   │
+│ │ ☐  All Models                     │   │
+│ │ ───────────────────────────────── │   │
+│ │ ☑  gpt-4                          │   │
+│ │ ☑  claude-3                       │   │
+│ │ ☐  gemini-pro                     │   │
+│ └───────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+```
+
+#### Dropdown — Open (> 10 models, with search)
+
+```
+┌─────────────────────────────────────────┐
+│ Models                                  │
+│ ┌───────────────────────────────────┐   │
+│ │  All Models (unrestricted)      ▴ │   │
+│ ├───────────────────────────────────┤   │
+│ │ 🔍 Filter models...               │   │
+│ │ ───────────────────────────────── │   │
+│ │ ☑  All Models          (bold)     │   │
+│ │ ───────────────────────────────── │   │
+│ │ ☐  gpt-4               (disabled) │   │
+│ │ ☐  gpt-4o              (disabled) │   │
+│ │ ☐  claude-3             (disabled) │   │
+│ │ ☐  ...                            │   │
+│ └───────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+```
+
+---
+
+### Interaction Behavior
+
+| Trigger | Action |
+|---------|--------|
+| Page load / form open | "All Models" is checked; all individual checkboxes disabled |
+| User checks any specific model | "All Models" auto-unchecks; individual checkboxes enabled |
+| User unchecks last specific model | "All Models" auto-re-checks; individual checkboxes disabled |
+| User checks "All Models" | All individual checkboxes uncheck and disable; summary resets |
+| User unchecks "All Models" (without selecting model) | Individual checkboxes enable; summary shows "0 model(s) selected" → on blur/submit treated as All Models |
+
+---
+
+### Accessibility Requirements
+
+| Requirement | Implementation |
+|-------------|----------------|
+| Keyboard navigation | `<details>`/`<summary>` is natively keyboard-accessible (Enter/Space to toggle) |
+| Tab order | Checkboxes inside the open `<details>` receive natural tab focus |
+| `aria-label` on summary | `aria-label="Select models for this API key"` |
+| `aria-label` on "All Models" checkbox | `aria-label="All Models (unrestricted)"` |
+| `aria-label` per model checkbox | `aria-label="Model: {model_name}"` |
+| Disabled state announcement | `disabled` attribute ensures screen readers announce "dimmed/unavailable" |
+| Search input (if shown) | `aria-label="Filter models"`, `role="searchbox"`, live-filters list via JS |
+| Summary label updates | `aria-live="polite"` on the summary `<span>` so screen readers announce changes |
+
+```templ
+<summary aria-label="Select models for this API key" class="...">
+    <span id={ formPrefix + "-models-summary" } aria-live="polite">
+        All Models (unrestricted)
+    </span>
+    @icon.ChevronDown(...)
+</summary>
+```
