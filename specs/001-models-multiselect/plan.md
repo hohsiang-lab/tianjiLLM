@@ -9,11 +9,20 @@
 
 Replace the free-text comma-separated "Models" input field in the **Create API Key** form (and the **Edit Key Settings** form) with a structured multi-select that presents all currently configured proxy models as selectable checkboxes, plus a prominent "All Models" option. No DB schema changes, no new API endpoints — the change is contained to the UI layer (`internal/ui/`).
 
+### Scope
+
+| Req | Description |
+|-----|-------------|
+| FR-001–FR-009 | As defined in spec.md |
+| **FR-010** | **Edit Key form must also use multi-select** — both Create Key and Edit Key Settings forms are updated (plan Steps 4, 6, 7). The spec originally described only Create; this plan explicitly extends the scope to Edit. |
+
+> **Out of scope**: `handleKeySettings` is a **read-only display** handler (`SettingsTab` — no form input). It renders existing key data from DB only and does NOT require `AvailableModels`. No changes needed there.
+
 ---
 
 ## Technical Context
 
-**Language/Version**: Go 1.26 (module `github.com/praxisllmlab/tianjiLLM`)  
+**Language/Version**: Go 1.26.0 (module `github.com/praxisllmlab/tianjiLLM`)  
 **Primary Dependencies**: `a-h/templ` (server-side HTML components), HTMX (partial page updates), templUI component library (existing — `internal/ui/components/`)  
 **Storage**: PostgreSQL via sqlc — `VerificationToken.models text[]` column already exists; **no schema change**  
 **Testing**: `go test` + `testify`; contract tests in `test/contract/` (`ui_test.go`, `key_management_test.go`)  
@@ -167,6 +176,8 @@ func (h *UIHandler) loadAvailableModelNames(ctx context.Context) []string {
 
 ### Step 3 — `handler_keys.go`: Fix `handleKeyCreate` Form Parsing
 
+> **Note**: This step covers what was previously split as T012 (form parsing) and T016 (all_models branch). They are merged here because they describe two sides of the same parsing logic.
+
 **File**: `internal/ui/handler_keys.go`
 
 Replace:
@@ -180,11 +191,23 @@ With:
 ```go
 allModels := r.FormValue("all_models") // "1" = All Models selected
 var models []string
-if allModels != "1" {
+if allModels == "1" {
+    // Explicitly unrestricted — leave models as nil (DB stores empty array).
+} else {
     models = r.Form["models"] // repeated form values from checkboxes
-    // nil/empty slice → no restriction (treated as All Models per spec FR-008)
+    // Nil-guard: r.Form["models"] returns nil when no checkboxes are submitted.
+    // Treat nil the same as empty (fallback: if all_models==0 and models is empty → All Models).
+    if models == nil {
+        models = []string{}
+    }
+    // Fallback: all_models==0 but no individual models selected → treat as unrestricted.
+    if len(models) == 0 {
+        models = []string{}
+    }
 }
 ```
+
+> **`nil` vs `[]string{}` DB behaviour**: `r.Form["models"]` returns `nil` (not `[]string{}`) when no checkbox is submitted. sqlc/pgx may treat `nil` differently from `[]string{}` when encoding `text[]`. Always normalise with `if models == nil { models = []string{} }` before passing to DB params.
 
 ---
 
@@ -220,6 +243,8 @@ Load it when building `data` for error responses:
 data.AvailableModels = h.loadAvailableModelNames(r.Context())
 ```
 
+> ⚠️ **HIGH RISK — DO NOT OMIT**: The error-path in `handleKeyUpdate` calls `buildKeyDetailData(vt)` and immediately re-renders `EditSettingsForm`. If `data.AvailableModels` is not populated before this render, the `modelsMultiSelect` component receives an empty list and the entire dropdown appears broken. Every error-path re-render branch (DB update failure, validation failure) MUST populate `AvailableModels`.
+
 ---
 
 ### Step 5 — `keys.templ`: Replace Free-Text Models Input with Multi-Select
@@ -247,6 +272,10 @@ In `createKeyForm`, replace the models `<div class="space-y-2">` block:
 </div>
 ```
 
+> **`selectedSet` design note**: The `selectedSet` lookup map is currently built inside the templ component. For a cleaner separation of concerns, consider moving this pre-computation into `handler_keys.go` / `buildKeyDetailData` as `SelectedModelSet map[string]bool` and passing it directly to the template. This keeps templ as a **pure view** with no data-transformation logic, simplifies testing, and avoids the `{{ }}` Go-expression syntax in templ files. This is a recommended refactor but not required for the initial implementation.
+
+> **T030 — `data-testid`**: The `<details>` element MUST include `data-testid="models-selector"` for E2E test targeting. See T030 in tasks.md.
+
 Add new helper template:
 
 ```templ
@@ -270,11 +299,11 @@ templ modelsMultiSelect(formPrefix string, available []string, selected []string
         }
     />
 
-    <details class="rounded-md border border-input bg-background">
+    <details data-testid="models-selector" class="rounded-md border border-input bg-background">
         <summary class="flex cursor-pointer select-none items-center justify-between px-3 py-2 text-sm">
             <span id={ formPrefix + "-models-summary" }>
                 if allModelsChecked || len(available) == 0 {
-                    All Models
+                    All Models (unrestricted)
                 } else {
                     { fmt.Sprintf("%d model(s) selected", len(selected)) }
                 }
@@ -293,7 +322,7 @@ templ modelsMultiSelect(formPrefix string, available []string, selected []string
                     }
                     onchange={ toggleAllModels(formPrefix) }
                 />
-                <span class="font-medium">All Models</span>
+                <span class="font-medium">All Models (unrestricted)</span>
             </label>
             if len(available) > 0 {
                 <div class="border-t border-input my-1"></div>
@@ -327,7 +356,7 @@ script toggleAllModels(formPrefix string) {
     if (allCheckbox.checked) {
         hidden.value = '1';
         individualBoxes.forEach(function(cb) { cb.checked = false; cb.disabled = true; });
-        document.getElementById(formPrefix + '-models-summary').textContent = 'All Models';
+        document.getElementById(formPrefix + '-models-summary').textContent = 'All Models (unrestricted)';
     } else {
         hidden.value = '0';
         individualBoxes.forEach(function(cb) { cb.disabled = false; });
@@ -346,7 +375,7 @@ script updateModelsSummary(formPrefix string) {
     if (count === 0) {
         hidden.value = '1';
         allCheckbox.checked = true;
-        summary.textContent = 'All Models';
+        summary.textContent = 'All Models (unrestricted)';
     } else {
         summary.textContent = count + ' model(s) selected';
     }
@@ -631,6 +660,23 @@ Use a **custom `<details>` + checkbox list** pattern — consistent with the exi
 
 > Alternative: templUI `Checkbox` + `Popover` components if they expose the required APIs. Prefer the custom pattern for full control over disabled/sentinel logic without overriding component internals.
 
+#### Click-Outside Handler
+
+`<details>` does **not** close automatically when the user clicks outside it. Add a `document`-level click listener to close all open `<details>` dropdowns when a click lands outside:
+
+```js
+// Inline <script> block (add once, e.g. in base layout or keys page script section)
+document.addEventListener('click', function(e) {
+    document.querySelectorAll('details[data-testid="models-selector"][open]').forEach(function(el) {
+        if (!el.contains(e.target)) {
+            el.removeAttribute('open');
+        }
+    });
+});
+```
+
+This targets only `<details data-testid="models-selector">` elements to avoid accidentally closing other `<details>` on the page. The listener is passive and runs only when a click event bubbles to `document`.
+
 ---
 
 ### Visual Design Specification
@@ -639,7 +685,7 @@ Use a **custom `<details>` + checkbox list** pattern — consistent with the exi
 |-------|---------------|-----------------------|
 | Default / "All Models" selected | `All Models (unrestricted)` (muted/gray) | All **disabled** |
 | N specific models selected | `N model(s) selected` | Enabled; selected ones checked |
-| No model checked (transient) | Auto-reverts to "All Models" | — |
+| No model checked (transient) | Auto-reverts to "All Models (unrestricted)" | — |
 
 **Trigger (closed state)**:
 
@@ -657,7 +703,9 @@ Use a **custom `<details>` + checkbox list** pattern — consistent with the exi
 └─────────────────────────────────────┘
 ```
 
-**Search input** (shown when `len(availableModels) > 10`):
+**Search input** (**P2 — post-MVP only**, shown when `len(availableModels) > 10`):
+
+> ⛔ **Not in scope for this sprint.** The search/filter input is a P2 enhancement for deployments with > 10 models. MVP implementation MUST NOT include this field. The wireframe below is for future reference only.
 
 ```
 ┌─────────────────────────────────────┐
@@ -714,7 +762,7 @@ Use a **custom `<details>` + checkbox list** pattern — consistent with the exi
 └─────────────────────────────────────────┘
 ```
 
-#### Dropdown — Open (> 10 models, with search)
+#### Dropdown — Open (> 10 models, with search) ⚠️ P2 — NOT in MVP scope
 
 ```
 ┌─────────────────────────────────────────┐
@@ -758,7 +806,7 @@ Use a **custom `<details>` + checkbox list** pattern — consistent with the exi
 | `aria-label` on "All Models" checkbox | `aria-label="All Models (unrestricted)"` |
 | `aria-label` per model checkbox | `aria-label="Model: {model_name}"` |
 | Disabled state announcement | `disabled` attribute ensures screen readers announce "dimmed/unavailable" |
-| Search input (if shown) | `aria-label="Filter models"`, `role="searchbox"`, live-filters list via JS |
+| Search input (P2 — if shown) | `aria-label="Filter models"`, `role="searchbox"`, live-filters list via JS — **implement only in P2 sprint** |
 | Summary label updates | `aria-live="polite"` on the summary `<span>` so screen readers announce changes |
 
 ```templ

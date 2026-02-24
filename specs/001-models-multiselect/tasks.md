@@ -52,8 +52,9 @@
 ### Implementation for User Story 1
 
 - [ ] T010 [US1] Add `modelsMultiSelect(formPrefix string, available []string, selected []string)` templ component + `toggleAllModels` script + `updateModelsSummary` script to `internal/ui/pages/keys.templ` (same package as `key_detail.templ`, so callable from both)
+  **Acceptance criteria**: `templ generate` succeeds with no errors; `@icon.ChevronDown` resolves correctly (verify `icon_defs.go` or equivalent exports a `ChevronDown` symbol before writing the component)
 - [ ] T011 [US1] Replace the free-text `<input name="models">` block in `createKeyForm` with `@modelsMultiSelect("create", data.AvailableModels, []string{})` in `internal/ui/pages/keys.templ`
-- [ ] T012 [US1] Fix `handleKeyCreate` form parsing in `internal/ui/handler_keys.go`: replace `parseCSV(r.FormValue("models"))` with `r.Form["models"]` slice read, guarded by `all_models` sentinel value
+- [ ] T012 [US1] Fix `handleKeyCreate` form parsing in `internal/ui/handler_keys.go` (**merged from former T016**): full parsing logic — (a) read `all_models` sentinel; (b) if `all_models=="1"` → set `models = []string{}` (unrestricted); (c) else read `r.Form["models"]` slice; (d) nil-guard: `if models == nil { models = []string{} }`; (e) fallback: if `all_models=="0"` and `len(models)==0` → treat same as All Models (`[]string{}`). Ensure `r.ParseForm()` is called before reading `r.Form`.
 - [ ] T013 [US1] Run `templ generate` from repo root to regenerate `internal/ui/pages/keys_templ.go`; run `go build ./...` to confirm compilation
 
 **Checkpoint**: US1 fully functional and independently testable. Create API Key form shows model checkboxes; selected models are stored in DB.
@@ -73,9 +74,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Fix `handleKeyCreate` all_models branch in `internal/ui/handler_keys.go`: when `all_models == "1"`, set `models = nil` (unrestricted); ensure `r.ParseForm()` is called before reading `r.Form`
+- [ ] T016 [US2] ~~Removed — merged into T012~~ *(T016 is now part of T012)*
 - [ ] T017 [US2] Replace the free-text models input in the edit settings form with `@modelsMultiSelect("edit", data.AvailableModels, data.Models)` in `internal/ui/pages/key_detail.templ`
-- [ ] T018 [US2] Fix `handleKeyUpdate` form parsing in `internal/ui/handler_keys.go`: replace `parseCSV(r.FormValue("models"))` with `all_models` sentinel + `r.Form["models"]` slice; populate `data.AvailableModels` on the error-path re-render
+- [ ] T018 [P] [US2] Fix `handleKeyUpdate` form parsing in `internal/ui/handler_keys.go`: replace `parseCSV(r.FormValue("models"))` with `all_models` sentinel + `r.Form["models"]` slice; **⚠️ HIGH RISK**: populate `data.AvailableModels` on EVERY error-path re-render (see plan Step 4 high-risk note)
+  **Parallel with**: T010/T017 (different handler, no shared mutable state)
 - [ ] T019 [US2] Run `templ generate` from repo root to regenerate `internal/ui/pages/key_detail_templ.go`; run `go build ./...` to confirm compilation
 
 **Checkpoint**: US1 and US2 both functional. Create and Edit forms show multi-select; "All Models" default works; edit form pre-fills current selection.
@@ -110,6 +112,16 @@
 - [ ] T025 [P] Extend `test/contract/ui_test.go` with multi-select rendering assertions: Keys page includes `<details>` element, "All Models" checkbox, and model name checkboxes for each configured model
 - [ ] T026 Run complete test suite (`go test ./...`) and confirm all tests pass; run `go vet ./...` for static analysis
 - [ ] T027 Manual verification against `specs/001-models-multiselect/quickstart.md` checklist
+- [ ] T028 Write E2E test file `e2e/key_models_multiselect_test.ts` covering:
+  - Scenario 1: Create Key dialog shows Models multi-select with all configured models
+  - Scenario 2: Select single model → create key → DB stores only that model
+  - Scenario 3: Select multiple models → create key → all stored
+  - Scenario 4: "All Models" selected → DB stores empty array
+  - Scenario 5: Default (no interaction) → equivalent to All Models
+  - Scenario 6: Edit key → change model selection → save → DB updated
+  - **Scenario 7** (new): Form validation error → model selection is preserved across re-render (test that selecting `gpt-4`, submitting an invalid form, and re-rendering shows `gpt-4` still checked)
+- [ ] T029 [P] Verify `parseCSV` in `internal/ui/handler_keys.go` has no remaining callers after T012 + T018 are complete; if no callers remain, remove the function (verify with `grep -n "parseCSV" internal/ui/handler_keys.go`)
+- [ ] T030 [P] Add `data-testid="models-selector"` to the `<details>` element in `modelsMultiSelect` component in `internal/ui/pages/keys.templ` (required for T028 E2E targeting and click-outside handler scoping)
 
 ---
 
@@ -200,14 +212,14 @@ With two developers after Phase 2 completes:
 | Phase 1: Setup | T001–T002 | — |
 | Phase 2: Foundational | T003–T007 | — |
 | Phase 3: US1 (P1) | T008–T013 | US1 |
-| Phase 4: US2 (P1) | T014–T019 | US2 |
+| Phase 4: US2 (P1) | T014–T019 (T016 merged into T012) | US2 |
 | Phase 5: US3 (P2) | T020–T022 | US3 |
-| Final: Polish | T023–T027 | — |
-| **Total** | **27 tasks** | |
+| Final: Polish | T023–T030 | — |
+| **Total** | **29 active tasks** (T016 merged → 30 defined, 1 retired) | |
 
-**Parallel opportunities**: 11 tasks marked `[P]`  
+**Parallel opportunities**: 13 tasks marked `[P]`  
 **MVP scope**: Phases 1–3 (13 tasks, US1 only)  
-**Full scope**: All 27 tasks
+**Full scope**: All 29 active tasks
 
 ---
 
