@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -15,12 +16,19 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
 )
 
-// RunMigrations applies all pending migrations to the database.
-// Blocks until a database-level advisory lock is acquired (safe for concurrent
-// multi-instance startup). Returns an error if any migration fails.
+// RunMigrations applies all pending migrations to the database using the
+// production embed.FS (internal/db/schema/*.up.sql).
 //
 // pool must not be nil; call this only when DATABASE_URL is configured.
 func RunMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	return RunMigrationsFromFS(ctx, pool, db.SchemaFiles, "schema")
+}
+
+// RunMigrationsFromFS applies all pending migrations from the given fs.FS.
+// The dir argument is the subdirectory inside fsys that contains *.up.sql files.
+//
+// Exposed for testing — production code should call RunMigrations instead.
+func RunMigrationsFromFS(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS, dir string) error {
 	if pool == nil {
 		return fmt.Errorf("migrate: RunMigrations called with nil pool — ensure DATABASE_URL is configured before calling RunMigrations")
 	}
@@ -32,7 +40,7 @@ func RunMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		return fmt.Errorf("migrate: create driver: %w", err)
 	}
 
-	src, err := iofs.New(db.SchemaFiles, "schema")
+	src, err := iofs.New(fsys, dir)
 	if err != nil {
 		return fmt.Errorf("migrate: create source: %w", err)
 	}
