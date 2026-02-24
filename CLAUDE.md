@@ -148,6 +148,8 @@ Go 1.24.4, chi/v5 (router), pgx/v5 (PostgreSQL), go-redis/v9 (Redis), templ + te
 - PostgreSQL via pgx/v5, queries via sqlc (010-spend-usage)
 - Go 1.26 (as per `go.mod`) + `github.com/jackc/pgx/v5` (already in go.mod) + stdlib `embed`, `io/fs` (002-auto-db-migration)
 - PostgreSQL — new `schema_migrations` table (created at runtime) (002-auto-db-migration)
+- Go 1.24.4 + empl (type-safe HTML templates), HTMX 2.x (server-driven interactions), templUI v1.5.0 (shadcn-style components), Tailwind CSS v4 (001-models-multiselect)
+- PostgreSQL via pgx/v5 + sqlc (no schema changes needed; `models` column already `[]string`) (001-models-multiselect)
 
 ## Recent Changes
 - 009-request-logs: Added Go 1.24.4 + chi/v5（路由）、templ（模板）、HTMX 2.x（交互）、templUI v1.5.0（UI 組件）、Tailwind CSS v4
