@@ -60,14 +60,22 @@ func TestSchemaFilesOrder(t *testing.T) {
 	assert.Equal(t, uint(10), versions[len(versions)-1], "last migration version must be 10")
 }
 
-// TestRunMigrationsNilPool verifies that RunMigrations with a nil pool returns an error
-// rather than panicking (guard for no-DB mode accidentally calling the function).
+// TestRunMigrationsNilPool verifies that RunMigrations with a nil pool returns a
+// descriptive error (not a panic), containing enough context for an LLM or developer
+// to immediately locate the root cause without reading source code.
+//
 // T026: no migration attempt occurs when pool is nil.
+// UT-01: error message must contain identifiable keywords.
 func TestRunMigrationsNilPool(t *testing.T) {
-	// stdlib.OpenDBFromPool panics on nil; this test documents expected behavior.
-	// In production, RunMigrations is only called inside the DatabaseURL != "" block,
-	// so pool is always non-nil. This test guards against accidental nil calls.
-	assert.Panics(t, func() {
-		_ = RunMigrations(t.Context(), nil) //nolint:errcheck
-	}, "RunMigrations with nil pool should panic — caller must ensure pool is non-nil")
+	err := RunMigrations(t.Context(), nil)
+
+	require.Error(t, err, "RunMigrations(nil) must return an error")
+
+	// Error message must contain keywords that let an LLM/developer instantly identify:
+	// 1. which function failed  → "RunMigrations"
+	// 2. what was wrong        → "nil pool"
+	// 3. what to do about it   → "DATABASE_URL"
+	assert.Contains(t, err.Error(), "RunMigrations", "error must name the failing function")
+	assert.Contains(t, err.Error(), "nil pool", "error must describe the bad argument")
+	assert.Contains(t, err.Error(), "DATABASE_URL", "error must hint at the fix")
 }

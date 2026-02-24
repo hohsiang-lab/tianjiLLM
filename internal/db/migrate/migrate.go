@@ -18,7 +18,13 @@ import (
 // RunMigrations applies all pending migrations to the database.
 // Blocks until a database-level advisory lock is acquired (safe for concurrent
 // multi-instance startup). Returns an error if any migration fails.
+//
+// pool must not be nil; call this only when DATABASE_URL is configured.
 func RunMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	if pool == nil {
+		return fmt.Errorf("migrate: RunMigrations called with nil pool — ensure DATABASE_URL is configured before calling RunMigrations")
+	}
+
 	sqlDB := stdlib.OpenDBFromPool(pool)
 
 	driver, err := pgxv5.WithInstance(sqlDB, &pgxv5.Config{})
