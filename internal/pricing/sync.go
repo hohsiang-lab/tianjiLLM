@@ -91,11 +91,7 @@ func SyncFromUpstream(ctx context.Context, pool *pgxpool.Pool, queries *db.Queri
 	if err != nil {
 		return 0, fmt.Errorf("begin transaction: %w", err)
 	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback(ctx)
-		}
-	}()
+	defer func() { _ = tx.Rollback(ctx) }() // no-op after successful commit
 
 	batch := &pgx.Batch{}
 	for _, e := range entries {
