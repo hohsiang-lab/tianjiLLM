@@ -568,6 +568,8 @@ func cleanDB(t *testing.T) {
 	require.NoError(t, err)
 	_, err = testPool.Exec(ctx, `DELETE FROM "ProxyModelTable"`)
 	require.NoError(t, err)
+	_, err = testPool.Exec(ctx, `DELETE FROM "ModelPricing"`)
+	require.NoError(t, err)
 }
 
 func generateTestKey() string {

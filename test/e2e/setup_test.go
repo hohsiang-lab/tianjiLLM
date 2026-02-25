@@ -18,6 +18,7 @@ import (
 
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
+	"github.com/praxisllmlab/tianjiLLM/internal/pricing"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/handler"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui"
@@ -71,8 +72,10 @@ func TestMain(m *testing.M) {
 
 	uiHandler := &ui.UIHandler{
 		DB:        testDB,
+		Pool:      testPool,
 		Config:    cfg,
 		MasterKey: masterKey,
+		Pricing:   pricing.Default(),
 	}
 
 	srv := proxy.NewServer(proxy.ServerConfig{
