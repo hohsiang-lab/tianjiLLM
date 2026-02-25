@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -12,7 +13,9 @@ import (
 	"strings"
 	"time"
 
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
+	"github.com/praxisllmlab/tianjiLLM/internal/db"
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
 	"github.com/praxisllmlab/tianjiLLM/internal/pricing"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider/anthropic"
@@ -74,7 +77,37 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 			}
 		},
 		ModifyResponse: func(resp *http.Response) error {
-			if resp.StatusCode != http.StatusOK || h.Callbacks == nil {
+			if resp.StatusCode != http.StatusOK {
+				if h.DB != nil {
+					body, readErr := io.ReadAll(resp.Body)
+					if readErr == nil {
+						resp.Body = io.NopCloser(bytes.NewReader(body))
+					}
+					errMsg := fmt.Sprintf("upstream error: status %d", resp.StatusCode)
+					if len(body) > 0 {
+						errMsg = string(body)
+					}
+					apiKeyHash := ""
+					if v, ok := ctx.Value(middleware.ContextKeyTokenHash).(string); ok {
+						apiKeyHash = v
+					}
+					requestID := chiMiddleware.GetReqID(ctx)
+					go func() {
+						_ = h.DB.InsertErrorLog(context.Background(), db.InsertErrorLogParams{
+							RequestID:    requestID,
+							ApiKeyHash:   apiKeyHash,
+							Model:        "",
+							Provider:     providerName,
+							StatusCode:   int32(resp.StatusCode),
+							ErrorType:    "upstream_error",
+							ErrorMessage: errMsg,
+						})
+					}()
+				}
+				return nil
+			}
+
+			if h.Callbacks == nil {
 				return nil
 			}
 
