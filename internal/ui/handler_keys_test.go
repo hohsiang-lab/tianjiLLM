@@ -79,14 +79,14 @@ func TestLoadAvailableModelNamesEmpty(t *testing.T) {
 }
 
 // TestLoadAvailableModelNames_EmptyModelName ensures zero-value model names
-// are not included in the output.
+// are filtered out and not included in the output.
 func TestLoadAvailableModelNames_EmptyModelName(t *testing.T) {
 	h := &UIHandler{
 		DB: nil,
 		Config: &config.ProxyConfig{
 			ModelList: []config.ModelConfig{
 				{ModelName: "gpt-4"},
-				{ModelName: ""},      // empty name — should still be present (dedup handles it)
+				{ModelName: ""},      // empty name — must be filtered out
 				{ModelName: "claude-3"},
 			},
 		},
@@ -94,9 +94,51 @@ func TestLoadAvailableModelNames_EmptyModelName(t *testing.T) {
 
 	names := h.loadAvailableModelNames(context.Background())
 
-	// The function as implemented includes all names from config (including empty string).
-	// The empty string is a valid unique key, so it will be included once.
-	assert.Len(t, names, 3)
+	// Empty string must be filtered out → only 2 names remain.
+	assert.Len(t, names, 2)
 	assert.Contains(t, names, "gpt-4")
 	assert.Contains(t, names, "claude-3")
+	assert.NotContains(t, names, "")
+}
+
+// TestParseModelSelection covers the pure model-selection parsing logic.
+func TestParseModelSelection(t *testing.T) {
+	tests := []struct {
+		name       string
+		allModels  string
+		formModels []string
+		want       []string
+	}{
+		{
+			name:       "all_models=1 returns empty (unrestricted)",
+			allModels:  "1",
+			formModels: []string{"gpt-4", "claude-3"},
+			want:       []string{},
+		},
+		{
+			name:       "specific models selected",
+			allModels:  "0",
+			formModels: []string{"gpt-4", "claude-3"},
+			want:       []string{"gpt-4", "claude-3"},
+		},
+		{
+			name:       "nil models fallback treats as unrestricted",
+			allModels:  "0",
+			formModels: nil,
+			want:       []string{},
+		},
+		{
+			name:       "all_models=0 with empty slice treats as unrestricted",
+			allModels:  "0",
+			formModels: []string{},
+			want:       []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseModelSelection(tt.allModels, tt.formModels)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

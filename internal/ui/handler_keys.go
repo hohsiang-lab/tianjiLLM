@@ -6,13 +6,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
@@ -226,21 +224,8 @@ func (h *UIHandler) handleKeyCreate(w http.ResponseWriter, r *http.Request) {
 	// Parse model selection from multi-select checkboxes.
 	// all_models="1" means unrestricted (no model restriction).
 	// all_models="0" reads r.Form["models"] (repeated checkbox values).
-	// Fallback: if all_models="0" but no models selected → treat as unrestricted.
-	allModels := r.FormValue("all_models")
-	var models []string
-	if allModels == "1" {
-		models = []string{} // explicitly unrestricted
-	} else {
-		models = r.Form["models"]
-		if models == nil {
-			models = []string{}
-		}
-		// If all_models=0 but no individual models selected → treat as unrestricted.
-		if len(models) == 0 {
-			models = []string{}
-		}
-	}
+	// Fallback: if user unchecks All Models but selects nothing, treat as unrestricted (by design per FR-008)
+	models := parseModelSelection(r.FormValue("all_models"), r.Form["models"])
 
 	tpmLimit := parseOptionalInt64(tpmStr)
 	rpmLimit := parseOptionalInt64(rpmStr)
@@ -482,17 +467,7 @@ func (h *UIHandler) handleKeyUpdate(w http.ResponseWriter, r *http.Request) {
 
 	// Parse model selection from multi-select checkboxes.
 	// all_models="1" means unrestricted; "0" reads r.Form["models"].
-	allModels := r.FormValue("all_models")
-	if allModels == "1" {
-		params.Models = []string{} // explicitly unrestricted
-	} else {
-		selectedModels := r.Form["models"]
-		if selectedModels != nil {
-			params.Models = selectedModels
-		} else {
-			params.Models = []string{}
-		}
-	}
+	params.Models = parseModelSelection(r.FormValue("all_models"), r.Form["models"])
 
 	if metadataStr != "" {
 		var v any
@@ -507,8 +482,7 @@ func (h *UIHandler) handleKeyUpdate(w http.ResponseWriter, r *http.Request) {
 		data := buildKeyDetailData(vt)
 		data.Teams, data.Users = h.loadTeamsAndUsers(r)
 		data.AvailableModels = h.loadAvailableModelNames(r.Context())
-		render(r.Context(), w, pages.EditSettingsForm(data))
-		render(r.Context(), w, toastOOB("Failed to update key: "+err.Error(), toast.VariantError))
+		render(r.Context(), w, pages.EditSettingsFormWithToast(data, "Failed to update key: "+err.Error(), toast.VariantError))
 		return
 	}
 
@@ -596,6 +570,9 @@ func (h *UIHandler) loadAvailableModelNames(ctx context.Context) []string {
 		rows, err := h.DB.ListProxyModels(ctx)
 		if err == nil {
 			for _, m := range rows {
+				if m.ModelName == "" {
+					continue
+				}
 				if _, ok := seen[m.ModelName]; !ok {
 					seen[m.ModelName] = struct{}{}
 					names = append(names, m.ModelName)
@@ -607,6 +584,9 @@ func (h *UIHandler) loadAvailableModelNames(ctx context.Context) []string {
 	// YAML config models (fill in any not already in DB list).
 	if h.Config != nil {
 		for _, m := range h.Config.ModelList {
+			if m.ModelName == "" {
+				continue
+			}
 			if _, ok := seen[m.ModelName]; !ok {
 				seen[m.ModelName] = struct{}{}
 				names = append(names, m.ModelName)
@@ -702,25 +682,6 @@ func buildKeyDetailData(vt db.VerificationToken) pages.KeyDetailData {
 	return data
 }
 
-func toastOOB(msg string, variant toast.Variant) templ.Component {
-	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		_, err := io.WriteString(w, `<div id="toast-oob" hx-swap-oob="afterbegin:body">`)
-		if err != nil {
-			return err
-		}
-		err = toast.Toast(toast.Props{
-			Title:       msg,
-			Variant:     variant,
-			Dismissible: true,
-			Duration:    3000,
-		}).Render(ctx, w)
-		if err != nil {
-			return err
-		}
-		_, err = io.WriteString(w, `</div>`)
-		return err
-	})
-}
 
 func parseDuration(s string) time.Duration {
 	s = strings.TrimSpace(s)
@@ -785,3 +746,18 @@ func parseOptionalInt64(s string) *int64 {
 }
 
 // parseCSV has been removed: the models multi-select uses r.Form["models"] directly.
+
+// parseModelSelection converts multi-select form values into the models slice to store.
+// allModels is the value of the "all_models" hidden field ("1" = unrestricted, "0" = specific).
+// formModels is the r.Form["models"] repeated values from checked checkboxes.
+// Returns []string{} for unrestricted (empty means no model restriction in the DB schema).
+func parseModelSelection(allModels string, formModels []string) []string {
+	if allModels == "1" {
+		return []string{}
+	}
+	if len(formModels) == 0 {
+		// Fallback: all_models=0 but no individual models selected → treat as unrestricted (per FR-008).
+		return []string{}
+	}
+	return formModels
+}

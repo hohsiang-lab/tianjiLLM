@@ -209,8 +209,12 @@ templ modelsMultiSelect(formPrefix string, available []string, selected []string
 		</div>
 	</details>
 	<script>
-		// Close this models-selector when user clicks outside it
+		// Close this models-selector when user clicks outside it.
+		// Guard prevents the listener from being registered multiple times
+		// when the component is re-rendered (e.g. HTMX partial swaps).
 		(function() {
+			if (window.__modelsClickOutsideRegistered) return;
+			window.__modelsClickOutsideRegistered = true;
 			document.addEventListener('click', function(e) {
 				document.querySelectorAll('details[data-testid="models-selector"][open]').forEach(function(el) {
 					if (!el.contains(e.target)) {

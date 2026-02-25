@@ -644,6 +644,20 @@ templ SettingsTabWithToast(data KeyDetailData, msg string, variant toast.Variant
 	}
 }
 
+templ EditSettingsFormWithToast(data KeyDetailData, msg string, variant toast.Variant) {
+	@EditSettingsForm(data)
+	if msg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       msg,
+				Variant:     variant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
+
 templ KeyNotFoundPage() {
 	@AppLayout("Key Not Found", "/ui/keys") {
 		<div class="flex flex-col items-center justify-center py-16 space-y-4">
