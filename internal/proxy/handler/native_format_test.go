@@ -1,0 +1,264 @@
+package handler
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/praxisllmlab/tianjiLLM/internal/config"
+	"github.com/praxisllmlab/tianjiLLM/internal/db"
+	"github.com/praxisllmlab/tianjiLLM/internal/model"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// spyDBTX implements db.DBTX, capturing all Exec calls for assertion.
+type spyDBTX struct {
+	mu     sync.Mutex
+	calls  [][]interface{} // each element is the args slice from one Exec call
+	execCh chan struct{}   // buffered; signaled on each Exec call
+}
+
+func newSpyDBTX() *spyDBTX {
+	return &spyDBTX{execCh: make(chan struct{}, 8)}
+}
+
+func (s *spyDBTX) Exec(_ context.Context, _ string, args ...interface{}) (pgconn.CommandTag, error) {
+	s.mu.Lock()
+	s.calls = append(s.calls, args)
+	s.mu.Unlock()
+	select {
+	case s.execCh <- struct{}{}:
+	default:
+	}
+	return pgconn.CommandTag{}, nil
+}
+
+func (s *spyDBTX) Query(_ context.Context, _ string, _ ...interface{}) (pgx.Rows, error) {
+	return nil, nil
+}
+
+func (s *spyDBTX) QueryRow(_ context.Context, _ string, _ ...interface{}) pgx.Row {
+	return nil
+}
+
+// waitExec waits up to timeout for at least one Exec call; fails the test on timeout.
+func (s *spyDBTX) waitExec(t *testing.T, timeout time.Duration) {
+	t.Helper()
+	select {
+	case <-s.execCh:
+	case <-time.After(timeout):
+		t.Fatal("timed out waiting for InsertErrorLog Exec call")
+	}
+}
+
+// callCount returns how many Exec calls have been recorded.
+func (s *spyDBTX) callCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.calls)
+}
+
+// firstArgs returns the args from the first captured Exec call.
+func (s *spyDBTX) firstArgs(t *testing.T) []interface{} {
+	t.Helper()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	require.NotEmpty(t, s.calls, "expected at least one Exec call")
+	return s.calls[0]
+}
+
+// nativeTestHandlers creates Handlers with the upstream URL wired into provider config.
+// Pass dbtx=nil to leave h.DB as nil.
+func nativeTestHandlers(upstreamURL, providerName string, dbtx *spyDBTX) *Handlers {
+	apiKey := "test-key"
+	cfg := &config.ProxyConfig{
+		ModelList: []config.ModelConfig{
+			{
+				ModelName: providerName + "-test",
+				TianjiParams: config.TianjiParams{
+					Model:   providerName + "/some-model",
+					APIKey:  &apiKey,
+					APIBase: &upstreamURL,
+				},
+			},
+		},
+	}
+	h := &Handlers{Config: cfg}
+	if dbtx != nil {
+		h.DB = db.New(dbtx)
+	}
+	return h
+}
+
+// ──────────────────────────────────────────────────────────────
+// nativeProxy tests
+// ──────────────────────────────────────────────────────────────
+
+// TestNativeProxy_ErrorLog_Written verifies that InsertErrorLog is called when
+// upstream responds with a non-200 status code.
+func TestNativeProxy_ErrorLog_Written(t *testing.T) {
+	t.Parallel()
+
+	const errBody = `{"type":"error","error":{"type":"rate_limit_error","message":"too many requests"}}`
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(errBody))
+	}))
+	defer upstream.Close()
+
+	spy := newSpyDBTX()
+	h := nativeTestHandlers(upstream.URL, "anthropic", spy)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{}`))
+	w := httptest.NewRecorder()
+	h.nativeProxy(w, req, "anthropic")
+
+	// InsertErrorLog is called in a goroutine; wait for it.
+	spy.waitExec(t, 2*time.Second)
+
+	// InsertErrorLog args order: requestID, apiKeyHash, model, provider,
+	// statusCode, errorType, errorMessage, traceback  (8 total).
+	args := spy.firstArgs(t)
+	require.Len(t, args, 8, "InsertErrorLog must receive exactly 8 args")
+
+	// Compare as interface{} — avoids errcheck on unchecked type assertions.
+	assert.Equal(t, "anthropic", args[3], "provider")
+	assert.Equal(t, int32(http.StatusTooManyRequests), args[4], "status_code")
+	assert.Equal(t, "upstream_error", args[5], "error_type")
+	assert.Contains(t, args[6], "too many requests", "error_message should contain upstream body")
+}
+
+// TestNativeProxy_ErrorLog_BodyRestored verifies that the response body is
+// fully available to the client even after ReadAll was called in ModifyResponse.
+func TestNativeProxy_ErrorLog_BodyRestored(t *testing.T) {
+	t.Parallel()
+
+	const errBody = `{"error":"invalid_api_key"}`
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(errBody))
+	}))
+	defer upstream.Close()
+
+	spy := newSpyDBTX()
+	h := nativeTestHandlers(upstream.URL, "anthropic", spy)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{}`))
+	w := httptest.NewRecorder()
+	h.nativeProxy(w, req, "anthropic")
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Equal(t, errBody, w.Body.String(),
+		"response body must be fully restored after ReadAll in ModifyResponse")
+}
+
+// TestNativeProxy_NoErrorLog_On200 verifies that InsertErrorLog is NOT called
+// when upstream responds with 200 OK.
+func TestNativeProxy_NoErrorLog_On200(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"msg_ok","type":"message"}`))
+	}))
+	defer upstream.Close()
+
+	spy := newSpyDBTX()
+	h := nativeTestHandlers(upstream.URL, "anthropic", spy)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{}`))
+	w := httptest.NewRecorder()
+	h.nativeProxy(w, req, "anthropic")
+
+	// Allow any goroutine to run; none should.
+	time.Sleep(100 * time.Millisecond)
+	assert.Equal(t, 0, spy.callCount(), "InsertErrorLog must not be called on 200 response")
+}
+
+// TestNativeProxy_NilDB_NoPanic verifies that nil h.DB does not cause a panic
+// when the upstream returns an error response.
+func TestNativeProxy_NilDB_NoPanic(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"internal_server_error"}`))
+	}))
+	defer upstream.Close()
+
+	h := nativeTestHandlers(upstream.URL, "anthropic", nil) // DB is nil
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{}`))
+	w := httptest.NewRecorder()
+
+	require.NotPanics(t, func() {
+		h.nativeProxy(w, req, "anthropic")
+	}, "nativeProxy must not panic when h.DB is nil")
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+// ──────────────────────────────────────────────────────────────
+// recordErrorLog tests
+// ──────────────────────────────────────────────────────────────
+
+// TestRecordErrorLog_UsesChiRequestID verifies that recordErrorLog stores the
+// chi RequestID from context — not a pointer address or other fallback value.
+func TestRecordErrorLog_UsesChiRequestID(t *testing.T) {
+	t.Parallel()
+
+	spy := newSpyDBTX()
+	h := &Handlers{
+		Config: &config.ProxyConfig{},
+		DB:     db.New(spy),
+	}
+
+	const wantID = "req-chi-abc123"
+	ctx := context.WithValue(context.Background(), chiMiddleware.RequestIDKey, wantID)
+	req := &model.ChatCompletionRequest{Model: "gpt-4"}
+
+	h.recordErrorLog(ctx, req, nil, fmt.Errorf("upstream failure"))
+
+	spy.waitExec(t, 2*time.Second)
+
+	args := spy.firstArgs(t)
+	require.Len(t, args, 8)
+	// args[0] is RequestID; compare as interface{} to avoid errcheck on type assertions.
+	assert.Equal(t, wantID, args[0],
+		"RequestID must equal chi request ID, not a pointer address")
+}
+
+// TestRecordErrorLog_NoRequestID_EmptyString verifies that RequestID is the
+// empty string when no chi RequestID is present in the context.
+func TestRecordErrorLog_NoRequestID_EmptyString(t *testing.T) {
+	t.Parallel()
+
+	spy := newSpyDBTX()
+	h := &Handlers{
+		Config: &config.ProxyConfig{},
+		DB:     db.New(spy),
+	}
+
+	ctx := context.Background() // no chi request ID
+	req := &model.ChatCompletionRequest{Model: "gpt-4"}
+
+	h.recordErrorLog(ctx, req, nil, fmt.Errorf("some error"))
+
+	spy.waitExec(t, 2*time.Second)
+
+	args := spy.firstArgs(t)
+	require.Len(t, args, 8)
+	assert.Equal(t, "", args[0],
+		"RequestID must be empty string when chi request ID is absent from context")
+}
