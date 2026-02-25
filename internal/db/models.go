@@ -286,6 +286,21 @@ type ModelAccessGroup struct {
 	UpdatedBy      string             `json:"updated_by"`
 }
 
+type ModelPricing struct {
+	ModelName          string             `json:"model_name"`
+	InputCostPerToken  float64            `json:"input_cost_per_token"`
+	OutputCostPerToken float64            `json:"output_cost_per_token"`
+	MaxInputTokens     int32              `json:"max_input_tokens"`
+	MaxOutputTokens    int32              `json:"max_output_tokens"`
+	MaxTokens          int32              `json:"max_tokens"`
+	Mode               string             `json:"mode"`
+	Provider           string             `json:"provider"`
+	SourceUrl          string             `json:"source_url"`
+	SyncedAt           pgtype.Timestamptz `json:"synced_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
 type OrganizationMembership struct {
 	UserID         string             `json:"user_id"`
 	OrganizationID string             `json:"organization_id"`
