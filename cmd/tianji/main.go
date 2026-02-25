@@ -31,6 +31,7 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/handler"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/hook"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/passthrough"
 	"github.com/praxisllmlab/tianjiLLM/internal/router"
 	"github.com/praxisllmlab/tianjiLLM/internal/router/strategy"
@@ -420,9 +421,14 @@ func main() {
 	}
 
 	// Create server
+	var dbValidator middleware.TokenValidator
+	if queries != nil {
+		dbValidator = &middleware.DBValidator{DB: queries}
+	}
 	srv := proxy.NewServer(proxy.ServerConfig{
 		Handlers:           handlers,
 		MasterKey:          cfg.GeneralSettings.MasterKey,
+		DBQueries:          dbValidator,
 		RedisClient:        redisClient,
 		PassthroughHandler: passthroughHandler,
 		MCPSSEHandler:      mcpSSEHandler,
