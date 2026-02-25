@@ -3,8 +3,7 @@ TAILWIND := ./bin/tailwindcss
 .PHONY: build test lint generate check docker run clean templ-generate tailwind-build ui ui-dev tools dev e2e e2e-headed playwright-install hooks
 
 hooks:
-	@command -v lefthook >/dev/null 2>&1 || go install github.com/evilmartians/lefthook@latest
-	@lefthook install
+	@go tool lefthook install
 
 tools:
 	go install github.com/a-h/templ/cmd/templ@latest
@@ -25,7 +24,7 @@ test:
 	go test -race -cover ./...
 
 lint:
-	golangci-lint run
+	go tool golangci-lint run
 
 generate:
 	sqlc generate
