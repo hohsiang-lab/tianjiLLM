@@ -15,12 +15,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakePricingServer returns a httptest.Server that serves a minimal LiteLLM model_prices JSON.
+// fakePricingServer returns a httptest.Server that serves a LiteLLM model_prices JSON.
+// Automatically pads to 50+ models to pass the sanity check in SyncFromUpstream.
 func fakePricingServer(t *testing.T, models map[string]map[string]any) *httptest.Server {
 	t.Helper()
+	// SyncFromUpstream requires at least 50 models — pad with dummy entries
+	padded := make(map[string]map[string]any, len(models)+60)
+	for k, v := range models {
+		padded[k] = v
+	}
+	for i := len(padded); i < 60; i++ {
+		padded[fmt.Sprintf("pad-model-%d", i)] = map[string]any{
+			"input_cost_per_token":  0.000001,
+			"output_cost_per_token": 0.000002,
+			"max_tokens":            4096,
+			"mode":                  "chat",
+			"litellm_provider":      "openai",
+		}
+	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(models)
+		json.NewEncoder(w).Encode(padded)
 	}))
 	t.Cleanup(srv.Close)
 	return srv
@@ -114,7 +129,12 @@ func TestModelsSync_Idempotent(t *testing.T) {
 		require.NoError(t, f.Page.GetByRole("button", playwright.PageGetByRoleOptions{
 			Name: "Sync Pricing",
 		}).Click())
-		f.WaitToast()
+		toast := f.Page.Locator("[data-tui-toast]").First()
+		require.NoError(t, toast.WaitFor(playwright.LocatorWaitForOptions{
+			Timeout: playwright.Float(10000),
+		}))
+		// Dismiss toast before next iteration
+		_, _ = f.Page.Evaluate(`() => document.querySelectorAll('[data-tui-toast]').forEach(el => el.remove())`)
 		f.WaitStable()
 	}
 
