@@ -7,21 +7,27 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/a-h/templ"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/cache"
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
+	"github.com/praxisllmlab/tianjiLLM/internal/pricing"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/pages"
 )
 
 // UIHandler holds dependencies for the admin dashboard UI.
 type UIHandler struct {
-	DB        *db.Queries
-	Config    *config.ProxyConfig
-	Cache     cache.Cache
-	MasterKey string
+	DB            *db.Queries
+	Pool          *pgxpool.Pool
+	Config        *config.ProxyConfig
+	Cache         cache.Cache
+	MasterKey     string
+	Pricing       *pricing.Calculator
+	syncPricingMu sync.Mutex
 }
 
 func (h *UIHandler) masterKeyHash() string {
