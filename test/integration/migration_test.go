@@ -145,7 +145,7 @@ func TestRunMigrations(t *testing.T) {
 			assert.True(t, dirty, "failing migration version must be marked dirty=true")
 		}
 		// If the row doesn't exist at all, the transaction was fully rolled back —
-		// also acceptable behaviour.
+		// also acceptable behavior.
 
 		// Cleanup: drop test table if it was created.
 		_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS _it02_test")
