@@ -48,6 +48,9 @@ func (h *UIHandler) loadKeysPageData(r *http.Request) pages.KeysPageData {
 		FilterKeyHash:  q.Get("key_hash"),
 	}
 
+	// Load available model names for the models selector (works even without DB — falls back to config).
+	data.AvailableModels = h.loadAvailableModelNames(r.Context())
+
 	if h.DB == nil {
 		return data
 	}
@@ -189,7 +192,6 @@ func (h *UIHandler) handleKeyCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	keyAlias := r.FormValue("key_alias")
-	modelsStr := r.FormValue("models")
 	maxBudgetStr := r.FormValue("max_budget")
 	budgetDuration := r.FormValue("budget_duration")
 	tpmStr := r.FormValue("tpm_limit")
@@ -220,7 +222,26 @@ func (h *UIHandler) handleKeyCreate(w http.ResponseWriter, r *http.Request) {
 	hashedKey := hashKey(rawKey)
 
 	maxBudget := parseOptionalFloat(maxBudgetStr)
-	models := parseCSV(modelsStr)
+
+	// Parse model selection from multi-select checkboxes.
+	// all_models="1" means unrestricted (no model restriction).
+	// all_models="0" reads r.Form["models"] (repeated checkbox values).
+	// Fallback: if all_models="0" but no models selected → treat as unrestricted.
+	allModels := r.FormValue("all_models")
+	var models []string
+	if allModels == "1" {
+		models = []string{} // explicitly unrestricted
+	} else {
+		models = r.Form["models"]
+		if models == nil {
+			models = []string{}
+		}
+		// If all_models=0 but no individual models selected → treat as unrestricted.
+		if len(models) == 0 {
+			models = []string{}
+		}
+	}
+
 	tpmLimit := parseOptionalInt64(tpmStr)
 	rpmLimit := parseOptionalInt64(rpmStr)
 
@@ -385,6 +406,7 @@ func (h *UIHandler) handleKeyDetail(w http.ResponseWriter, r *http.Request) {
 
 	data := buildKeyDetailData(vt)
 	data.Teams, data.Users = h.loadTeamsAndUsers(r)
+	data.AvailableModels = h.loadAvailableModelNames(r.Context())
 	render(r.Context(), w, pages.KeyDetailPage(data))
 }
 
@@ -404,6 +426,7 @@ func (h *UIHandler) handleKeyEdit(w http.ResponseWriter, r *http.Request) {
 
 	data := buildKeyDetailData(vt)
 	data.Teams, data.Users = h.loadTeamsAndUsers(r)
+	data.AvailableModels = h.loadAvailableModelNames(r.Context())
 	render(r.Context(), w, pages.EditSettingsForm(data))
 }
 
@@ -443,7 +466,6 @@ func (h *UIHandler) handleKeyUpdate(w http.ResponseWriter, r *http.Request) {
 	budgetDuration := r.FormValue("budget_duration")
 	tpmStr := r.FormValue("tpm_limit")
 	rpmStr := r.FormValue("rpm_limit")
-	modelsStr := r.FormValue("models")
 	metadataStr := r.FormValue("metadata")
 
 	params := db.UpdateVerificationTokenParams{Token: token}
@@ -457,9 +479,21 @@ func (h *UIHandler) handleKeyUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	params.TpmLimit = parseOptionalInt64(tpmStr)
 	params.RpmLimit = parseOptionalInt64(rpmStr)
-	if modelsStr != "" {
-		params.Models = parseCSV(modelsStr)
+
+	// Parse model selection from multi-select checkboxes.
+	// all_models="1" means unrestricted; "0" reads r.Form["models"].
+	allModels := r.FormValue("all_models")
+	if allModels == "1" {
+		params.Models = []string{} // explicitly unrestricted
+	} else {
+		selectedModels := r.Form["models"]
+		if selectedModels != nil {
+			params.Models = selectedModels
+		} else {
+			params.Models = []string{}
+		}
 	}
+
 	if metadataStr != "" {
 		var v any
 		if json.Unmarshal([]byte(metadataStr), &v) == nil {
@@ -472,6 +506,7 @@ func (h *UIHandler) handleKeyUpdate(w http.ResponseWriter, r *http.Request) {
 		vt, _ := h.DB.GetVerificationToken(r.Context(), token)
 		data := buildKeyDetailData(vt)
 		data.Teams, data.Users = h.loadTeamsAndUsers(r)
+		data.AvailableModels = h.loadAvailableModelNames(r.Context())
 		render(r.Context(), w, pages.EditSettingsForm(data))
 		render(r.Context(), w, toastOOB("Failed to update key: "+err.Error(), toast.VariantError))
 		return
@@ -549,6 +584,41 @@ func (h *UIHandler) handleKeyRegenerate(w http.ResponseWriter, r *http.Request) 
 }
 
 // --- helpers ---
+
+// loadAvailableModelNames returns deduplicated model names from DB + YAML config.
+// Follows the same merge logic as loadModelsPageData in handler_models.go.
+func (h *UIHandler) loadAvailableModelNames(ctx context.Context) []string {
+	seen := map[string]struct{}{}
+	var names []string
+
+	// DB models (authoritative source when DB is available).
+	if h.DB != nil {
+		rows, err := h.DB.ListProxyModels(ctx)
+		if err == nil {
+			for _, m := range rows {
+				if _, ok := seen[m.ModelName]; !ok {
+					seen[m.ModelName] = struct{}{}
+					names = append(names, m.ModelName)
+				}
+			}
+		}
+	}
+
+	// YAML config models (fill in any not already in DB list).
+	if h.Config != nil {
+		for _, m := range h.Config.ModelList {
+			if _, ok := seen[m.ModelName]; !ok {
+				seen[m.ModelName] = struct{}{}
+				names = append(names, m.ModelName)
+			}
+		}
+	}
+
+	if names == nil {
+		return []string{}
+	}
+	return names
+}
 
 func (h *UIHandler) loadTeamsAndUsers(r *http.Request) ([]pages.TeamOption, []pages.UserOption) {
 	var teamOpts []pages.TeamOption
@@ -714,16 +784,4 @@ func parseOptionalInt64(s string) *int64 {
 	return &v
 }
 
-func parseCSV(s string) []string {
-	if s == "" {
-		return []string{}
-	}
-	var result []string
-	for _, m := range strings.Split(s, ",") {
-		m = strings.TrimSpace(m)
-		if m != "" {
-			result = append(result, m)
-		}
-	}
-	return result
-}
+// parseCSV has been removed: the models multi-select uses r.Form["models"] directly.
