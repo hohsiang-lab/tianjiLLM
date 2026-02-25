@@ -207,6 +207,39 @@ state.
 - **SC-006**: The in-memory hot-reload does not cause any concurrent
   `Cost()` call to return an error or zero for a previously-known model.
 
+## Future Scope (P2/P3 — not in MVP)
+
+### P2: Scheduled Auto-Sync
+
+LiteLLM supports `POST /schedule/model_cost_map_reload?hours=6` for periodic
+auto-sync. We should add a similar mechanism:
+
+- **FR-013** (P2): The system SHOULD support a configurable periodic sync
+  interval via environment variable (e.g., `PRICING_SYNC_INTERVAL_HOURS`).
+- **FR-014** (P2): A `POST /api/v1/pricing/schedule?hours={hours}` endpoint
+  SHOULD allow admins to start/stop periodic sync at runtime.
+- **FR-015** (P2): A `GET /api/v1/pricing/schedule/status` endpoint SHOULD
+  return the current sync schedule and last sync timestamp.
+
+### P2: API Endpoint for CLI/Automation
+
+The current spec only covers the UI button. For programmatic access:
+
+- **FR-016** (P2): A `POST /api/v1/pricing/sync` REST endpoint SHOULD be
+  available for CLI and automation tools (separate from the HTMX UI endpoint).
+- **FR-017** (P2): The API endpoint SHOULD return JSON with sync result
+  (count, duration, errors).
+
+### P3: Local File Override
+
+LiteLLM supports `LITELLM_LOCAL_MODEL_COST_MAP=True` to use a local file
+instead of fetching from remote:
+
+- **FR-018** (P3): The system SHOULD support loading pricing from a local
+  JSON file path via `PRICING_LOCAL_FILE` environment variable.
+- **FR-019** (P3): When `PRICING_LOCAL_FILE` is set, the "Sync Pricing"
+  button SHOULD read from the local file instead of fetching remote.
+
 ## Assumptions
 
 - The LiteLLM `model_prices_and_context_window.json` format is stable and
