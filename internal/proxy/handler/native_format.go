@@ -79,10 +79,8 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 		ModifyResponse: func(resp *http.Response) error {
 			if resp.StatusCode != http.StatusOK {
 				if h.DB != nil {
-					body, readErr := io.ReadAll(resp.Body)
-					if readErr == nil {
-						resp.Body = io.NopCloser(bytes.NewReader(body))
-					}
+					body, _ := io.ReadAll(resp.Body)
+					resp.Body = io.NopCloser(bytes.NewReader(body))
 					errMsg := fmt.Sprintf("upstream error: status %d", resp.StatusCode)
 					if len(body) > 0 {
 						errMsg = string(body)
