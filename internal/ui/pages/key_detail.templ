@@ -44,6 +44,10 @@ type KeyDetailData struct {
 	// Dropdown data for edit form
 	Teams []TeamOption
 	Users []UserOption
+	// AvailableModels is the list of model names configured in the proxy.
+	// Used to populate the Models multi-select in the Edit Key form.
+	// Empty slice means no models are configured; "All Models" is always shown.
+	AvailableModels []string
 }
 
 func (d KeyDetailData) displayName() string {
@@ -437,13 +441,8 @@ templ EditSettingsForm(data KeyDetailData) {
 							</div>
 						</div>
 						<div class="space-y-2">
-							<label for="edit_models" class="text-sm font-medium">Models (comma-separated)</label>
-							@input.Input(input.Props{
-								ID: "edit_models", Name: "models",
-								Attributes: templ.Attributes{
-									"value": joinModels(data.Models),
-								},
-							})
+							<label class="text-sm font-medium">Models</label>
+							@modelsMultiSelect("edit", data.AvailableModels, data.Models)
 						</div>
 						<div class="space-y-2">
 							<label for="edit_metadata" class="text-sm font-medium">Metadata (JSON)</label>
@@ -633,6 +632,20 @@ templ RegenerateResultDialog(rawKey string) {
 
 templ SettingsTabWithToast(data KeyDetailData, msg string, variant toast.Variant) {
 	@SettingsTab(data)
+	if msg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       msg,
+				Variant:     variant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
+
+templ EditSettingsFormWithToast(data KeyDetailData, msg string, variant toast.Variant) {
+	@EditSettingsForm(data)
 	if msg != "" {
 		<div id="toast-oob" hx-swap-oob="afterbegin:body">
 			@toast.Toast(toast.Props{

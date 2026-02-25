@@ -58,6 +58,10 @@ type KeysPageData struct {
 	// Dropdown options for create form
 	Teams []TeamOption
 	Users []UserOption
+	// AvailableModels is the list of model names configured in the proxy.
+	// Used to populate the Models multi-select in the Create Key form.
+	// Empty slice means no models are configured; "All Models" is always shown.
+	AvailableModels []string
 }
 
 func (d KeysPageData) filterQueryString() string {
@@ -101,6 +105,125 @@ script copyToClipboard(text string) {
 		btn.textContent = "Copied!";
 		setTimeout(function() { btn.textContent = orig; }, 1500);
 	});
+}
+
+script toggleAllModels(formPrefix string) {
+	var allCheckbox = document.getElementById(formPrefix + '-model-all');
+	var hidden = document.getElementById(formPrefix + '-all-models-hidden');
+	var individualBoxes = document.querySelectorAll('.' + formPrefix + '-model-checkbox');
+	if (allCheckbox.checked) {
+		hidden.value = '1';
+		individualBoxes.forEach(function(cb) { cb.checked = false; cb.disabled = true; });
+		document.getElementById(formPrefix + '-models-summary').textContent = 'All Models (unrestricted)';
+	} else {
+		hidden.value = '0';
+		individualBoxes.forEach(function(cb) { cb.disabled = false; });
+		updateModelsSummary(formPrefix);
+	}
+}
+
+script updateModelsSummary(formPrefix string) {
+	var allCheckbox = document.getElementById(formPrefix + '-model-all');
+	if (allCheckbox.checked) { return; }
+	var hidden = document.getElementById(formPrefix + '-all-models-hidden');
+	var count = document.querySelectorAll('.' + formPrefix + '-model-checkbox:checked').length;
+	hidden.value = '0';
+	var summary = document.getElementById(formPrefix + '-models-summary');
+	if (count === 0) {
+		hidden.value = '1';
+		allCheckbox.checked = true;
+		summary.textContent = 'All Models (unrestricted)';
+	} else {
+		summary.textContent = count + ' model(s) selected';
+	}
+}
+
+// modelsMultiSelect renders a checkbox-based multi-select for model selection.
+// formPrefix is used to namespace IDs ("create" or "edit").
+// available is the list of all model names from the proxy.
+// selected is the list of currently selected model names (for edit form pre-fill).
+templ modelsMultiSelect(formPrefix string, available []string, selected []string) {
+	// Build a lookup set for pre-selected models.
+	{{ selectedSet := make(map[string]bool, len(selected)) }}
+	for _, s := range selected {
+		{{ selectedSet[s] = true }}
+	}
+	{{ allModelsChecked := len(selected) == 0 }}
+
+	<input type="hidden" name="all_models" id={ formPrefix + "-all-models-hidden" }
+		if allModelsChecked {
+			value="1"
+		} else {
+			value="0"
+		}
+	/>
+
+	<details data-testid="models-selector" class="rounded-md border border-input bg-background">
+		<summary aria-label="Select models for this API key" class="flex cursor-pointer select-none items-center justify-between px-3 py-2 text-sm">
+			<span id={ formPrefix + "-models-summary" } aria-live="polite">
+				if allModelsChecked || len(available) == 0 {
+					All Models (unrestricted)
+				} else {
+					{ fmt.Sprintf("%d model(s) selected", len(selected)) }
+				}
+			</span>
+			@icon.ChevronDown(icon.Props{Size: 16, Class: "text-muted-foreground"})
+		</summary>
+		<div class="border-t border-input px-3 py-2 space-y-1 max-h-48 overflow-y-auto">
+			<!-- All Models option -->
+			<label class="flex items-center gap-2 text-sm cursor-pointer py-0.5">
+				<input
+					type="checkbox"
+					id={ formPrefix + "-model-all" }
+					class="h-4 w-4 rounded border-input"
+					aria-label="All Models (unrestricted)"
+					if allModelsChecked || len(available) == 0 {
+						checked
+					}
+					onchange={ toggleAllModels(formPrefix) }
+				/>
+				<span class="font-medium">All Models (unrestricted)</span>
+			</label>
+			if len(available) > 0 {
+				<div class="border-t border-input my-1"></div>
+				for _, m := range available {
+					<label class="flex items-center gap-2 text-sm cursor-pointer py-0.5">
+						<input
+							type="checkbox"
+							name="models"
+							value={ m }
+							class={ formPrefix + "-model-checkbox h-4 w-4 rounded border-input" }
+							aria-label={ "Model: " + m }
+							if selectedSet[m] {
+								checked
+							}
+							if allModelsChecked {
+								disabled
+							}
+							onchange={ updateModelsSummary(formPrefix) }
+						/>
+						<span class="font-mono text-xs">{ m }</span>
+					</label>
+				}
+			}
+		</div>
+	</details>
+	<script>
+		// Close this models-selector when user clicks outside it.
+		// Guard prevents the listener from being registered multiple times
+		// when the component is re-rendered (e.g. HTMX partial swaps).
+		(function() {
+			if (window.__modelsClickOutsideRegistered) return;
+			window.__modelsClickOutsideRegistered = true;
+			document.addEventListener('click', function(e) {
+				document.querySelectorAll('details[data-testid="models-selector"][open]').forEach(function(el) {
+					if (!el.contains(e.target)) {
+						el.removeAttribute('open');
+					}
+				});
+			});
+		})();
+	</script>
 }
 
 templ KeysPage(data KeysPageData) {
@@ -249,11 +372,8 @@ templ createKeyForm(data KeysPageData) {
 						</div>
 					</div>
 					<div class="space-y-2">
-						<label for="models" class="text-sm font-medium">Models (comma-separated)</label>
-						@input.Input(input.Props{
-							ID: "models", Name: "models",
-							Placeholder: "gpt-4, claude-sonnet-4-5-20250929",
-						})
+						<label class="text-sm font-medium">Models</label>
+						@modelsMultiSelect("create", data.AvailableModels, []string{})
 					</div>
 					<div class="grid grid-cols-2 gap-4">
 						<div class="space-y-2">
