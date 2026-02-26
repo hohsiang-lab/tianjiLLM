@@ -178,6 +178,13 @@ func (h *UIHandler) handleOrgDelete(w http.ResponseWriter, r *http.Request) {
 	// Prevent deletion if org has teams
 	teams, err := h.DB.ListTeamsByOrganization(ctx, &orgID)
 	if err == nil && len(teams) > 0 {
+		// Check if request is from list page (HX-Target=body or orgs-table) vs detail page
+		hxTarget := r.Header.Get("HX-Target")
+		if hxTarget == "body" || hxTarget == "orgs-table" {
+			data := h.loadOrgsPageData(r)
+			render(r.Context(), w, pages.OrgsTableWithToast(data, "Cannot delete organization with teams. Remove all teams first.", toast.VariantError))
+			return
+		}
 		data, ok := h.loadOrgDetailData(r, orgID)
 		if ok {
 			render(r.Context(), w, pages.OrgDetailHeaderWithToast(data, "Cannot delete organization with teams. Remove all teams first.", toast.VariantError))
@@ -188,6 +195,12 @@ func (h *UIHandler) handleOrgDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.DB.DeleteOrganization(ctx, orgID); err != nil {
+		hxTarget := r.Header.Get("HX-Target")
+		if hxTarget == "orgs-table" {
+			data := h.loadOrgsPageData(r)
+			render(r.Context(), w, pages.OrgsTableWithToast(data, "Failed to delete organization: "+err.Error(), toast.VariantError))
+			return
+		}
 		data, ok := h.loadOrgDetailData(r, orgID)
 		if ok {
 			render(r.Context(), w, pages.OrgDetailHeaderWithToast(data, "Failed to delete organization: "+err.Error(), toast.VariantError))
@@ -197,6 +210,13 @@ func (h *UIHandler) handleOrgDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// From list page: return updated table; from detail page: redirect
+	hxTarget := r.Header.Get("HX-Target")
+	if hxTarget == "orgs-table" {
+		data := h.loadOrgsPageData(r)
+		render(r.Context(), w, pages.OrgsTableWithToast(data, "Organization deleted successfully", toast.VariantSuccess))
+		return
+	}
 	w.Header().Set("HX-Redirect", "/ui/orgs")
 	w.WriteHeader(http.StatusOK)
 }

@@ -352,7 +352,7 @@ templ orgTableRow(o OrgRow) {
 									Cancel
 								}
 							}
-							<form hx-post={ "/ui/orgs/" + o.OrgID + "/delete" } hx-target="body" hx-push-url="/ui/orgs">
+							<form hx-post={ "/ui/orgs/" + o.OrgID + "/delete" } hx-target="#orgs-table" hx-swap="innerHTML">
 								@button.Button(button.Props{Variant: button.VariantDestructive, Type: "submit"}) {
 									Delete
 								}

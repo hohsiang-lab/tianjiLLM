@@ -145,6 +145,14 @@ func (h *UIHandler) handleTeamCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check alias uniqueness
+	existing, err := h.DB.GetTeamByAlias(r.Context(), &teamAlias)
+	if err == nil && existing.TeamID != "" {
+		data := h.loadTeamsPageData(r)
+		render(r.Context(), w, pages.TeamsTableWithToast(data, "Team alias already exists", toast.VariantError))
+		return
+	}
+
 	orgID := r.FormValue("organization_id")
 	var orgIDPtr *string
 	if orgID != "" {
@@ -178,7 +186,7 @@ func (h *UIHandler) handleTeamCreate(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:      "admin",
 	}
 
-	_, err := h.DB.CreateTeam(r.Context(), params)
+	_, err = h.DB.CreateTeam(r.Context(), params)
 	if err != nil {
 		data := h.loadTeamsPageData(r)
 		render(r.Context(), w, pages.TeamsTableWithToast(data, "Failed to create team: "+err.Error(), toast.VariantError))

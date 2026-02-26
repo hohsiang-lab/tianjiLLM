@@ -430,14 +430,14 @@ templ teamTableRow(t TeamRow) {
 		@table.Cell(table.CellProps{Class: "text-right"}) {
 			<div class="flex items-center justify-end gap-1">
 				if t.Blocked {
-					<form hx-post={ "/ui/teams/" + t.TeamID + "/unblock" } hx-target={ "#team-status-" + t.TeamID } hx-swap="innerHTML">
-						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm}) {
+					<form hx-post={ "/ui/teams/" + t.TeamID + "/unblock" } hx-target="#teams-table" hx-swap="innerHTML">
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
 							Unblock
 						}
 					</form>
 				} else {
-					<form hx-post={ "/ui/teams/" + t.TeamID + "/block" } hx-target={ "#team-status-" + t.TeamID } hx-swap="innerHTML">
-						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm}) {
+					<form hx-post={ "/ui/teams/" + t.TeamID + "/block" } hx-target="#teams-table" hx-swap="innerHTML">
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
 							Block
 						}
 					</form>
