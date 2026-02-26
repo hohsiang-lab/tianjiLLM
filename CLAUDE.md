@@ -152,6 +152,8 @@ Go 1.24.4, chi/v5 (router), pgx/v5 (PostgreSQL), go-redis/v9 (Redis), templ + te
 - PostgreSQL via pgx/v5 + sqlc (no schema changes needed; `models` column already `[]string`) (001-models-multiselect)
 - Go 1.26 (module `github.com/praxisllmlab/tianjiLLM`) + `a-h/templ` (server-side HTML components), HTMX (partial page updates), templUI component library (existing — `internal/ui/components/`) (001-models-multiselect)
 - PostgreSQL via sqlc — `VerificationToken.models text[]` column already exists; **no schema change** (001-models-multiselect)
+- Go 1.24.4 + chi/v5 (router), templ (templates), HTMX 2.x (partials), templUI v1.5.0 (components), Tailwind CSS v4 (001-team-org-admin-ui)
+- PostgreSQL via pgx/v5 + sqlc codegen. Tables: `TeamTable`, `OrganizationTable`, `OrganizationMembership`. No new migrations. (001-team-org-admin-ui)
 
 ## Recent Changes
 - 009-request-logs: Added Go 1.24.4 + chi/v5（路由）、templ（模板）、HTMX 2.x（交互）、templUI v1.5.0（UI 組件）、Tailwind CSS v4

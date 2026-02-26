@@ -4,64 +4,75 @@
 
 ## Summary
 
-為 tianjiLLM 新增 Team 和 Organization 的管理 UI，遵循現有 handler_keys.go 的 pattern（Go handler + templ + HTMX）。DB queries 已就緒，只需新增 handler + views + routes。
+Add admin UI pages for Team and Organization management to the TianjiLLM Go proxy. Four pages: Teams list (`/ui/teams`), Team detail (`/ui/teams/{id}`), Organizations list (`/ui/orgs`), and Org detail (`/ui/orgs/{id}`). All pages are server-rendered using the existing templ + HTMX + templUI stack — zero new libraries. All DB queries go through the existing sqlc pipeline; three new queries needed (`ListTeamsByOrganization`, `CountTeamsPerOrganization`, `CountMembersPerOrganization`). No schema migrations required.
 
 ## Technical Context
 
-- **Language**: Go 1.23 + templ + HTMX
-- **UI Framework**: Tailwind CSS + 現有 component library（sidebar, dropdown, toast, popover, modal）
-- **Storage**: PostgreSQL（sqlc generated queries，已存在）
-- **Testing**: Go test + Playwright E2E
+**Language/Version**: Go 1.24.4
+**Primary Dependencies**: chi/v5 (router), templ (templates), HTMX 2.x (partials), templUI v1.5.0 (components), Tailwind CSS v4
+**Storage**: PostgreSQL via pgx/v5 + sqlc codegen. Tables: `TeamTable`, `OrganizationTable`, `OrganizationMembership`. No new migrations.
+**Testing**: `go test ./internal/ui/...` (unit) + Playwright E2E (`make e2e`)
+**Target Platform**: Linux server (admin web UI, accessible at `/ui/teams` and `/ui/orgs`)
+**Project Type**: Single Go project — web application server
+**Performance Goals**: List pages load < 3s with 200+ entries (SC-008). Mutations visible < 3s (SC-001, SC-003).
+**Constraints**: No full page reloads for CRUD operations. All destructive actions require confirmation (SC-006).
+**Scale/Scope**: 200+ teams, 200+ orgs per deployment (SC-008 requirement).
 
-## Implementation Phases
+## Constitution Check
 
-### Phase 1: Teams 列表頁（P1）
-**路由**: `GET /ui/teams`
-**檔案**:
-- `internal/ui/handler_teams.go` — TeamsHandler struct + ListTeams, CreateTeam, UpdateTeam, DeleteTeam, BlockTeam, UnblockTeam
-- `internal/ui/views/teams/list.templ` — 列表頁 template
-- `internal/ui/views/teams/form.templ` — 新增/編輯 modal
-- `internal/ui/views/teams/row.templ` — HTMX partial（單行更新）
-- `internal/ui/routes.go` — 註冊 /ui/teams routes
-- `internal/ui/views/components/sidebar/sidebar.templ` — 加 Teams nav item
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-**功能**:
-- 列表顯示：team_alias, org, member count, budget, status
-- 新增 team（alias, org_id, max_budget, models）
-- 編輯 team（inline or modal）
-- 刪除 team（確認 dialog）
-- Block / Unblock toggle
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| I. Python-First Reference | ✅ PASS | Python TianjiLLM has no web UI. Go REST API handlers (`/team/*`, `/organization/*`) are already Python-parity-complete. UI layer is Go-only. |
+| II. Feature Parity | ✅ PASS | All CRUD operations match the existing Go REST API contracts. No deviations from existing data structures. |
+| III. Research Before Build | ✅ PASS | Research complete — see `research.md`. Technology choices verified against existing codebase patterns. |
+| IV. Test-Driven Migration | ✅ PASS | Unit tests for handler helpers; E2E Playwright tests for acceptance scenarios from spec. |
+| V. Go Best Practices | ✅ PASS | Handler functions per file pattern, `context.Context` propagation, `fmt.Errorf("%w")` error wrapping, no global state. |
+| VI. No Stale Knowledge | ✅ PASS | All patterns verified from existing codebase (`handler_keys.go`, `pages/keys.templ`, `routes.go`). No reliance on cached knowledge. |
+| VII. sqlc-First DB Access | ✅ PASS | Three new queries added to `.sql` files; `make generate` required before implementation. No hand-written SQL. |
 
-### Phase 2: Team 詳情頁（P2）
-**路由**: `GET /ui/teams/{team_id}`
-**檔案**:
-- `internal/ui/handler_teams.go` — GetTeam, AddMember, RemoveMember, AddModel, RemoveModel
-- `internal/ui/views/teams/detail.templ` — 詳情頁
-- `internal/ui/views/teams/members.templ` — Members tab
-- `internal/ui/views/teams/models.templ` — Models tab
-- `internal/ui/views/teams/spend.templ` — Spend 統計 tab
+**Post-design re-check**: ✅ All gates pass. No violations. No Complexity Tracking needed.
 
-### Phase 3: Organizations 列表頁（P3）
-**路由**: `GET /ui/orgs`
-**檔案**:
-- `internal/ui/handler_orgs.go` — OrgsHandler struct + CRUD
-- `internal/ui/views/orgs/list.templ` — 列表頁
-- `internal/ui/views/orgs/form.templ` — 新增/編輯 modal
-- `internal/ui/views/orgs/row.templ` — HTMX partial
-- `internal/ui/routes.go` — 註冊 /ui/orgs routes
-- sidebar.templ — 加 Organizations nav item
+## Project Structure
 
-### Phase 4: Organization 詳情頁（P4）
-**路由**: `GET /ui/orgs/{org_id}`
-**檔案**:
-- `internal/ui/handler_orgs.go` — GetOrg, AddMember, RemoveMember, UpdateMemberRole
-- `internal/ui/views/orgs/detail.templ` — 詳情頁
-- `internal/ui/views/orgs/members.templ` — Membership 管理
+### Documentation (this feature)
 
-## 驗收條件
-1. `go vet ./...` + `go build ./...` PASS
-2. 所有新頁面可透過 sidebar 導航
-3. CRUD 操作即時反映（HTMX swap，無整頁刷新）
-4. Block/Unblock 狀態切換正確
-5. Member 新增/移除即時更新
-6. Spend 統計數據與 DB 一致
+```text
+specs/001-team-org-admin-ui/
+├── plan.md              # This file
+├── research.md          # Phase 0 output — decisions, unknowns resolved
+├── data-model.md        # Phase 1 output — DB entities, Go view structs, handler data flow
+├── quickstart.md        # Phase 1 output — dev setup, build commands, pitfalls
+├── contracts/
+│   └── ui-routes.md     # Phase 1 output — all UI route contracts with form fields
+└── tasks.md             # Phase 2 output (run /speckit.tasks)
+```
+
+### Source Code (affected files)
+
+```text
+internal/db/queries/
+├── team.sql                     # + ListTeamsByOrganization query
+└── organization.sql             # + CountTeamsPerOrganization, CountMembersPerOrganization
+
+internal/ui/
+├── routes.go                    # Modified: add teams + orgs route group
+├── handler_teams.go             # New: list, create, block/unblock handlers
+├── handler_teams_detail.go      # New: detail, update, delete, member/model management
+├── handler_orgs.go              # New: list, create handlers
+├── handler_orgs_detail.go       # New: detail, update, delete, member management
+└── pages/
+    ├── layout.templ             # Modified: add Teams + Organizations sidebar nav items
+    ├── teams.templ              # New: TeamsPage, TeamsTablePartial, TeamDetailPage, partials
+    └── orgs.templ               # New: OrgsPage, OrgsTablePartial, OrgDetailPage, partials
+
+test/e2e/
+└── teams_orgs_test.go           # New: Playwright E2E tests for spec acceptance scenarios
+```
+
+**Structure Decision**: Single project (existing Go monorepo). UI code follows the established `internal/ui/` layout. New templ files parallel `pages/keys.templ`. New handler files parallel `handler_keys.go`. No new packages created.
+
+## Complexity Tracking
+
+No constitution violations. No additional complexity justification needed.
