@@ -41,6 +41,7 @@ type TeamsPageData struct {
 	Page            int
 	TotalPages      int
 	TotalCount      int
+	PerPage         int
 	Search          string
 	FilterOrgID     string
 	Orgs            []OrgOption
@@ -60,8 +61,6 @@ func (d TeamsPageData) teamsFilterQueryString() string {
 	}
 	return "&" + strings.Join(parts, "&")
 }
-
-const teamsPerPage = 50
 
 // --- Templates ---
 
@@ -286,7 +285,7 @@ templ TeamsTablePartial(data TeamsPageData) {
 			if data.TotalCount == 0 {
 				No results
 			} else {
-				{ fmt.Sprintf("Showing %d–%d of %d results", (data.Page-1)*teamsPerPage+1, minInt((data.Page)*teamsPerPage, data.TotalCount), data.TotalCount) }
+				{ fmt.Sprintf("Showing %d–%d of %d results", (data.Page-1)*data.PerPage+1, minInt((data.Page)*data.PerPage, data.TotalCount), data.TotalCount) }
 			}
 		</span>
 		if data.TotalPages > 1 {

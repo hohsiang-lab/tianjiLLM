@@ -18,9 +18,9 @@
 
 **Purpose**: Add the three new sqlc queries and regenerate Go types. No other work can reference the new DB methods until this phase is complete.
 
-- [ ] T001 [P] Add `ListTeamsByOrganization` query to `internal/db/queries/team.sql`
-- [ ] T002 [P] Add `CountTeamsPerOrganization` and `CountMembersPerOrganization` queries to `internal/db/queries/organization.sql`
-- [ ] T003 Run `make generate` to regenerate sqlc Go types in `internal/db/` (depends T001, T002)
+- [x] T001 [P] Add `ListTeamsByOrganization` query to `internal/db/queries/team.sql`
+- [x] T002 [P] Add `CountTeamsPerOrganization` and `CountMembersPerOrganization` queries to `internal/db/queries/organization.sql`
+- [x] T003 Run `make generate` to regenerate sqlc Go types in `internal/db/` (depends T001, T002)
 
 ---
 
@@ -30,8 +30,8 @@
 
 **⚠️ CRITICAL**: No user story implementation can compile until Phase 1 is complete; sidebar nav must exist before UI pages are testable.
 
-- [ ] T004 [P] Add Teams (`users` icon) and Organizations (`building-2` icon) sidebar nav items to `internal/ui/pages/layout.templ`, then run `templ generate` to regenerate `layout_templ.go`
-- [ ] T005 [P] Create sqlc contract tests (build tag: `integration`) for `ListTeamsByOrganization`, `CountTeamsPerOrganization`, `CountMembersPerOrganization` in `test/contract/teams_orgs_test.go` (depends T003)
+- [x] T004 [P] Add Teams (`users` icon) and Organizations (`building-2` icon) sidebar nav items to `internal/ui/pages/layout.templ`, then run `templ generate` to regenerate `layout_templ.go`
+- [x] T005 [P] Create sqlc contract tests (build tag: `integration`) for `ListTeamsByOrganization`, `CountTeamsPerOrganization`, `CountMembersPerOrganization` in `test/contract/teams_orgs_test.go` (depends T003)
 
 **Checkpoint**: Foundation ready — sidebar shows Teams + Organizations links; new sqlc methods verified against real PostgreSQL.
 
@@ -47,7 +47,7 @@
 
 > **Write these first — they MUST compile with stub functions and initially FAIL**
 
-- [ ] T006 [P] [US1] Write unit tests for `parsePage` (boundary cases), `parseMaxBudget` (empty/float/invalid), `parseMembersWithRoles` (valid JSON / null / malformed), and search filter sanitization (`%`, `_`, `'`) in `internal/ui/handler_teams_test.go`
+- [x] T006 [P] [US1] Write unit tests for `parsePage` (boundary cases), `parseMaxBudget` (empty/float/invalid), `parseMembersWithRoles` (valid JSON / null / malformed), and search filter sanitization (`%`, `_`, `'`) in `internal/ui/handler_teams_test.go`
 - [ ] T007 [P] [US1] Write Playwright E2E test skeletons for teams list fields, search/filter narrowing, and 200+ entries performance assertion (`< 3s`) in `test/e2e/teams_list_test.go`
 - [ ] T008 [P] [US1] Write Playwright E2E tests for team create happy path (alias → submit → row appears) and validation errors (alias missing, duplicate) in `test/e2e/teams_create_test.go`
 - [ ] T009 [P] [US1] Write Playwright E2E tests for block/unblock badge state toggle in `test/e2e/teams_block_test.go`
@@ -55,12 +55,12 @@
 
 ### Implementation for User Story 1
 
-- [ ] T011 [P] [US1] Create `TeamsPage`, `TeamsTablePartial`, `TeamStatusBadge`, and "New Team" create-dialog form templates in `internal/ui/pages/teams.templ`, then run `templ generate`
-- [ ] T012 [US1] Implement `loadTeamsPageData` helper and `handleTeams` + `handleTeamsTable` handlers in `internal/ui/handler_teams.go` (depends T011; loads `ListTeams`, filters in Go, paginates, builds `TeamsPageData`)
-- [ ] T013 [US1] Implement `handleTeamCreate` handler in `internal/ui/handler_teams.go` (depends T012; calls `CreateTeam`, returns `TeamsTablePartial` or error banner; generates UUID for `team_id`)
-- [ ] T014 [US1] Implement `handleTeamBlock` and `handleTeamUnblock` handlers in `internal/ui/handler_teams.go` (depends T012; calls `BlockTeam`/`UnblockTeam`, returns `TeamStatusBadge` partial targeting `#team-status-{id}`)
-- [ ] T015 [US1] Implement `handleTeamDelete` handler in `internal/ui/handler_teams.go` (depends T012; calls `DeleteTeam`, returns `HX-Redirect: /ui/teams`)
-- [ ] T016 [US1] Register teams list routes in `internal/ui/routes.go`: `GET /ui/teams`, `GET /ui/teams/table`, `POST /ui/teams/create`, `POST /ui/teams/{team_id}/block`, `POST /ui/teams/{team_id}/unblock`, `POST /ui/teams/{team_id}/delete` (depends T013–T015; build must pass after this task)
+- [x] T011 [P] [US1] Create `TeamsPage`, `TeamsTablePartial`, `TeamStatusBadge`, and "New Team" create-dialog form templates in `internal/ui/pages/teams.templ`, then run `templ generate`
+- [x] T012 [US1] Implement `loadTeamsPageData` helper and `handleTeams` + `handleTeamsTable` handlers in `internal/ui/handler_teams.go` (depends T011; loads `ListTeams`, filters in Go, paginates, builds `TeamsPageData`)
+- [x] T013 [US1] Implement `handleTeamCreate` handler in `internal/ui/handler_teams.go` (depends T012; calls `CreateTeam`, returns `TeamsTablePartial` or error banner; generates UUID for `team_id`)
+- [x] T014 [US1] Implement `handleTeamBlock` and `handleTeamUnblock` handlers in `internal/ui/handler_teams.go` (depends T012; calls `BlockTeam`/`UnblockTeam`, returns `TeamStatusBadge` partial targeting `#team-status-{id}`)
+- [x] T015 [US1] Implement `handleTeamDelete` handler in `internal/ui/handler_teams.go` (depends T012; calls `DeleteTeam`, returns `HX-Redirect: /ui/teams`)
+- [x] T016 [US1] Register teams list routes in `internal/ui/routes.go`: `GET /ui/teams`, `GET /ui/teams/table`, `POST /ui/teams/create`, `POST /ui/teams/{team_id}/block`, `POST /ui/teams/{team_id}/unblock`, `POST /ui/teams/{team_id}/delete` (depends T013–T015; build must pass after this task)
 
 **Checkpoint**: Run `make build` → server compiles. Navigate to `/ui/teams`. All US1 acceptance scenarios pass.
 

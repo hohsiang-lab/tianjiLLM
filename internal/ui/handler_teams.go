@@ -31,6 +31,7 @@ func (h *UIHandler) loadTeamsPageData(r *http.Request) pages.TeamsPageData {
 
 	data := pages.TeamsPageData{
 		Page:        page,
+		PerPage:     50,
 		Search:      search,
 		FilterOrgID: filterOrgID,
 	}
@@ -104,17 +105,17 @@ func (h *UIHandler) loadTeamsPageData(r *http.Request) pages.TeamsPageData {
 	}
 
 	data.TotalCount = len(filtered)
-	data.TotalPages = (data.TotalCount + teamsPerPage - 1) / teamsPerPage
+	data.TotalPages = (data.TotalCount + data.PerPage - 1) / data.PerPage
 	if data.TotalPages < 1 {
 		data.TotalPages = 1
 	}
 
 	// Paginate
-	offset := (page - 1) * teamsPerPage
+	offset := (page - 1) * data.PerPage
 	if offset > len(filtered) {
 		offset = len(filtered)
 	}
-	end := offset + teamsPerPage
+	end := offset + data.PerPage
 	if end > len(filtered) {
 		end = len(filtered)
 	}
@@ -171,6 +172,7 @@ func (h *UIHandler) handleTeamCreate(w http.ResponseWriter, r *http.Request) {
 		TpmLimit:       tpmLimit,
 		RpmLimit:       rpmLimit,
 		BudgetDuration: budgetDurationPtr,
+		CreatedBy:      "admin",
 	}
 
 	_, err := h.DB.CreateTeam(r.Context(), params)
@@ -197,11 +199,13 @@ func (h *UIHandler) handleTeamBlock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.DB.BlockTeam(r.Context(), teamID); err != nil {
-		render(r.Context(), w, pages.TeamStatusBadge(false))
+		data := h.loadTeamsPageData(r)
+		render(r.Context(), w, pages.TeamsTableWithToast(data, "Failed to block team: "+err.Error(), toast.VariantError))
 		return
 	}
 
-	render(r.Context(), w, pages.TeamStatusBadge(true))
+	data := h.loadTeamsPageData(r)
+	render(r.Context(), w, pages.TeamsTableWithToast(data, "Team blocked successfully", toast.VariantSuccess))
 }
 
 func (h *UIHandler) handleTeamUnblock(w http.ResponseWriter, r *http.Request) {
@@ -217,11 +221,13 @@ func (h *UIHandler) handleTeamUnblock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.DB.UnblockTeam(r.Context(), teamID); err != nil {
-		render(r.Context(), w, pages.TeamStatusBadge(true))
+		data := h.loadTeamsPageData(r)
+		render(r.Context(), w, pages.TeamsTableWithToast(data, "Failed to unblock team: "+err.Error(), toast.VariantError))
 		return
 	}
 
-	render(r.Context(), w, pages.TeamStatusBadge(false))
+	data := h.loadTeamsPageData(r)
+	render(r.Context(), w, pages.TeamsTableWithToast(data, "Team unblocked successfully", toast.VariantSuccess))
 }
 
 func (h *UIHandler) handleTeamDelete(w http.ResponseWriter, r *http.Request) {
@@ -236,7 +242,11 @@ func (h *UIHandler) handleTeamDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = h.DB.DeleteTeam(r.Context(), teamID)
+	if err := h.DB.DeleteTeam(r.Context(), teamID); err != nil {
+		data := h.loadTeamsPageData(r)
+		render(r.Context(), w, pages.TeamsTableWithToast(data, "Failed to delete team: "+err.Error(), toast.VariantError))
+		return
+	}
 
 	w.Header().Set("HX-Redirect", "/ui/teams")
 	w.WriteHeader(http.StatusOK)
@@ -275,4 +285,3 @@ type memberWithRole struct {
 	Role   string `json:"role"`
 }
 
-const teamsPerPage = 50
