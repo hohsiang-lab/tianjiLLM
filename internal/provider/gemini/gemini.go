@@ -344,8 +344,8 @@ type geminiInlineData struct {
 }
 
 type geminiPart struct {
-	Text         string           `json:"text,omitempty"`
-	FunctionCall *geminiFuncCall  `json:"functionCall,omitempty"`
+	Text         string            `json:"text,omitempty"`
+	FunctionCall *geminiFuncCall   `json:"functionCall,omitempty"`
 	InlineData   *geminiInlineData `json:"inlineData,omitempty"`
 }
 

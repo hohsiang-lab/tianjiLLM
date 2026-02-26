@@ -206,7 +206,7 @@ func TestTransformRequest_ModalitiesPassthrough(t *testing.T) {
 
 	body, _ := io.ReadAll(httpReq.Body)
 	var parsed map[string]any
-	json.Unmarshal(body, &parsed)
+	require.NoError(t, json.Unmarshal(body, &parsed))
 
 	modalities, ok := parsed["modalities"].([]any)
 	require.True(t, ok, "modalities should be in request body")

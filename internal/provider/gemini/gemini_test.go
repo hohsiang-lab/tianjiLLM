@@ -218,8 +218,10 @@ func TestTransformRequest_WithModalities(t *testing.T) {
 	body, _ := io.ReadAll(httpReq.Body)
 	var parsed map[string]any
 	require.NoError(t, json.Unmarshal(body, &parsed))
-	gc := parsed["generationConfig"].(map[string]any)
-	mods := gc["responseModalities"].([]any)
+	gc, ok := parsed["generationConfig"].(map[string]any)
+	require.True(t, ok)
+	mods, ok := gc["responseModalities"].([]any)
+	require.True(t, ok)
 	assert.Equal(t, []any{"TEXT", "IMAGE"}, mods)
 }
 
@@ -259,7 +261,8 @@ func TestTransformContentPart_DataURLParsing(t *testing.T) {
 		},
 	}
 	result := transformContentPart(part)
-	inlineData := result["inlineData"].(map[string]any)
+	inlineData, ok := result["inlineData"].(map[string]any)
+	require.True(t, ok)
 	assert.Equal(t, "image/webp", inlineData["mimeType"])
 	assert.Equal(t, "UklGR...", inlineData["data"])
 }
@@ -326,9 +329,15 @@ func TestTransformResponse_ImageInputRoundTrip(t *testing.T) {
 		},
 	}
 	transformed := transformContentPart(inputPart)
-	inlineData := transformed["inlineData"].(map[string]any)
+	inlineData, ok := transformed["inlineData"].(map[string]any)
+	require.True(t, ok)
 	assert.Equal(t, "image/jpeg", inlineData["mimeType"])
 	assert.Equal(t, "/9j/4AAQ", inlineData["data"])
+
+	mimeType, ok := inlineData["mimeType"].(string)
+	require.True(t, ok)
+	data, ok := inlineData["data"].(string)
+	require.True(t, ok)
 
 	// Simulate Gemini returning an image
 	resp := &geminiResponse{
@@ -336,8 +345,8 @@ func TestTransformResponse_ImageInputRoundTrip(t *testing.T) {
 			Content: geminiContent{
 				Parts: []geminiPart{{
 					InlineData: &geminiInlineData{
-						MimeType: inlineData["mimeType"].(string),
-						Data:     inlineData["data"].(string),
+						MimeType: mimeType,
+						Data:     data,
 					},
 				}},
 				Role: "model",
