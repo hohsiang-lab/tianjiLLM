@@ -1,6 +1,9 @@
 TAILWIND := ./bin/tailwindcss
 
-.PHONY: build test lint generate check docker run clean templ-generate tailwind-build ui ui-dev tools dev e2e e2e-headed playwright-install
+.PHONY: build test lint generate check docker run clean templ-generate tailwind-build ui ui-dev tools dev e2e e2e-headed playwright-install hooks
+
+hooks:
+	@go tool lefthook install
 
 tools:
 	go install github.com/a-h/templ/cmd/templ@latest
@@ -14,19 +17,19 @@ tailwind-build:
 
 ui: templ-generate tailwind-build
 
-build: ui
+build: hooks ui
 	go build -o bin/tianji ./cmd/tianji
 
 test:
 	go test -race -cover ./...
 
 lint:
-	golangci-lint run
+	go tool golangci-lint run
 
 generate:
 	sqlc generate
 
-check: lint test build
+check: hooks lint test build
 
 docker:
 	docker build -t tianjiLLM .

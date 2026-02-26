@@ -27,10 +27,12 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/guardrail"
 	"github.com/praxisllmlab/tianjiLLM/internal/mcp"
 	"github.com/praxisllmlab/tianjiLLM/internal/policy"
+	"github.com/praxisllmlab/tianjiLLM/internal/pricing"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider/openaicompat"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/handler"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/hook"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/passthrough"
 	"github.com/praxisllmlab/tianjiLLM/internal/router"
 	"github.com/praxisllmlab/tianjiLLM/internal/router/strategy"
@@ -130,6 +132,7 @@ func main() {
 
 	// Init DB (optional — skip if no database_url)
 	var queries *db.Queries
+	var dbPool *pgxpool.Pool
 	if cfg.GeneralSettings.DatabaseURL != "" {
 		pool, err := pgxpool.New(ctx, cfg.GeneralSettings.DatabaseURL)
 		if err != nil {
@@ -149,6 +152,7 @@ func main() {
 		log.Println("migrations complete")
 
 		queries = db.New(pool)
+		dbPool = pool
 	}
 
 	// Init cache (config-driven)
@@ -411,18 +415,37 @@ func main() {
 	}
 	sched.Start()
 
+	// Init pricing calculator — always non-nil, regardless of DB availability.
+	pricingCalc := pricing.Default()
+	if queries != nil {
+		entries, err := queries.ListModelPricing(ctx)
+		if err != nil {
+			log.Printf("warn: failed to load DB pricing on startup: %v", err)
+		} else if len(entries) > 0 {
+			pricingCalc.ReloadFromDB(entries)
+			log.Printf("loaded %d model prices from database", len(entries))
+		}
+	}
+
 	// Init admin dashboard UI
 	uiHandler := &ui.UIHandler{
 		DB:        queries,
+		Pool:      dbPool,
 		Config:    cfg,
 		Cache:     cacheBackend,
 		MasterKey: cfg.GeneralSettings.MasterKey,
+		Pricing:   pricingCalc,
 	}
 
 	// Create server
+	var dbValidator middleware.TokenValidator
+	if queries != nil {
+		dbValidator = &middleware.DBValidator{DB: queries}
+	}
 	srv := proxy.NewServer(proxy.ServerConfig{
 		Handlers:           handlers,
 		MasterKey:          cfg.GeneralSettings.MasterKey,
+		DBQueries:          dbValidator,
 		RedisClient:        redisClient,
 		PassthroughHandler: passthroughHandler,
 		MCPSSEHandler:      mcpSSEHandler,

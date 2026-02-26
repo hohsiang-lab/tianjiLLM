@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
 	"github.com/praxisllmlab/tianjiLLM/internal/guardrail"
@@ -527,7 +528,7 @@ func (h *Handlers) recordErrorLog(ctx context.Context, req *model.ChatCompletion
 
 	go func() {
 		_ = h.DB.InsertErrorLog(context.Background(), db.InsertErrorLogParams{
-			RequestID:    fmt.Sprintf("%p", ctx),
+			RequestID:    chiMiddleware.GetReqID(ctx),
 			ApiKeyHash:   apiKeyHash,
 			Model:        modelName,
 			Provider:     providerName,

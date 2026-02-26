@@ -2,19 +2,54 @@ package ui
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
+	"github.com/a-h/templ"
 	"github.com/google/uuid"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
+	"github.com/praxisllmlab/tianjiLLM/internal/pricing"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/toast"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/pages"
 )
 
 const modelsPerPage = 20
+
+const defaultUpstreamURL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+
+// handleSyncPricing handles POST /ui/models/sync-pricing.
+// Uses TryLock to prevent concurrent syncs; reads PRICING_UPSTREAM_URL env var.
+func (h *UIHandler) handleSyncPricing(w http.ResponseWriter, r *http.Request) {
+	if !h.syncPricingMu.TryLock() {
+		w.WriteHeader(http.StatusConflict)
+		render(r.Context(), w, syncPricingToast("Sync already in progress, please wait", toast.VariantWarning))
+		return
+	}
+	defer h.syncPricingMu.Unlock()
+
+	if h.DB == nil || h.Pool == nil {
+		render(r.Context(), w, syncPricingToast("Database not configured", toast.VariantError))
+		return
+	}
+
+	upstreamURL := os.Getenv("PRICING_UPSTREAM_URL")
+	if upstreamURL == "" {
+		upstreamURL = defaultUpstreamURL
+	}
+
+	count, err := pricing.SyncFromUpstream(r.Context(), h.Pool, h.DB, h.Pricing, upstreamURL)
+	if err != nil {
+		render(r.Context(), w, syncPricingToast("Sync failed: "+err.Error(), toast.VariantError))
+		return
+	}
+
+	render(r.Context(), w, syncPricingToast(fmt.Sprintf("Synced %d models successfully", count), toast.VariantSuccess))
+}
 
 // handleModels renders the full Models management page.
 func (h *UIHandler) handleModels(w http.ResponseWriter, r *http.Request) {
@@ -424,4 +459,15 @@ func int64Val(m map[string]any, key string) int64 {
 		return v
 	}
 	return 0
+}
+
+// syncPricingToast returns a templ component that renders a toast notification.
+// Rendered response is designed to be appended to body via HTMX (hx-swap="beforeend").
+func syncPricingToast(msg string, variant toast.Variant) templ.Component {
+	return toast.Toast(toast.Props{
+		Title:       msg,
+		Variant:     variant,
+		Dismissible: true,
+		Duration:    5000,
+	})
 }

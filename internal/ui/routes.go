@@ -50,6 +50,7 @@ func (h *UIHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/models/edit", h.handleModelEdit)
 		r.Post("/models/update", h.handleModelUpdate)
 		r.Post("/models/delete", h.handleModelDelete)
+		r.Post("/models/sync-pricing", h.handleSyncPricing)
 
 		// Usage
 		r.Get("/usage", h.handleUsage)

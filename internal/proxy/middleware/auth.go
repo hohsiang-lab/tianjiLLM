@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -112,13 +113,21 @@ func NewAuthMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 			if cfg.Validator != nil {
 				userID, teamID, blocked, err := cfg.Validator.ValidateToken(r.Context(), tokenHash)
 				if err != nil {
-					authError(w, "invalid API key", http.StatusUnauthorized)
+					if errors.Is(err, ErrDBUnavailable) {
+						log.Printf("auth error: database unavailable: %v", err)
+						authError(w, "service temporarily unavailable", http.StatusServiceUnavailable)
+					} else {
+						log.Printf("auth failed: key not found (hash=%s...)", tokenHash[:8])
+						authError(w, "invalid API key", http.StatusUnauthorized)
+					}
 					return
 				}
 				if blocked {
+					log.Printf("auth failed: key is blocked (hash=%s...)", tokenHash[:8])
 					authError(w, "API key is blocked", http.StatusForbidden)
 					return
 				}
+				log.Printf("virtual key auth: user=%v team=%v", userID, teamID)
 
 				ctx := r.Context()
 				ctx = context.WithValue(ctx, ContextKeyIsMasterKey, false)

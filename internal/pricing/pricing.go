@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/db"
 )
 
 //go:embed model_prices.json
@@ -22,10 +24,15 @@ type ModelInfo struct {
 }
 
 // Calculator calculates LLM request costs from token counts.
+// Three-layer architecture:
+//   - embedded: build-time data from model_prices.json (immutable after init)
+//   - models:   DB-synced data (replaceable via ReloadFromDB)
+//   - overrides: runtime custom pricing (highest priority)
 type Calculator struct {
 	mu        sync.RWMutex
-	models    map[string]ModelInfo
-	overrides map[string]ModelInfo
+	embedded  map[string]ModelInfo // immutable after Default() init
+	models    map[string]ModelInfo // DB-synced, replaced atomically
+	overrides map[string]ModelInfo // runtime custom overrides
 }
 
 var defaultCalculator *Calculator
@@ -35,10 +42,10 @@ var once sync.Once
 func Default() *Calculator {
 	once.Do(func() {
 		defaultCalculator = &Calculator{
+			embedded:  make(map[string]ModelInfo),
 			models:    make(map[string]ModelInfo),
 			overrides: make(map[string]ModelInfo),
 		}
-		// Parse the sample_spec key if present, skip it
 		var raw map[string]json.RawMessage
 		_ = json.Unmarshal(modelPricesJSON, &raw)
 
@@ -48,11 +55,31 @@ func Default() *Calculator {
 			}
 			var info ModelInfo
 			if err := json.Unmarshal(data, &info); err == nil {
+				defaultCalculator.embedded[name] = info
 				defaultCalculator.models[name] = info
 			}
 		}
 	})
 	return defaultCalculator
+}
+
+// ReloadFromDB atomically replaces the models layer with DB-synced data.
+func (c *Calculator) ReloadFromDB(entries []db.ModelPricing) {
+	newModels := make(map[string]ModelInfo, len(entries))
+	for _, e := range entries {
+		newModels[e.ModelName] = ModelInfo{
+			InputCostPerToken:  e.InputCostPerToken,
+			OutputCostPerToken: e.OutputCostPerToken,
+			MaxInputTokens:     int(e.MaxInputTokens),
+			MaxOutputTokens:    int(e.MaxOutputTokens),
+			MaxTokens:          int(e.MaxTokens),
+			Mode:               e.Mode,
+			Provider:           e.Provider,
+		}
+	}
+	c.mu.Lock()
+	c.models = newModels
+	c.mu.Unlock()
 }
 
 // Cost calculates the cost in USD for a request given token counts.
@@ -84,41 +111,67 @@ func (c *Calculator) GetModelInfo(model string) *ModelInfo {
 	return c.lookup(model)
 }
 
-// ModelCostMap returns the full model pricing data as a raw map.
+// ModelCostMap returns a merged copy of all three pricing layers.
+// Priority: overrides > models (DB-synced) > embedded (build-time).
 func ModelCostMap() map[string]ModelInfo {
 	c := Default()
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	result := make(map[string]ModelInfo, len(c.models))
-	for k, v := range c.models {
-		result[k] = v
+	merged := make(map[string]ModelInfo, len(c.embedded)+len(c.models)+len(c.overrides))
+	for k, v := range c.embedded {
+		merged[k] = v
 	}
-	return result
+	for k, v := range c.models {
+		merged[k] = v
+	}
+	for k, v := range c.overrides {
+		merged[k] = v
+	}
+	return merged
 }
 
-// lookup finds model info, checking overrides first, then embedded data.
-// Tries exact match, then provider/model format.
+// lookup finds model info with three-layer fallback: overrides → models → embedded.
+// Each layer tries exact match first, then strips provider prefix.
 func (c *Calculator) lookup(model string) *ModelInfo {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	return c.lookupInLayers(model)
+}
 
-	// Check overrides first
+// lookupInLayers performs the actual lookup without acquiring the lock.
+// Caller must hold at least a read lock.
+func (c *Calculator) lookupInLayers(model string) *ModelInfo {
+	bare := ""
+	if idx := strings.Index(model, "/"); idx >= 0 {
+		bare = model[idx+1:]
+	}
+
+	// Layer 1: overrides (highest priority)
 	if info, ok := c.overrides[model]; ok {
 		return &info
 	}
-
-	// Exact match in embedded data
-	if info, ok := c.models[model]; ok {
-		return &info
-	}
-
-	// Try with provider prefix stripped (e.g., "openai/gpt-4o" → "gpt-4o")
-	if idx := strings.Index(model, "/"); idx >= 0 {
-		bare := model[idx+1:]
+	if bare != "" {
 		if info, ok := c.overrides[bare]; ok {
 			return &info
 		}
+	}
+
+	// Layer 2: DB-synced models
+	if info, ok := c.models[model]; ok {
+		return &info
+	}
+	if bare != "" {
 		if info, ok := c.models[bare]; ok {
+			return &info
+		}
+	}
+
+	// Layer 3: embedded (build-time fallback)
+	if info, ok := c.embedded[model]; ok {
+		return &info
+	}
+	if bare != "" {
+		if info, ok := c.embedded[bare]; ok {
 			return &info
 		}
 	}

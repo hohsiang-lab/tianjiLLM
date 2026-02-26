@@ -780,6 +780,7 @@ func cleanDB(t *testing.T) {
 	_, err = testPool.Exec(ctx, `DELETE FROM "OrganizationTable"`)
 	require.NoError(t, err)
 	_, err = testPool.Exec(ctx, `DELETE FROM "UserTable"`)
+	_, err = testPool.Exec(ctx, `DELETE FROM "ModelPricing"`)
 	require.NoError(t, err)
 }
 

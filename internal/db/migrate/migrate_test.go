@@ -13,7 +13,7 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
 )
 
-// TestSchemaFilesEmbed verifies that the embed.FS contains exactly 10 .up.sql files.
+// TestSchemaFilesEmbed verifies that the embed.FS contains exactly 11 .up.sql files.
 func TestSchemaFilesEmbed(t *testing.T) {
 	entries, err := fs.ReadDir(db.SchemaFiles, "schema")
 	require.NoError(t, err)
@@ -25,10 +25,10 @@ func TestSchemaFilesEmbed(t *testing.T) {
 		}
 	}
 
-	assert.Len(t, sqlFiles, 10, "expected exactly 10 .up.sql files in embedded schema FS")
+	assert.Len(t, sqlFiles, 11, "expected exactly 11 .up.sql files in embedded schema FS")
 }
 
-// TestSchemaFilesOrder verifies that the iofs source resolves versions 1-10 in order.
+// TestSchemaFilesOrder verifies that the iofs source resolves versions 1-11 in order.
 func TestSchemaFilesOrder(t *testing.T) {
 	src, err := iofs.New(db.SchemaFiles, "schema")
 	require.NoError(t, err)
@@ -50,14 +50,14 @@ func TestSchemaFilesOrder(t *testing.T) {
 		v = next
 	}
 
-	assert.Len(t, versions, 10, "expected 10 migration versions")
+	assert.Len(t, versions, 11, "expected 11 migration versions")
 
 	// Verify versions are sorted (ascending).
 	assert.True(t, sort.SliceIsSorted(versions, func(i, j int) bool {
 		return versions[i] < versions[j]
 	}), "migration versions must be in ascending order")
 
-	assert.Equal(t, uint(10), versions[len(versions)-1], "last migration version must be 10")
+	assert.Equal(t, uint(11), versions[len(versions)-1], "last migration version must be 11")
 }
 
 // TestRunMigrationsNilPool verifies that RunMigrations with a nil pool returns a
