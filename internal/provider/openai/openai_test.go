@@ -213,3 +213,99 @@ func TestTransformRequest_ModalitiesPassthrough(t *testing.T) {
 	assert.Equal(t, "text", modalities[0])
 	assert.Equal(t, "image", modalities[1])
 }
+
+func TestTransformResponse_ImagesWithEmptyContent(t *testing.T) {
+	responseBody := `{
+		"id": "gen-001",
+		"object": "chat.completion",
+		"created": 1700000000,
+		"model": "google/gemini-3-pro-image-preview",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "",
+				"images": [{
+					"image_url": {"url": "data:image/png;base64,abc123"}
+				}]
+			},
+			"finish_reason": "stop"
+		}],
+		"usage": {"prompt_tokens": 10, "completion_tokens": 50, "total_tokens": 60}
+	}`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}
+	p := New()
+	result, err := p.TransformResponse(context.Background(), resp)
+	require.NoError(t, err)
+	msg := result.Choices[0].Message
+	assert.Equal(t, "", msg.Content)
+	require.Len(t, msg.Images, 1, "images preserved even with empty content")
+	assert.Equal(t, "data:image/png;base64,abc123", msg.Images[0].ImageURL.URL)
+}
+
+func TestTransformResponse_MultipleImages(t *testing.T) {
+	responseBody := `{
+		"id": "gen-002",
+		"object": "chat.completion",
+		"created": 1700000000,
+		"model": "flux-pro",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "Here are 2 images",
+				"images": [
+					{"image_url": {"url": "data:image/png;base64,img1"}},
+					{"image_url": {"url": "data:image/jpeg;base64,img2"}}
+				]
+			},
+			"finish_reason": "stop"
+		}],
+		"usage": {"prompt_tokens": 5, "completion_tokens": 200, "total_tokens": 205}
+	}`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}
+	p := New()
+	result, err := p.TransformResponse(context.Background(), resp)
+	require.NoError(t, err)
+	msg := result.Choices[0].Message
+	require.Len(t, msg.Images, 2, "all images preserved")
+	assert.Equal(t, "data:image/png;base64,img1", msg.Images[0].ImageURL.URL)
+	assert.Equal(t, "data:image/jpeg;base64,img2", msg.Images[1].ImageURL.URL)
+}
+
+func TestTransformResponse_NoImages_TextOnly(t *testing.T) {
+	responseBody := `{
+		"id": "gen-003",
+		"object": "chat.completion",
+		"created": 1700000000,
+		"model": "gpt-4",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "Hello world"
+			},
+			"finish_reason": "stop"
+		}],
+		"usage": {"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7}
+	}`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}
+	p := New()
+	result, err := p.TransformResponse(context.Background(), resp)
+	require.NoError(t, err)
+	msg := result.Choices[0].Message
+	assert.Equal(t, "Hello world", msg.Content)
+	assert.Empty(t, msg.Images, "no images for text-only response")
+}
