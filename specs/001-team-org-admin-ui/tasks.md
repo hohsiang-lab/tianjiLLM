@@ -127,12 +127,12 @@
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] Add `OrgDetailPage`, `OrgDetailHeaderPartial`, `OrgMembersTablePartial`, org edit modal dialog, and inline role `<select>` (`hx-trigger="change"`) templates to `internal/ui/pages/orgs.templ`, then run `templ generate` (depends T028; extends the same file)
-- [ ] T036 [US4] Implement `loadOrgDetailData` helper and `handleOrgDetail` handler in `internal/ui/handler_orgs_detail.go` (depends T035; calls `GetOrganization`, `ListOrgMembers`, `ListTeamsByOrganization` for teams summary panel)
-- [ ] T037 [US4] Implement `handleOrgUpdate` handler in `internal/ui/handler_orgs_detail.go` (depends T036; validates org_alias, calls `UpdateOrganization`, returns `OrgDetailHeaderPartial` targeting `#org-detail-header`)
-- [ ] T038 [US4] Implement `handleOrgDelete` handler in `internal/ui/handler_orgs_detail.go` (depends T036; calls `ListTeamsByOrganization` to check for dependent teams — if `len > 0` return error banner; else `DeleteOrganization` + `HX-Redirect: /ui/orgs`)
-- [ ] T039 [US4] Implement `handleOrgMemberAdd`, `handleOrgMemberUpdate`, `handleOrgMemberRemove` handlers in `internal/ui/handler_orgs_detail.go` (depends T036; add: validate user_role in allowed set, check duplicate via `AddOrgMember`; update: `UpdateOrgMember`; remove: `DeleteOrgMember`; all return `OrgMembersTablePartial`)
-- [ ] T040 [US4] Register org detail routes in `internal/ui/routes.go`: `GET /ui/orgs/{org_id}`, `POST /ui/orgs/{org_id}/update`, `POST /ui/orgs/{org_id}/delete`, `POST /ui/orgs/{org_id}/members/add`, `POST /ui/orgs/{org_id}/members/update`, `POST /ui/orgs/{org_id}/members/remove` (depends T037–T039; build must pass)
+- [x] T035 [US4] Add `OrgDetailPage`, `OrgDetailHeaderPartial`, `OrgMembersTablePartial`, org edit modal dialog, and inline role `<select>` (`hx-trigger="change"`) templates to `internal/ui/pages/orgs.templ`, then run `templ generate` (depends T028; extends the same file)
+- [x] T036 [US4] Implement `loadOrgDetailData` helper and `handleOrgDetail` handler in `internal/ui/handler_orgs_detail.go` (depends T035; calls `GetOrganization`, `ListOrgMembers`, `ListTeamsByOrganization` for teams summary panel)
+- [x] T037 [US4] Implement `handleOrgUpdate` handler in `internal/ui/handler_orgs_detail.go` (depends T036; validates org_alias, calls `UpdateOrganization`, returns `OrgDetailHeaderPartial` targeting `#org-detail-header`)
+- [x] T038 [US4] Implement `handleOrgDelete` handler in `internal/ui/handler_orgs_detail.go` (depends T036; calls `ListTeamsByOrganization` to check for dependent teams — if `len > 0` return error banner; else `DeleteOrganization` + `HX-Redirect: /ui/orgs`)
+- [x] T039 [US4] Implement `handleOrgMemberAdd`, `handleOrgMemberUpdate`, `handleOrgMemberRemove` handlers in `internal/ui/handler_orgs_detail.go` (depends T036; add: validate user_role in allowed set, check duplicate via `AddOrgMember`; update: `UpdateOrgMember`; remove: `DeleteOrgMember`; all return `OrgMembersTablePartial`)
+- [x] T040 [US4] Register org detail routes in `internal/ui/routes.go`: `GET /ui/orgs/{org_id}`, `POST /ui/orgs/{org_id}/update`, `POST /ui/orgs/{org_id}/delete`, `POST /ui/orgs/{org_id}/members/add`, `POST /ui/orgs/{org_id}/members/update`, `POST /ui/orgs/{org_id}/members/remove` (depends T037–T039; build must pass)
 
 **Checkpoint**: Run `make build`. Navigate to `/ui/orgs/{org_id}`. All four US acceptance scenarios pass independently.
 
@@ -142,8 +142,8 @@
 
 **Purpose**: Final validation, edge case unit tests, and full test suite run.
 
-- [ ] T041 [P] Write unit tests for `orgDeletePreCheck` (teamCount > 0 → reject, == 0 → allow), duplicate member check for orgs, and user_role validation in `internal/ui/handler_orgs_test.go`
-- [ ] T042 Run `make check` (golangci-lint + go test -race -cover ./internal/ui/... + build) and fix any lint or test failures
+- [x] T041 [P] Write unit tests for `orgDeletePreCheck` (teamCount > 0 → reject, == 0 → allow), duplicate member check for orgs, and user_role validation in `internal/ui/handler_orgs_test.go`
+- [x] T042 Run `make check` (golangci-lint + go test -race -cover ./internal/ui/... + build) and fix any lint or test failures
 - [ ] T043 Run `make e2e` against containerized PostgreSQL (`postgres://tianji:tianji@localhost:5433/tianji_e2e`) and verify all teams + orgs E2E tests pass, including 200+ entries performance assertions (< 3s load per SC-008)
 
 ---
