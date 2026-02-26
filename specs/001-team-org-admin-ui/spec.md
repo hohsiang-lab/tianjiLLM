@@ -77,7 +77,7 @@ As a proxy administrator, I want an Organization Detail page where I can see all
 
 ### Edge Cases
 
-- What happens when an admin tries to delete an organization that still has teams linked to it? The system should display a clear error message indicating dependent teams must be removed first.
+- What happens when an admin tries to delete an organization that still has teams linked to it? The admin may submit the delete request; the server detects dependent teams and returns a clear error. The UI displays this error inline. The delete button is NOT pre-emptively disabled — no extra count query is issued at render time.
 - What happens when a user ID provided for team/org membership does not exist in the UserTable? The system should display a validation error rather than silently failing.
 - What happens when the admin sets a budget that is less than the team's current spend? The system should warn but allow the update (no retroactive block).
 - How does the system handle a blocked team receiving new API requests? The block/unblock operation is a data flag; actual enforcement is handled by the proxy middleware — the UI only needs to toggle the flag.
@@ -88,18 +88,18 @@ As a proxy administrator, I want an Organization Detail page where I can see all
 
 ### Functional Requirements
 
-- **FR-001**: System MUST display a paginated/scrollable list of all teams on the Teams list page, including alias, organization, member count, spend, max budget, model count, blocked status, and creation date.
+- **FR-001**: System MUST display a paginated list of all teams on the Teams list page using server-side offset pagination with explicit page controls (not infinite scroll), including alias, organization, member count, spend, max budget, model count, blocked status, and creation date.
 - **FR-002**: System MUST allow administrators to create a new team by providing at minimum a team alias; budget, models, TPM/RPM limits, and organization ID are optional at creation.
-- **FR-003**: System MUST allow administrators to edit an existing team's alias, max budget, TPM/RPM limits, and budget duration from the detail page.
+- **FR-003**: System MUST allow administrators to edit an existing team's alias, max budget, TPM/RPM limits, and budget duration from the detail page via a modal dialog.
 - **FR-004**: System MUST allow administrators to block or unblock a team via a toggle action on either the list page or the detail page.
 - **FR-005**: System MUST allow administrators to permanently delete a team with an explicit confirmation step.
 - **FR-006**: System MUST display a Team Detail page at a stable URL containing the team's complete configuration: alias, organization, admins, members with roles, allowed models, spend vs. budget, TPM/RPM limits, budget duration, blocked status, budget reset date, and metadata.
 - **FR-007**: System MUST allow administrators to add a user (by user ID) to a team's member list from the detail page.
 - **FR-008**: System MUST allow administrators to remove a member from a team from the detail page.
 - **FR-009**: System MUST allow administrators to add or remove models from a team's allowed models list from the detail page.
-- **FR-010**: System MUST display a paginated/scrollable list of all organizations on the Organizations list page, including alias, spend, max budget, model count, and creation date.
+- **FR-010**: System MUST display a paginated list of all organizations on the Organizations list page using server-side offset pagination with explicit page controls (not infinite scroll), including alias, spend, max budget, model count, and creation date.
 - **FR-011**: System MUST allow administrators to create a new organization with at minimum an alias; budget and models are optional.
-- **FR-012**: System MUST allow administrators to edit an existing organization's alias and max budget.
+- **FR-012**: System MUST allow administrators to edit an existing organization's alias and max budget via a modal dialog.
 - **FR-013**: System MUST allow administrators to delete an organization with an explicit confirmation step.
 - **FR-014**: System MUST display an Organization Detail page containing: alias, spend vs. max budget, allowed models, TPM/RPM limits, and a members table showing user ID, role, spend, and join date.
 - **FR-015**: System MUST allow administrators to add an org member by providing user ID and role from the organization detail page.
@@ -110,7 +110,7 @@ As a proxy administrator, I want an Organization Detail page where I can see all
 
 ### Key Entities
 
-- **Team**: A named group with optional organization affiliation, an admin list, a member list (with roles stored separately), allowed model restrictions, spend tracking, budget limits (max_budget, tpm_limit, rpm_limit, budget_duration), a blocked flag, and arbitrary metadata.
+- **Team**: A named group with optional organization affiliation, an admin list, a member list with roles stored separately (valid team member roles: `"admin"` or `"member"`), allowed model restrictions, spend tracking, budget limits (max_budget, tpm_limit, rpm_limit, budget_duration), a blocked flag, and arbitrary metadata.
 - **Organization**: A top-level container with an alias, allowed model restrictions, spend tracking, budget limits, and metadata. Organizations group teams and members but do not have a blocked flag.
 - **Organization Membership**: A join record linking a user to an organization with an assigned role and optional per-member budget. A user may belong to at most one membership record per organization.
 - **User**: Referenced by user ID in team members and org membership. Users are managed separately; this feature only reads user IDs for display and references them during add-member operations.
@@ -130,7 +130,7 @@ As a proxy administrator, I want an Organization Detail page where I can see all
 
 ## Assumptions
 
-- The admin is identified as any authenticated user with `proxy_admin` or `org_admin` role in the session; no new role system is introduced.
+- `proxy_admin` users have global access to all teams and organizations. `org_admin` users have scoped access limited to their own organization and its teams only; they cannot view or manage other organizations. No new role system is introduced.
 - `organization_id` for a new team is optional; teams without an org are valid and displayed with a "No Organization" label.
 - The `members_with_roles` JSONB column stores structured role assignments (e.g., `[{"user_id": "u1", "role": "member"}]`); the UI reads this for per-member role display.
 - Deleting a team does not cascade to API keys that reference it; that is out of scope for this feature.
@@ -138,3 +138,13 @@ As a proxy administrator, I want an Organization Detail page where I can see all
 - Role values for organization membership follow the existing user role conventions in the system (e.g., `internal_user`, `proxy_admin`, `org_admin`).
 - Budget duration values (e.g., `daily`, `weekly`, `monthly`) are displayed as-is; the UI does not validate or transform them.
 - The metadata field is displayed and editable as a raw JSON text area; no schema enforcement is applied in the UI layer.
+
+## Clarifications
+
+### Session 2026-02-26
+
+- Q: What is the access scope for `org_admin` vs `proxy_admin` on Teams and Organizations pages? → A: `proxy_admin` has global access; `org_admin` sees only their own organization and its teams (scoped access).
+- Q: What pagination strategy should list pages use? → A: Server-side offset pagination with explicit page controls (not infinite scroll).
+- Q: What role values are valid for team members (distinct from organization membership roles)? → A: Team member roles are a simplified set: `"admin"` or `"member"`.
+- Q: When deleting an organization with dependent teams, should the UI pre-emptively disable the delete button or show an error after submission? → A: Submit → server detects dependent teams → display inline error (no pre-emptive UI disable, no extra count query at render time).
+- Q: Should edit forms for team and organization configuration use inline editing or modal dialogs? → A: Modal-based edit forms for all team and organization configuration changes.
