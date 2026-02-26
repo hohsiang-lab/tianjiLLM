@@ -31,6 +31,14 @@ func ParseStreamChunk(data []byte) (*model.StreamChunk, bool, error) {
 	var delta model.Delta
 
 	for _, part := range candidate.Content.Parts {
+		if part.InlineData != nil {
+			delta.ContentParts = append(delta.ContentParts, model.ContentPart{
+				Type: "image_url",
+				ImageURL: &model.ImageURL{
+					URL: "data:" + part.InlineData.MimeType + ";base64," + part.InlineData.Data,
+				},
+			})
+		}
 		if part.Text != "" {
 			delta.Content = &part.Text
 		}

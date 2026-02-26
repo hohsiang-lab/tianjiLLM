@@ -156,6 +156,201 @@ func TestMapFinishReason(t *testing.T) {
 	assert.Equal(t, "tool_calls", mapFinishReason("TOOL_CALLS"))
 }
 
+// === Image generation tests ===
+
+func TestTransformResponse_ImageOutput(t *testing.T) {
+	resp := &geminiResponse{
+		Candidates: []geminiCandidate{{
+			Content: geminiContent{
+				Parts: []geminiPart{{
+					InlineData: &geminiInlineData{MimeType: "image/png", Data: "iVBORw0KGgo="},
+				}},
+				Role: "model",
+			},
+			FinishReason: "STOP",
+		}},
+	}
+	result := transformToOpenAI(resp)
+	require.Len(t, result.Choices, 1)
+	parts, ok := result.Choices[0].Message.Content.([]model.ContentPart)
+	require.True(t, ok, "expected []ContentPart")
+	require.Len(t, parts, 1)
+	assert.Equal(t, "image_url", parts[0].Type)
+	assert.Equal(t, "data:image/png;base64,iVBORw0KGgo=", parts[0].ImageURL.URL)
+}
+
+func TestTransformResponse_MixedContent(t *testing.T) {
+	resp := &geminiResponse{
+		Candidates: []geminiCandidate{{
+			Content: geminiContent{
+				Parts: []geminiPart{
+					{Text: "Here is the image:"},
+					{InlineData: &geminiInlineData{MimeType: "image/png", Data: "abc123"}},
+					{Text: "Done."},
+				},
+				Role: "model",
+			},
+			FinishReason: "STOP",
+		}},
+	}
+	result := transformToOpenAI(resp)
+	parts, ok := result.Choices[0].Message.Content.([]model.ContentPart)
+	require.True(t, ok)
+	require.Len(t, parts, 3)
+	assert.Equal(t, "text", parts[0].Type)
+	assert.Equal(t, "Here is the image:", parts[0].Text)
+	assert.Equal(t, "image_url", parts[1].Type)
+	assert.Equal(t, "data:image/png;base64,abc123", parts[1].ImageURL.URL)
+	assert.Equal(t, "text", parts[2].Type)
+	assert.Equal(t, "Done.", parts[2].Text)
+}
+
+func TestTransformRequest_WithModalities(t *testing.T) {
+	p := New()
+	ctx := context.Background()
+	req := &model.ChatCompletionRequest{
+		Model:      "gemini-2.0-flash",
+		Messages:   []model.Message{{Role: "user", Content: "Draw a cat"}},
+		Modalities: []string{"text", "image"},
+	}
+	httpReq, err := p.TransformRequest(ctx, req, "key")
+	require.NoError(t, err)
+	body, _ := io.ReadAll(httpReq.Body)
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal(body, &parsed))
+	gc := parsed["generationConfig"].(map[string]any)
+	mods := gc["responseModalities"].([]any)
+	assert.Equal(t, []any{"TEXT", "IMAGE"}, mods)
+}
+
+func TestTransformResponse_TextOnlyBackwardCompat(t *testing.T) {
+	resp := &geminiResponse{
+		Candidates: []geminiCandidate{{
+			Content: geminiContent{
+				Parts: []geminiPart{{Text: "Hello world"}},
+				Role:  "model",
+			},
+			FinishReason: "STOP",
+		}},
+	}
+	result := transformToOpenAI(resp)
+	content, ok := result.Choices[0].Message.Content.(string)
+	require.True(t, ok, "text-only should be plain string")
+	assert.Equal(t, "Hello world", content)
+}
+
+func TestStreamParseChunk_ImageInlineData(t *testing.T) {
+	data := `{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"AAAA"}}],"role":"model"},"finishReason":"STOP"}]}`
+	chunk, isDone, err := ParseStreamChunk([]byte(data))
+	require.NoError(t, err)
+	assert.True(t, isDone)
+	require.Len(t, chunk.Choices, 1)
+	require.Len(t, chunk.Choices[0].Delta.ContentParts, 1)
+	assert.Equal(t, "image_url", chunk.Choices[0].Delta.ContentParts[0].Type)
+	assert.Equal(t, "data:image/png;base64,AAAA", chunk.Choices[0].Delta.ContentParts[0].ImageURL.URL)
+	assert.Nil(t, chunk.Choices[0].Delta.Content)
+}
+
+func TestTransformContentPart_DataURLParsing(t *testing.T) {
+	part := map[string]any{
+		"type": "image_url",
+		"image_url": map[string]any{
+			"url": "data:image/webp;base64,UklGR...",
+		},
+	}
+	result := transformContentPart(part)
+	inlineData := result["inlineData"].(map[string]any)
+	assert.Equal(t, "image/webp", inlineData["mimeType"])
+	assert.Equal(t, "UklGR...", inlineData["data"])
+}
+
+func TestTransformRequest_ModalitiesTextOnly(t *testing.T) {
+	p := New()
+	ctx := context.Background()
+	req := &model.ChatCompletionRequest{
+		Model:      "gemini-2.0-flash",
+		Messages:   []model.Message{{Role: "user", Content: "Hello"}},
+		Modalities: []string{"text"},
+	}
+	httpReq, err := p.TransformRequest(ctx, req, "key")
+	require.NoError(t, err)
+	body, _ := io.ReadAll(httpReq.Body)
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal(body, &parsed))
+	gc, _ := parsed["generationConfig"].(map[string]any)
+	if gc != nil {
+		assert.Nil(t, gc["responseModalities"], "text-only should not set responseModalities")
+	}
+}
+
+func TestTransformRequest_ModalitiesEmpty(t *testing.T) {
+	p := New()
+	ctx := context.Background()
+	req := &model.ChatCompletionRequest{
+		Model:      "gemini-2.0-flash",
+		Messages:   []model.Message{{Role: "user", Content: "Hello"}},
+		Modalities: []string{},
+	}
+	httpReq, err := p.TransformRequest(ctx, req, "key")
+	require.NoError(t, err)
+	body, _ := io.ReadAll(httpReq.Body)
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal(body, &parsed))
+	assert.Nil(t, parsed["generationConfig"], "empty modalities + no other config should not create generationConfig")
+}
+
+func TestTransformResponse_UnknownMimeType(t *testing.T) {
+	resp := &geminiResponse{
+		Candidates: []geminiCandidate{{
+			Content: geminiContent{
+				Parts: []geminiPart{{
+					InlineData: &geminiInlineData{MimeType: "audio/wav", Data: "RIFF"},
+				}},
+				Role: "model",
+			},
+			FinishReason: "STOP",
+		}},
+	}
+	result := transformToOpenAI(resp)
+	parts, ok := result.Choices[0].Message.Content.([]model.ContentPart)
+	require.True(t, ok)
+	assert.Equal(t, "data:audio/wav;base64,RIFF", parts[0].ImageURL.URL)
+}
+
+func TestTransformResponse_ImageInputRoundTrip(t *testing.T) {
+	// Test that image input (data URL) is correctly parsed and could round-trip
+	inputPart := map[string]any{
+		"type": "image_url",
+		"image_url": map[string]any{
+			"url": "data:image/jpeg;base64,/9j/4AAQ",
+		},
+	}
+	transformed := transformContentPart(inputPart)
+	inlineData := transformed["inlineData"].(map[string]any)
+	assert.Equal(t, "image/jpeg", inlineData["mimeType"])
+	assert.Equal(t, "/9j/4AAQ", inlineData["data"])
+
+	// Simulate Gemini returning an image
+	resp := &geminiResponse{
+		Candidates: []geminiCandidate{{
+			Content: geminiContent{
+				Parts: []geminiPart{{
+					InlineData: &geminiInlineData{
+						MimeType: inlineData["mimeType"].(string),
+						Data:     inlineData["data"].(string),
+					},
+				}},
+				Role: "model",
+			},
+			FinishReason: "STOP",
+		}},
+	}
+	result := transformToOpenAI(resp)
+	parts, ok := result.Choices[0].Message.Content.([]model.ContentPart)
+	require.True(t, ok)
+	assert.Equal(t, "data:image/jpeg;base64,/9j/4AAQ", parts[0].ImageURL.URL)
+}
+
 func TestStreamRequest_URL(t *testing.T) {
 	p := New()
 	ctx := context.Background()

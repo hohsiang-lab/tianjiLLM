@@ -53,9 +53,10 @@ type StreamChoice struct {
 }
 
 type Delta struct {
-	Role      *string    `json:"role,omitempty"`
-	Content   *string    `json:"content,omitempty"`
-	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+	Role         *string       `json:"role,omitempty"`
+	Content      *string       `json:"content,omitempty"`
+	ContentParts []ContentPart `json:"content_parts,omitempty"`
+	ToolCalls    []ToolCall    `json:"tool_calls,omitempty"`
 }
 
 // EmbeddingRequest represents an OpenAI-compatible embedding request.

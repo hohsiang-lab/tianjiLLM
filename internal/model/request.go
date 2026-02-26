@@ -24,6 +24,7 @@ type ChatCompletionRequest struct {
 	TopLogProbs      *int           `json:"top_logprobs,omitempty"`
 	ExtraParams      map[string]any `json:"-"`
 	Metadata         map[string]any `json:"metadata,omitempty"`
+	Modalities       []string       `json:"modalities,omitempty"`
 
 	// Prompt template resolution fields.
 	PromptName      string            `json:"prompt_name,omitempty"`
@@ -86,6 +87,7 @@ var knownFields = map[string]bool{
 	"prompt_name":      true,
 	"prompt_variables": true,
 	"prompt_version":   true,
+	"modalities":       true,
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling that captures unknown
