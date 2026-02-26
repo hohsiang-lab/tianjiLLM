@@ -9,6 +9,69 @@ import (
 	"context"
 )
 
+const countMembersPerOrganization = `-- name: CountMembersPerOrganization :many
+SELECT organization_id, COUNT(*)::bigint AS member_count
+FROM "OrganizationMembership"
+GROUP BY organization_id
+`
+
+type CountMembersPerOrganizationRow struct {
+	OrganizationID string `json:"organization_id"`
+	MemberCount    int64  `json:"member_count"`
+}
+
+func (q *Queries) CountMembersPerOrganization(ctx context.Context) ([]CountMembersPerOrganizationRow, error) {
+	rows, err := q.db.Query(ctx, countMembersPerOrganization)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountMembersPerOrganizationRow
+	for rows.Next() {
+		var i CountMembersPerOrganizationRow
+		if err := rows.Scan(&i.OrganizationID, &i.MemberCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countTeamsPerOrganization = `-- name: CountTeamsPerOrganization :many
+SELECT organization_id, COUNT(*)::bigint AS team_count
+FROM "TeamTable"
+WHERE organization_id IS NOT NULL
+GROUP BY organization_id
+`
+
+type CountTeamsPerOrganizationRow struct {
+	OrganizationID *string `json:"organization_id"`
+	TeamCount      int64   `json:"team_count"`
+}
+
+func (q *Queries) CountTeamsPerOrganization(ctx context.Context) ([]CountTeamsPerOrganizationRow, error) {
+	rows, err := q.db.Query(ctx, countTeamsPerOrganization)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountTeamsPerOrganizationRow
+	for rows.Next() {
+		var i CountTeamsPerOrganizationRow
+		if err := rows.Scan(&i.OrganizationID, &i.TeamCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createOrganization = `-- name: CreateOrganization :one
 INSERT INTO "OrganizationTable" (organization_id, organization_alias, max_budget, models, created_by)
 VALUES ($1, $2, $3, $4, $5)

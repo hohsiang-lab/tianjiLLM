@@ -19,3 +19,14 @@ RETURNING *;
 
 -- name: DeleteOrganization :exec
 DELETE FROM "OrganizationTable" WHERE organization_id = $1;
+
+-- name: CountTeamsPerOrganization :many
+SELECT organization_id, COUNT(*)::bigint AS team_count
+FROM "TeamTable"
+WHERE organization_id IS NOT NULL
+GROUP BY organization_id;
+
+-- name: CountMembersPerOrganization :many
+SELECT organization_id, COUNT(*)::bigint AS member_count
+FROM "OrganizationMembership"
+GROUP BY organization_id;

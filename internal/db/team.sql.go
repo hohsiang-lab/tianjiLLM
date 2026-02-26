@@ -331,6 +331,53 @@ func (q *Queries) ListTeams(ctx context.Context) ([]TeamTable, error) {
 	return items, nil
 }
 
+const listTeamsByOrganization = `-- name: ListTeamsByOrganization :many
+SELECT team_id, team_alias, organization_id, admins, members, members_with_roles, metadata, max_budget, spend, models, blocked, tpm_limit, rpm_limit, budget_duration, budget_reset_at, budget_id, created_at, created_by, updated_at, updated_by FROM "TeamTable"
+WHERE organization_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListTeamsByOrganization(ctx context.Context, organizationID *string) ([]TeamTable, error) {
+	rows, err := q.db.Query(ctx, listTeamsByOrganization, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TeamTable
+	for rows.Next() {
+		var i TeamTable
+		if err := rows.Scan(
+			&i.TeamID,
+			&i.TeamAlias,
+			&i.OrganizationID,
+			&i.Admins,
+			&i.Members,
+			&i.MembersWithRoles,
+			&i.Metadata,
+			&i.MaxBudget,
+			&i.Spend,
+			&i.Models,
+			&i.Blocked,
+			&i.TpmLimit,
+			&i.RpmLimit,
+			&i.BudgetDuration,
+			&i.BudgetResetAt,
+			&i.BudgetID,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.UpdatedAt,
+			&i.UpdatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeTeamMember = `-- name: RemoveTeamMember :exec
 UPDATE "TeamTable"
 SET members = array_remove(members, $2), updated_at = NOW()
