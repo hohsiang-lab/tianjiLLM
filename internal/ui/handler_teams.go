@@ -96,6 +96,9 @@ func (h *UIHandler) loadTeamsPageData(r *http.Request) pages.TeamsPageData {
 			Spend:       t.Spend,
 			MaxBudget:   t.MaxBudget,
 			ModelCount:  len(t.Models),
+			Models:      t.Models,
+			TPMLimit:    t.TpmLimit,
+			RPMLimit:    t.RpmLimit,
 			Blocked:     t.Blocked,
 		}
 		if t.CreatedAt.Valid {
@@ -198,9 +201,19 @@ func (h *UIHandler) handleTeamBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
 	if err := h.DB.BlockTeam(r.Context(), teamID); err != nil {
 		data := h.loadTeamsPageData(r)
 		render(r.Context(), w, pages.TeamsTableWithToast(data, "Failed to block team: "+err.Error(), toast.VariantError))
+		return
+	}
+
+	if r.FormValue("return_to") == "detail" {
+		http.Redirect(w, r, "/ui/teams/"+teamID, http.StatusSeeOther)
 		return
 	}
 
@@ -220,9 +233,19 @@ func (h *UIHandler) handleTeamUnblock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
 	if err := h.DB.UnblockTeam(r.Context(), teamID); err != nil {
 		data := h.loadTeamsPageData(r)
 		render(r.Context(), w, pages.TeamsTableWithToast(data, "Failed to unblock team: "+err.Error(), toast.VariantError))
+		return
+	}
+
+	if r.FormValue("return_to") == "detail" {
+		http.Redirect(w, r, "/ui/teams/"+teamID, http.StatusSeeOther)
 		return
 	}
 
