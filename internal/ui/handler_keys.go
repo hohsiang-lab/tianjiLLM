@@ -682,7 +682,6 @@ func buildKeyDetailData(vt db.VerificationToken) pages.KeyDetailData {
 	return data
 }
 
-
 func parseDuration(s string) time.Duration {
 	s = strings.TrimSpace(s)
 	if s == "" {

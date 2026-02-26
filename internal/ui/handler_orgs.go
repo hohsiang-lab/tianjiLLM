@@ -157,4 +157,3 @@ func (h *UIHandler) handleOrgCreate(w http.ResponseWriter, r *http.Request) {
 	data := h.loadOrgsPageData(r)
 	render(r.Context(), w, pages.OrgsTableWithToast(data, "Organization created successfully", toast.VariantSuccess))
 }
-

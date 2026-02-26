@@ -255,8 +255,8 @@ func (h *UIHandler) handleTeamMemberRemove(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 
 	if err := h.DB.RemoveTeamMember(ctx, db.RemoveTeamMemberParams{
-		TeamID:       teamID,
-		ArrayRemove:  userID,
+		TeamID:      teamID,
+		ArrayRemove: userID,
 	}); err != nil {
 		data, _ := h.loadTeamDetailData(r, teamID)
 		renderMembersWithToast(w, r, data, "Failed to remove member: "+err.Error(), toast.VariantError)
