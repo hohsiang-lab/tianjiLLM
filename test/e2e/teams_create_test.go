@@ -44,7 +44,21 @@ func TestTeamCreate_RequiresAlias(t *testing.T) {
 }
 
 func TestTeamCreate_DuplicateAlias(t *testing.T) {
-	t.Skip("BUG: spec requires duplicate alias rejection, but no unique constraint on team_alias — see issue #16")
+	f := setup(t)
+	f.SeedTeam(SeedTeamOpts{Alias: "dup-alias-team"})
+	f.NavigateToTeams()
+
+	f.ClickButton("New Team")
+	f.WaitDialogOpen("create-team-dialog")
+
+	f.InputByID("team_alias", "dup-alias-team")
+	f.SubmitDialog("create-team-dialog", "Create Team")
+	time.Sleep(500 * time.Millisecond)
+	f.WaitStable()
+
+	// Should show error toast about duplicate alias
+	text := f.WaitToast()
+	assert.Contains(t, text, "alias")
 }
 
 func TestTeamCreate_WithOptionalSettings(t *testing.T) {
