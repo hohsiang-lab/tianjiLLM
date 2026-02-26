@@ -92,3 +92,36 @@ func TestProviderKeyRotation_EmptyCredentials(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, swapper.swapped)
 }
+
+func TestProviderKeyRotation_PartialFailure(t *testing.T) {
+	// 3 keys: openai and anthropic succeed, azure (middle) fails
+	fetcher := &mockFetcher{
+		keys: map[string]string{
+			"openai":    "sk-new-openai-key",
+			"anthropic": "sk-new-anthropic-key",
+			// "azure" intentionally missing → FetchKey returns error
+		},
+	}
+	swapper := &mockSwapper{swapped: make(map[string]string)}
+
+	job := &ProviderKeyRotationJob{
+		Fetcher:     fetcher,
+		Swapper:     swapper,
+		Credentials: []string{"openai", "azure", "anthropic"},
+	}
+
+	err := job.Run(context.Background())
+	require.NoError(t, err) // partial failures are logged, not returned
+
+	assert.Equal(t, "sk-new-openai-key", swapper.swapped["openai"])
+	assert.Equal(t, "sk-new-anthropic-key", swapper.swapped["anthropic"])
+	assert.Empty(t, swapper.swapped["azure"])
+}
+
+// TestKeyRotationJob_Name verifies the job identifier used by the scheduler.
+// KeyRotationJob.DB is *db.Queries (concrete struct), so only the Name() method
+// is testable without a live database connection.
+func TestKeyRotationJob_Name(t *testing.T) {
+	job := &KeyRotationJob{}
+	assert.Equal(t, "key_rotation", job.Name())
+}
