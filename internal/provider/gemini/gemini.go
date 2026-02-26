@@ -164,6 +164,22 @@ func (p *Provider) transformRequestBody(req *model.ChatCompletionRequest) map[st
 			}
 		}
 	}
+	// Inject responseModalities only when "image" is requested
+	hasImageModality := false
+	for _, m := range req.Modalities {
+		if strings.EqualFold(m, "image") {
+			hasImageModality = true
+			break
+		}
+	}
+	if hasImageModality {
+		modalities := make([]string, 0, len(req.Modalities))
+		for _, m := range req.Modalities {
+			modalities = append(modalities, strings.ToUpper(m))
+		}
+		genConfig["responseModalities"] = modalities
+	}
+
 	if len(genConfig) > 0 {
 		body["generationConfig"] = genConfig
 	}
@@ -272,10 +288,19 @@ func transformContentPart(part map[string]any) map[string]any {
 	case "image_url":
 		if imageURL, ok := part["image_url"].(map[string]any); ok {
 			url, _ := imageURL["url"].(string)
+			mimeType := "image/jpeg"
+			data := url
+			if strings.HasPrefix(url, "data:") {
+				rest := strings.TrimPrefix(url, "data:")
+				if idx := strings.Index(rest, ";base64,"); idx >= 0 {
+					mimeType = rest[:idx]
+					data = rest[idx+len(";base64,"):]
+				}
+			}
 			return map[string]any{
 				"inlineData": map[string]any{
-					"mimeType": "image/jpeg",
-					"data":     url,
+					"mimeType": mimeType,
+					"data":     data,
 				},
 			}
 		}
@@ -313,9 +338,15 @@ type geminiContent struct {
 	Role  string       `json:"role"`
 }
 
+type geminiInlineData struct {
+	MimeType string `json:"mimeType"`
+	Data     string `json:"data"`
+}
+
 type geminiPart struct {
-	Text         string          `json:"text,omitempty"`
-	FunctionCall *geminiFuncCall `json:"functionCall,omitempty"`
+	Text         string           `json:"text,omitempty"`
+	FunctionCall *geminiFuncCall  `json:"functionCall,omitempty"`
+	InlineData   *geminiInlineData `json:"inlineData,omitempty"`
 }
 
 type geminiFuncCall struct {
@@ -333,13 +364,28 @@ func transformToOpenAI(resp *geminiResponse) *model.ModelResponse {
 	var choices []model.Choice
 
 	for i, candidate := range resp.Candidates {
-		var textContent strings.Builder
+		var textParts []string
+		var contentParts []model.ContentPart
 		var toolCalls []model.ToolCall
 		toolIndex := 0
+		hasImage := false
 
 		for _, part := range candidate.Content.Parts {
+			if part.InlineData != nil {
+				hasImage = true
+				contentParts = append(contentParts, model.ContentPart{
+					Type: "image_url",
+					ImageURL: &model.ImageURL{
+						URL: "data:" + part.InlineData.MimeType + ";base64," + part.InlineData.Data,
+					},
+				})
+			}
 			if part.Text != "" {
-				textContent.WriteString(part.Text)
+				textParts = append(textParts, part.Text)
+				contentParts = append(contentParts, model.ContentPart{
+					Type: "text",
+					Text: part.Text,
+				})
 			}
 			if part.FunctionCall != nil {
 				args, _ := json.Marshal(part.FunctionCall.Args)
@@ -358,8 +404,12 @@ func transformToOpenAI(resp *geminiResponse) *model.ModelResponse {
 
 		finishReason := mapFinishReason(candidate.FinishReason)
 		msg := &model.Message{
-			Role:    "assistant",
-			Content: textContent.String(),
+			Role: "assistant",
+		}
+		if hasImage {
+			msg.Content = contentParts
+		} else {
+			msg.Content = strings.Join(textParts, "")
 		}
 		if len(toolCalls) > 0 {
 			msg.ToolCalls = toolCalls
