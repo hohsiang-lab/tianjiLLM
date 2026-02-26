@@ -554,6 +554,211 @@ func (f *Fixture) SelectLogFilter(name, value string) {
 }
 
 // ---------------------------------------------------------------------------
+// Teams navigation & seeding
+// ---------------------------------------------------------------------------
+
+func (f *Fixture) NavigateToTeams() {
+	f.T.Helper()
+	_, err := f.Page.Goto(testServer.URL + "/ui/teams")
+	require.NoError(f.T, err)
+	require.NoError(f.T, f.Page.WaitForLoadState())
+}
+
+func (f *Fixture) NavigateToTeamDetail(teamID string) {
+	f.T.Helper()
+	_, err := f.Page.Goto(testServer.URL + "/ui/teams/" + teamID)
+	require.NoError(f.T, err)
+	require.NoError(f.T, f.Page.WaitForLoadState())
+}
+
+type SeedTeamOpts struct {
+	Alias          string
+	OrgID          string
+	Members        []string
+	MembersWithRoles []TeamMemberSeed
+	Models         []string
+	MaxBudget      *float64
+	Spend          float64
+	Blocked        bool
+	TPMLimit       *int64
+	RPMLimit       *int64
+	BudgetDuration string
+}
+
+type TeamMemberSeed struct {
+	UserID string `json:"user_id"`
+	Role   string `json:"role"`
+}
+
+func (f *Fixture) SeedTeam(opts SeedTeamOpts) string {
+	f.T.Helper()
+	ctx := context.Background()
+
+	teamID := "team-" + generateTestKey()[3:15]
+	if opts.Models == nil {
+		opts.Models = []string{}
+	}
+	members := opts.Members
+	if members == nil {
+		members = []string{}
+	}
+
+	params := db.CreateTeamParams{
+		TeamID:    teamID,
+		TeamAlias: &opts.Alias,
+		Admins:    []string{},
+		Members:   members,
+		Models:    opts.Models,
+		MaxBudget: opts.MaxBudget,
+		CreatedBy: "e2e",
+	}
+	if opts.OrgID != "" {
+		params.OrganizationID = &opts.OrgID
+	}
+	if opts.TPMLimit != nil {
+		params.TpmLimit = opts.TPMLimit
+	}
+	if opts.RPMLimit != nil {
+		params.RpmLimit = opts.RPMLimit
+	}
+	if opts.BudgetDuration != "" {
+		params.BudgetDuration = &opts.BudgetDuration
+	}
+
+	_, err := testDB.CreateTeam(ctx, params)
+	require.NoError(f.T, err)
+
+	// Set spend if non-zero
+	if opts.Spend > 0 {
+		_, err := testPool.Exec(ctx, `UPDATE "TeamTable" SET spend = $1 WHERE team_id = $2`, opts.Spend, teamID)
+		require.NoError(f.T, err)
+	}
+
+	// Set members_with_roles if provided
+	if len(opts.MembersWithRoles) > 0 {
+		mwr, _ := json.Marshal(opts.MembersWithRoles)
+		_, err := testPool.Exec(ctx, `UPDATE "TeamTable" SET members_with_roles = $1 WHERE team_id = $2`, mwr, teamID)
+		require.NoError(f.T, err)
+	}
+
+	if opts.Blocked {
+		require.NoError(f.T, testDB.BlockTeam(ctx, teamID))
+	}
+
+	return teamID
+}
+
+func (f *Fixture) SeedTeams(n int) []string {
+	f.T.Helper()
+	ids := make([]string, n)
+	for i := range n {
+		ids[i] = f.SeedTeam(SeedTeamOpts{
+			Alias: fmt.Sprintf("test-team-%d", i+1),
+		})
+	}
+	return ids
+}
+
+func (f *Fixture) FilterTeams(name, value string) {
+	f.T.Helper()
+	sel := fmt.Sprintf(`#team-filters input[name="%s"]`, name)
+	require.NoError(f.T, f.Page.Locator(sel).Fill(value))
+}
+
+// ---------------------------------------------------------------------------
+// Organizations navigation & seeding
+// ---------------------------------------------------------------------------
+
+func (f *Fixture) NavigateToOrgs() {
+	f.T.Helper()
+	_, err := f.Page.Goto(testServer.URL + "/ui/orgs")
+	require.NoError(f.T, err)
+	require.NoError(f.T, f.Page.WaitForLoadState())
+}
+
+func (f *Fixture) NavigateToOrgDetail(orgID string) {
+	f.T.Helper()
+	_, err := f.Page.Goto(testServer.URL + "/ui/orgs/" + orgID)
+	require.NoError(f.T, err)
+	require.NoError(f.T, f.Page.WaitForLoadState())
+}
+
+type SeedOrgOpts struct {
+	Alias     string
+	MaxBudget *float64
+	Models    []string
+	Spend     float64
+}
+
+func (f *Fixture) SeedOrg(opts SeedOrgOpts) string {
+	f.T.Helper()
+	ctx := context.Background()
+
+	orgID := "org-" + generateTestKey()[3:15]
+	if opts.Models == nil {
+		opts.Models = []string{}
+	}
+
+	params := db.CreateOrganizationParams{
+		OrganizationID:    orgID,
+		OrganizationAlias: &opts.Alias,
+		MaxBudget:         opts.MaxBudget,
+		Models:            opts.Models,
+		CreatedBy:         "e2e",
+	}
+
+	_, err := testDB.CreateOrganization(ctx, params)
+	require.NoError(f.T, err)
+
+	if opts.Spend > 0 {
+		_, err := testPool.Exec(ctx, `UPDATE "OrganizationTable" SET spend = $1 WHERE organization_id = $2`, opts.Spend, orgID)
+		require.NoError(f.T, err)
+	}
+
+	return orgID
+}
+
+func (f *Fixture) SeedOrgs(n int) []string {
+	f.T.Helper()
+	ids := make([]string, n)
+	for i := range n {
+		ids[i] = f.SeedOrg(SeedOrgOpts{
+			Alias: fmt.Sprintf("test-org-%d", i+1),
+		})
+	}
+	return ids
+}
+
+func (f *Fixture) SeedOrgMember(orgID, userID, role string) {
+	f.T.Helper()
+	ctx := context.Background()
+	_, err := testDB.AddOrgMember(ctx, db.AddOrgMemberParams{
+		UserID:         userID,
+		OrganizationID: orgID,
+		UserRole:       &role,
+	})
+	require.NoError(f.T, err)
+}
+
+func (f *Fixture) SeedUser(userID string) {
+	f.T.Helper()
+	ctx := context.Background()
+	_, err := testDB.CreateUser(ctx, db.CreateUserParams{
+		UserID:   userID,
+		UserRole: "internal_user",
+		Teams:    []string{},
+		Models:   []string{},
+	})
+	require.NoError(f.T, err)
+}
+
+func (f *Fixture) FilterOrgs(value string) {
+	f.T.Helper()
+	sel := `#org-filters input[name="search"]`
+	require.NoError(f.T, f.Page.Locator(sel).Fill(value))
+}
+
+// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
@@ -567,6 +772,14 @@ func cleanDB(t *testing.T) {
 	_, err = testPool.Exec(ctx, `DELETE FROM "VerificationToken"`)
 	require.NoError(t, err)
 	_, err = testPool.Exec(ctx, `DELETE FROM "ProxyModelTable"`)
+	require.NoError(t, err)
+	_, err = testPool.Exec(ctx, `DELETE FROM "OrganizationMembership"`)
+	require.NoError(t, err)
+	_, err = testPool.Exec(ctx, `DELETE FROM "TeamTable"`)
+	require.NoError(t, err)
+	_, err = testPool.Exec(ctx, `DELETE FROM "OrganizationTable"`)
+	require.NoError(t, err)
+	_, err = testPool.Exec(ctx, `DELETE FROM "UserTable"`)
 	require.NoError(t, err)
 }
 
