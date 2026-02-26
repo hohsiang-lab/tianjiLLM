@@ -77,6 +77,19 @@ test/e2e/
 
 No constitution violations. No additional complexity justification needed.
 
+## UI Design
+
+See [`ui-design.md`](./ui-design.md) for the full visual specification. Key decisions:
+
+- **Sidebar**: Add "Teams" (`users` icon) and "Organizations" (`building-2` icon) between Models and Usage
+- **List pages**: Exact same pattern as `keys.templ` — filter toolbar + card-wrapped table + pagination + dialog-based create form
+- **Detail pages**: Same pattern as `key_detail.templ` — header with status badge + 3-column overview cards + sub-tables for members/models
+- **HTMX targets**: `#teams-table`, `#orgs-table`, `#team-members-table`, `#team-models-list`, `#org-members-table`, `#team-detail-header`, `#org-detail-header`
+- **No new shared components**: All UI built from existing templUI primitives (card, table, badge, button, dialog, input, pagination, toast, icon)
+- **Org member role change**: Inline `<select>` with `hx-trigger="change"` for instant role update
+- **Delete confirmation**: Type-to-confirm pattern (from `key_detail.templ` `DeleteConfirmDialog`)
+- **Toast feedback**: OOB swap pattern (from `KeysTableWithToast`)
+
 ## Testing Strategy
 
 ### 1. Unit Test 範圍與 Mock 策略
