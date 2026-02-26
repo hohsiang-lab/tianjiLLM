@@ -144,6 +144,9 @@ func transformRequestBody(req *model.ChatCompletionRequest) map[string]any {
 	if req.StreamOptions != nil {
 		body["stream_options"] = req.StreamOptions
 	}
+	if len(req.Modalities) > 0 {
+		body["modalities"] = req.Modalities
+	}
 
 	return body
 }

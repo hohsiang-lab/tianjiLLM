@@ -1,0 +1,22 @@
+{
+  "_comment": "OpenAI-compatible response for text-only request — message.content is a plain string (no regression)",
+  "id": "chatcmpl-gemini-xyz789",
+  "object": "chat.completion",
+  "created": 1740518400,
+  "model": "gemini/gemini-2.0-flash",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello! How can I help you today?"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 8,
+    "total_tokens": 18
+  }
+}

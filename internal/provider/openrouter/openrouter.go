@@ -19,5 +19,6 @@ func (p *Provider) GetSupportedParams() []string {
 		"top_p", "frequency_penalty", "presence_penalty", "n", "stop",
 		"stream", "stream_options", "seed", "tools", "tool_choice",
 		"response_format", "logprobs", "top_logprobs", "user",
+		"modalities",
 	}
 }
