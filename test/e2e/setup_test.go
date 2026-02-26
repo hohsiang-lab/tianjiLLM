@@ -62,9 +62,7 @@ func TestMain(m *testing.M) {
 
 	// 3. Build httptest.Server
 	cfg := &config.ProxyConfig{
-		ModelList: []config.ModelConfig{
-			{ModelName: "gpt-4o", TianjiParams: config.TianjiParams{Model: "openai/gpt-4o"}},
-		},
+		ModelList: []config.ModelConfig{},
 		GeneralSettings: config.GeneralSettings{
 			MasterKey: masterKey,
 		},

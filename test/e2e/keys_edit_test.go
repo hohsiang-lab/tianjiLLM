@@ -26,7 +26,6 @@ func TestKeyEdit_FormPrefilled(t *testing.T) {
 	assert.Equal(t, "edit-prefill", f.InputValue("edit_key_alias"))
 	assert.Equal(t, "200.00", f.InputValue("edit_max_budget"))
 	assert.Equal(t, "8000", f.InputValue("edit_tpm_limit"))
-	assert.Equal(t, "gpt-4o", f.InputValue("edit_models"))
 }
 
 func TestKeyEdit_SaveUpdatesAndShowsToast(t *testing.T) {

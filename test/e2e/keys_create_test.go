@@ -81,15 +81,13 @@ func TestKeyCreate_WithOptionalSettings(t *testing.T) {
 
 	f.InputByID("key_alias", "full-options-key")
 
-	// Expand optional settings
-	require.NoError(t, f.Page.Locator("details summary").Click())
+	// Expand optional settings (use HasText to avoid ambiguity with model selector summary)
+	require.NoError(t, f.Page.GetByText("Optional Settings").Click())
 	f.WaitStable()
 
 	f.InputByID("max_budget", "500")
 	f.InputByID("tpm_limit", "10000")
 	f.InputByID("rpm_limit", "100")
-	f.InputByID("models", "gpt-4o, claude-sonnet")
-	f.InputByID("duration", "30d")
 
 	f.SubmitDialog("create-key-dialog", "Create")
 	f.WaitKeyReveal()

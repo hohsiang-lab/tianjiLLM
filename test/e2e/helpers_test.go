@@ -283,8 +283,34 @@ func (f *Fixture) NavigateToSettings(token string) {
 func (f *Fixture) NavigateToSettingsEdit(token string) {
 	f.T.Helper()
 	f.NavigateToSettings(token)
+	// Wait for the settings tab content to become visible after client-side tab switch.
+	require.NoError(f.T, f.Page.Locator("#settings-content").WaitFor(playwright.LocatorWaitForOptions{
+		State:   playwright.WaitForSelectorStateVisible,
+		Timeout: playwright.Float(5000),
+	}))
 	f.ClickButton("Edit Settings")
 	f.WaitStable()
+}
+
+// WaitRegenerateResult waits for the regenerated key to appear in #regenerate-result.
+// HTMX swaps the result asynchronously; this ensures the DOM is updated before assertions.
+func (f *Fixture) WaitRegenerateResult() {
+	f.T.Helper()
+	require.NoError(f.T, f.Page.Locator("#regenerate-result button").WaitFor(playwright.LocatorWaitForOptions{
+		Timeout: playwright.Float(10000),
+	}))
+}
+
+// WaitForTextIn waits until the text content of the given selector contains substr.
+// Useful after HTMX swaps where WaitStable (networkidle) may resolve before DOM update.
+func (f *Fixture) WaitForTextIn(selector, substr string) {
+	f.T.Helper()
+	loc := f.Page.Locator(selector)
+	require.NoError(f.T, loc.Filter(playwright.LocatorFilterOptions{
+		HasText: substr,
+	}).WaitFor(playwright.LocatorWaitForOptions{
+		Timeout: playwright.Float(5000),
+	}))
 }
 
 // FilterByName fills a filter input inside #key-filters by name attribute.
@@ -293,7 +319,7 @@ func (f *Fixture) NavigateToSettingsEdit(token string) {
 func (f *Fixture) FilterByName(name, value string) {
 	f.T.Helper()
 	sel := fmt.Sprintf(`#key-filters input[name="%s"]`, name)
-	require.NoError(f.T, f.Page.Locator(sel).Fill(value))
+	require.NoError(f.T, f.Page.Locator(sel).First().Fill(value))
 }
 
 // InputByID fills an element by #id. Playwright Fill triggers real input events,
@@ -554,6 +580,211 @@ func (f *Fixture) SelectLogFilter(name, value string) {
 }
 
 // ---------------------------------------------------------------------------
+// Teams navigation & seeding
+// ---------------------------------------------------------------------------
+
+func (f *Fixture) NavigateToTeams() {
+	f.T.Helper()
+	_, err := f.Page.Goto(testServer.URL + "/ui/teams")
+	require.NoError(f.T, err)
+	require.NoError(f.T, f.Page.WaitForLoadState())
+}
+
+func (f *Fixture) NavigateToTeamDetail(teamID string) {
+	f.T.Helper()
+	_, err := f.Page.Goto(testServer.URL + "/ui/teams/" + teamID)
+	require.NoError(f.T, err)
+	require.NoError(f.T, f.Page.WaitForLoadState())
+}
+
+type SeedTeamOpts struct {
+	Alias          string
+	OrgID          string
+	Members        []string
+	MembersWithRoles []TeamMemberSeed
+	Models         []string
+	MaxBudget      *float64
+	Spend          float64
+	Blocked        bool
+	TPMLimit       *int64
+	RPMLimit       *int64
+	BudgetDuration string
+}
+
+type TeamMemberSeed struct {
+	UserID string `json:"user_id"`
+	Role   string `json:"role"`
+}
+
+func (f *Fixture) SeedTeam(opts SeedTeamOpts) string {
+	f.T.Helper()
+	ctx := context.Background()
+
+	teamID := "team-" + generateTestKey()[3:15]
+	if opts.Models == nil {
+		opts.Models = []string{}
+	}
+	members := opts.Members
+	if members == nil {
+		members = []string{}
+	}
+
+	params := db.CreateTeamParams{
+		TeamID:    teamID,
+		TeamAlias: &opts.Alias,
+		Admins:    []string{},
+		Members:   members,
+		Models:    opts.Models,
+		MaxBudget: opts.MaxBudget,
+		CreatedBy: "e2e",
+	}
+	if opts.OrgID != "" {
+		params.OrganizationID = &opts.OrgID
+	}
+	if opts.TPMLimit != nil {
+		params.TpmLimit = opts.TPMLimit
+	}
+	if opts.RPMLimit != nil {
+		params.RpmLimit = opts.RPMLimit
+	}
+	if opts.BudgetDuration != "" {
+		params.BudgetDuration = &opts.BudgetDuration
+	}
+
+	_, err := testDB.CreateTeam(ctx, params)
+	require.NoError(f.T, err)
+
+	// Set spend if non-zero
+	if opts.Spend > 0 {
+		_, err := testPool.Exec(ctx, `UPDATE "TeamTable" SET spend = $1 WHERE team_id = $2`, opts.Spend, teamID)
+		require.NoError(f.T, err)
+	}
+
+	// Set members_with_roles if provided
+	if len(opts.MembersWithRoles) > 0 {
+		mwr, _ := json.Marshal(opts.MembersWithRoles)
+		_, err := testPool.Exec(ctx, `UPDATE "TeamTable" SET members_with_roles = $1 WHERE team_id = $2`, mwr, teamID)
+		require.NoError(f.T, err)
+	}
+
+	if opts.Blocked {
+		require.NoError(f.T, testDB.BlockTeam(ctx, teamID))
+	}
+
+	return teamID
+}
+
+func (f *Fixture) SeedTeams(n int) []string {
+	f.T.Helper()
+	ids := make([]string, n)
+	for i := range n {
+		ids[i] = f.SeedTeam(SeedTeamOpts{
+			Alias: fmt.Sprintf("test-team-%d", i+1),
+		})
+	}
+	return ids
+}
+
+func (f *Fixture) FilterTeams(name, value string) {
+	f.T.Helper()
+	sel := fmt.Sprintf(`#team-filters input[name="%s"]`, name)
+	require.NoError(f.T, f.Page.Locator(sel).Fill(value))
+}
+
+// ---------------------------------------------------------------------------
+// Organizations navigation & seeding
+// ---------------------------------------------------------------------------
+
+func (f *Fixture) NavigateToOrgs() {
+	f.T.Helper()
+	_, err := f.Page.Goto(testServer.URL + "/ui/orgs")
+	require.NoError(f.T, err)
+	require.NoError(f.T, f.Page.WaitForLoadState())
+}
+
+func (f *Fixture) NavigateToOrgDetail(orgID string) {
+	f.T.Helper()
+	_, err := f.Page.Goto(testServer.URL + "/ui/orgs/" + orgID)
+	require.NoError(f.T, err)
+	require.NoError(f.T, f.Page.WaitForLoadState())
+}
+
+type SeedOrgOpts struct {
+	Alias     string
+	MaxBudget *float64
+	Models    []string
+	Spend     float64
+}
+
+func (f *Fixture) SeedOrg(opts SeedOrgOpts) string {
+	f.T.Helper()
+	ctx := context.Background()
+
+	orgID := "org-" + generateTestKey()[3:15]
+	if opts.Models == nil {
+		opts.Models = []string{}
+	}
+
+	params := db.CreateOrganizationParams{
+		OrganizationID:    orgID,
+		OrganizationAlias: &opts.Alias,
+		MaxBudget:         opts.MaxBudget,
+		Models:            opts.Models,
+		CreatedBy:         "e2e",
+	}
+
+	_, err := testDB.CreateOrganization(ctx, params)
+	require.NoError(f.T, err)
+
+	if opts.Spend > 0 {
+		_, err := testPool.Exec(ctx, `UPDATE "OrganizationTable" SET spend = $1 WHERE organization_id = $2`, opts.Spend, orgID)
+		require.NoError(f.T, err)
+	}
+
+	return orgID
+}
+
+func (f *Fixture) SeedOrgs(n int) []string {
+	f.T.Helper()
+	ids := make([]string, n)
+	for i := range n {
+		ids[i] = f.SeedOrg(SeedOrgOpts{
+			Alias: fmt.Sprintf("test-org-%d", i+1),
+		})
+	}
+	return ids
+}
+
+func (f *Fixture) SeedOrgMember(orgID, userID, role string) {
+	f.T.Helper()
+	ctx := context.Background()
+	_, err := testDB.AddOrgMember(ctx, db.AddOrgMemberParams{
+		UserID:         userID,
+		OrganizationID: orgID,
+		UserRole:       &role,
+	})
+	require.NoError(f.T, err)
+}
+
+func (f *Fixture) SeedUser(userID string) {
+	f.T.Helper()
+	ctx := context.Background()
+	_, err := testDB.CreateUser(ctx, db.CreateUserParams{
+		UserID:   userID,
+		UserRole: "internal_user",
+		Teams:    []string{},
+		Models:   []string{},
+	})
+	require.NoError(f.T, err)
+}
+
+func (f *Fixture) FilterOrgs(value string) {
+	f.T.Helper()
+	sel := `#org-filters input[name="search"]`
+	require.NoError(f.T, f.Page.Locator(sel).Fill(value))
+}
+
+// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
@@ -568,6 +799,13 @@ func cleanDB(t *testing.T) {
 	require.NoError(t, err)
 	_, err = testPool.Exec(ctx, `DELETE FROM "ProxyModelTable"`)
 	require.NoError(t, err)
+	_, err = testPool.Exec(ctx, `DELETE FROM "OrganizationMembership"`)
+	require.NoError(t, err)
+	_, err = testPool.Exec(ctx, `DELETE FROM "TeamTable"`)
+	require.NoError(t, err)
+	_, err = testPool.Exec(ctx, `DELETE FROM "OrganizationTable"`)
+	require.NoError(t, err)
+	_, err = testPool.Exec(ctx, `DELETE FROM "UserTable"`)
 	_, err = testPool.Exec(ctx, `DELETE FROM "ModelPricing"`)
 	require.NoError(t, err)
 }

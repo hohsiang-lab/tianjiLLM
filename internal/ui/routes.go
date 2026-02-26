@@ -58,6 +58,36 @@ func (h *UIHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/usage/top-keys", h.handleUsageTopKeys)
 		r.Get("/usage/export", h.handleUsageExport)
 
+		// Teams
+		r.Get("/teams", h.handleTeams)
+		r.Get("/teams/table", h.handleTeamsTable)
+		r.Post("/teams/create", h.handleTeamCreate)
+
+		// Team Detail (must come before /{team_id}/block etc.)
+		r.Get("/teams/{team_id}", h.handleTeamDetail)
+		r.Post("/teams/{team_id}/update", h.handleTeamUpdate)
+		r.Post("/teams/{team_id}/members/add", h.handleTeamMemberAdd)
+		r.Post("/teams/{team_id}/members/remove", h.handleTeamMemberRemove)
+		r.Post("/teams/{team_id}/models/add", h.handleTeamModelAdd)
+		r.Post("/teams/{team_id}/models/remove", h.handleTeamModelRemove)
+
+		r.Post("/teams/{team_id}/block", h.handleTeamBlock)
+		r.Post("/teams/{team_id}/unblock", h.handleTeamUnblock)
+		r.Post("/teams/{team_id}/delete", h.handleTeamDelete)
+
+		// Organizations
+		r.Get("/orgs", h.handleOrgs)
+		r.Get("/orgs/table", h.handleOrgsTable)
+		r.Post("/orgs/create", h.handleOrgCreate)
+
+		// Org Detail
+		r.Get("/orgs/{org_id}", h.handleOrgDetail)
+		r.Post("/orgs/{org_id}/update", h.handleOrgUpdate)
+		r.Post("/orgs/{org_id}/delete", h.handleOrgDelete)
+		r.Post("/orgs/{org_id}/members/add", h.handleOrgMemberAdd)
+		r.Post("/orgs/{org_id}/members/update", h.handleOrgMemberUpdate)
+		r.Post("/orgs/{org_id}/members/remove", h.handleOrgMemberRemove)
+
 		// Logs
 		r.Get("/logs", h.handleLogs)
 		r.Get("/logs/table", h.handleLogsTable)

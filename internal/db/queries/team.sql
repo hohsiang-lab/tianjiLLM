@@ -99,3 +99,8 @@ WHERE team_id = $1;
 -- name: ListTeamAliases :many
 SELECT team_id, team_alias FROM "TeamTable"
 WHERE team_id = ANY(sqlc.arg(team_ids)::text[]);
+
+-- name: ListTeamsByOrganization :many
+SELECT * FROM "TeamTable"
+WHERE organization_id = $1
+ORDER BY created_at DESC;

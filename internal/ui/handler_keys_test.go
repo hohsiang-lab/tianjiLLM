@@ -87,6 +87,7 @@ func TestLoadAvailableModelNames_EmptyModelName(t *testing.T) {
 			ModelList: []config.ModelConfig{
 				{ModelName: "gpt-4"},
 				{ModelName: ""}, // empty name — must be filtered out
+				{ModelName: ""}, // empty name — must be filtered out
 				{ModelName: "claude-3"},
 			},
 		},

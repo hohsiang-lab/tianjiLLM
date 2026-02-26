@@ -27,7 +27,7 @@ func TestModelCreate_FullLifecycle(t *testing.T) {
 
 	// 3. Submit
 	f.SubmitDialog("create-model-dialog", "Create")
-	f.WaitStable()
+	f.WaitForTextIn("#models-table", "e2e-new-model")
 
 	// 4. Verify model appears in table
 	body := f.Text("#models-table")
@@ -105,7 +105,7 @@ func TestModelCreate_WithOptionalFields(t *testing.T) {
 	f.InputByID("rpm", "500")
 
 	f.SubmitDialog("create-model-dialog", "Create")
-	f.WaitStable()
+	f.WaitForTextIn("#models-table", "full-options-model")
 
 	// Verify DB has correct tianji_params
 	ctx := context.Background()

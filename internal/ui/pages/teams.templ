@@ -1,0 +1,964 @@
+package pages
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/pagination"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/table"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/toast"
+)
+
+// --- Data types ---
+
+type TeamMemberRow struct {
+	UserID string
+	Role   string
+}
+
+type TeamDetailData struct {
+	Team             TeamRow
+	MembersWithRoles []TeamMemberRow
+	AvailableModels  []string
+	Metadata         string // pretty-printed JSON
+	OrgAlias         string
+}
+
+type TeamRow struct {
+	TeamID      string
+	TeamAlias   string
+	OrgID       string
+	OrgAlias    string
+	MemberCount int
+	Spend       float64
+	MaxBudget   *float64
+	ModelCount  int
+	Models      []string
+	TPMLimit    *int64
+	RPMLimit    *int64
+	Blocked     bool
+	CreatedAt   time.Time
+}
+
+type OrgOption struct {
+	ID    string
+	Alias string
+}
+
+type TeamsPageData struct {
+	Teams           []TeamRow
+	Page            int
+	TotalPages      int
+	TotalCount      int
+	PerPage         int
+	Search          string
+	FilterOrgID     string
+	Orgs            []OrgOption
+	AvailableModels []string
+}
+
+func (d TeamsPageData) teamsFilterQueryString() string {
+	var parts []string
+	if d.Search != "" {
+		parts = append(parts, "search="+d.Search)
+	}
+	if d.FilterOrgID != "" {
+		parts = append(parts, "filter_org_id="+d.FilterOrgID)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "&" + strings.Join(parts, "&")
+}
+
+// --- Templates ---
+
+templ TeamStatusBadge(blocked bool) {
+	if blocked {
+		@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+			Blocked
+		}
+	} else {
+		@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+			Active
+		}
+	}
+}
+
+templ TeamsPage(data TeamsPageData) {
+	@AppLayout("Teams", "/ui/teams") {
+		@dialog.Script()
+		@input.Script()
+		@toast.Script()
+		<div class="space-y-3">
+			<div id="team-filters" class="flex items-center gap-2">
+				<div class="relative flex-1">
+					@icon.Search(icon.Props{Size: 16, Class: "absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"})
+					<input
+						type="text"
+						name="search"
+						placeholder="Search by alias..."
+						value={ data.Search }
+						class="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+						hx-get="/ui/teams/table"
+						hx-trigger="input changed delay:300ms"
+						hx-target="#teams-table"
+						hx-include="#team-filters"
+					/>
+				</div>
+				if len(data.Orgs) > 0 {
+					<select
+						name="filter_org_id"
+						class="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+						hx-get="/ui/teams/table"
+						hx-trigger="change"
+						hx-target="#teams-table"
+						hx-include="#team-filters"
+					>
+						<option value="">All Organizations</option>
+						for _, o := range data.Orgs {
+							if o.ID == data.FilterOrgID {
+								<option value={ o.ID } selected>
+									if o.Alias != "" {
+										{ o.Alias }
+									} else {
+										{ o.ID }
+									}
+								</option>
+							} else {
+								<option value={ o.ID }>
+									if o.Alias != "" {
+										{ o.Alias }
+									} else {
+										{ o.ID }
+									}
+								</option>
+							}
+						}
+					</select>
+				}
+				@dialog.Dialog(dialog.Props{ID: "create-team-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Size: button.SizeSm}) {
+							@icon.Plus(icon.Props{Size: 16, Class: "mr-1"})
+							New Team
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Create New Team
+							}
+							@dialog.Description() {
+								Create a team with an alias and optional budget, models, and limits.
+							}
+						}
+						@createTeamForm(data)
+					}
+				}
+			</div>
+			<div id="teams-table" data-testid="teams-table">
+				@TeamsTablePartial(data)
+			</div>
+		</div>
+	}
+}
+
+templ createTeamForm(data TeamsPageData) {
+	<form
+		hx-post="/ui/teams/create"
+		hx-target="#teams-table"
+	>
+		<div class="space-y-4 py-4">
+			<div class="space-y-2">
+				<label for="team_alias" class="text-sm font-medium">Team Alias <span class="text-destructive">*</span></label>
+				@input.Input(input.Props{
+					ID:          "team_alias",
+					Name:        "team_alias",
+					Placeholder: "my-team",
+					Attributes:  templ.Attributes{"required": "true"},
+				})
+			</div>
+			<details class="space-y-4">
+				<summary class="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">Optional Settings</summary>
+				<div class="space-y-4 pt-2">
+					<div class="space-y-2">
+						<label for="team_org_id" class="text-sm font-medium">Organization</label>
+						<select name="organization_id" id="team_org_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+							<option value="">None</option>
+							for _, o := range data.Orgs {
+								<option value={ o.ID }>
+									if o.Alias != "" {
+										{ o.Alias }
+									} else {
+										{ o.ID }
+									}
+								</option>
+							}
+						</select>
+					</div>
+					<div class="grid grid-cols-2 gap-4">
+						<div class="space-y-2">
+							<label for="team_max_budget" class="text-sm font-medium">Max Budget ($)</label>
+							@input.Input(input.Props{
+								ID: "team_max_budget", Name: "max_budget", Type: "number",
+								Placeholder: "100.00",
+								Attributes:  templ.Attributes{"step": "0.01", "min": "0"},
+							})
+						</div>
+						<div class="space-y-2">
+							<label for="team_budget_duration" class="text-sm font-medium">Budget Duration</label>
+							<select name="budget_duration" id="team_budget_duration" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+								<option value="">No reset</option>
+								<option value="daily">Daily</option>
+								<option value="weekly">Weekly</option>
+								<option value="monthly">Monthly</option>
+							</select>
+						</div>
+					</div>
+					<div class="grid grid-cols-2 gap-4">
+						<div class="space-y-2">
+							<label for="team_tpm_limit" class="text-sm font-medium">TPM Limit</label>
+							@input.Input(input.Props{
+								ID: "team_tpm_limit", Name: "tpm_limit", Type: "number",
+								Placeholder: "10000",
+								Attributes:  templ.Attributes{"min": "1"},
+							})
+						</div>
+						<div class="space-y-2">
+							<label for="team_rpm_limit" class="text-sm font-medium">RPM Limit</label>
+							@input.Input(input.Props{
+								ID: "team_rpm_limit", Name: "rpm_limit", Type: "number",
+								Placeholder: "100",
+								Attributes:  templ.Attributes{"min": "1"},
+							})
+						</div>
+					</div>
+					<div class="space-y-2">
+						<label class="text-sm font-medium">Models</label>
+						@modelsMultiSelect("create-team", data.AvailableModels, []string{})
+					</div>
+				</div>
+			</details>
+		</div>
+		@dialog.Footer() {
+			@dialog.Close() {
+				@button.Button(button.Props{Variant: button.VariantOutline}) {
+					Cancel
+				}
+			}
+			@button.Button(button.Props{Type: "submit"}) {
+				Create Team
+			}
+		}
+	</form>
+}
+
+templ TeamsTablePartial(data TeamsPageData) {
+	@card.Card() {
+		@card.Content(card.ContentProps{Class: "p-0"}) {
+			@table.Table() {
+				@table.Header() {
+					@table.Row() {
+						@table.Head() { Alias }
+						@table.Head() { Organization }
+						@table.Head() { Members }
+						@table.Head() { Spend / Budget }
+						@table.Head() { Models }
+						@table.Head() { Status }
+						@table.Head() { Created }
+						@table.Head(table.HeadProps{Class: "text-right"}) { Actions }
+					}
+				}
+				@table.Body() {
+					if len(data.Teams) == 0 {
+						@table.Row() {
+							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": "8"}}) {
+								if data.Search != "" || data.FilterOrgID != "" {
+									<div class="py-8 text-center text-muted-foreground">No teams match your filters</div>
+								} else {
+									<div class="py-8 text-center text-muted-foreground">No teams found</div>
+								}
+							}
+						}
+					}
+					for _, t := range data.Teams {
+						@teamTableRow(t)
+					}
+				}
+			}
+		}
+	}
+	<div class="mt-4 flex items-center justify-between">
+		<span class="text-sm text-muted-foreground">
+			if data.TotalCount == 0 {
+				No results
+			} else {
+				{ fmt.Sprintf("Showing %d–%d of %d results", (data.Page-1)*data.PerPage+1, minInt((data.Page)*data.PerPage, data.TotalCount), data.TotalCount) }
+			}
+		</span>
+		if data.TotalPages > 1 {
+			{{ pg := pagination.CreatePagination(data.Page, data.TotalPages, 5) }}
+			{{ qs := data.teamsFilterQueryString() }}
+			@pagination.Pagination() {
+				@pagination.Content() {
+					@pagination.Item() {
+						@pagination.Previous(pagination.PreviousProps{
+							Disabled: !pg.HasPrevious,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/teams/table?page=%d%s", data.Page-1, qs),
+								"hx-target": "#teams-table",
+							},
+						})
+					}
+					if pg.Pages[0] > 1 {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/teams/table?page=1%s", qs),
+									"hx-target": "#teams-table",
+								},
+							}) {
+								1
+							}
+						}
+						if pg.Pages[0] > 2 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+					}
+					for _, p := range pg.Pages {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								IsActive: p == pg.CurrentPage,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/teams/table?page=%d%s", p, qs),
+									"hx-target": "#teams-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", p) }
+							}
+						}
+					}
+					if pg.Pages[len(pg.Pages)-1] < pg.TotalPages {
+						if pg.Pages[len(pg.Pages)-1] < pg.TotalPages-1 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/teams/table?page=%d%s", pg.TotalPages, qs),
+									"hx-target": "#teams-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", pg.TotalPages) }
+							}
+						}
+					}
+					@pagination.Item() {
+						@pagination.Next(pagination.NextProps{
+							Disabled: !pg.HasNext,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/teams/table?page=%d%s", data.Page+1, qs),
+								"hx-target": "#teams-table",
+							},
+						})
+					}
+				}
+			}
+		}
+	</div>
+}
+
+templ teamTableRow(t TeamRow) {
+	@table.Row() {
+		@table.Cell() {
+			<a href={ templ.SafeURL("/ui/teams/" + t.TeamID) } class="font-medium hover:underline text-primary">
+				if t.TeamAlias != "" {
+					{ t.TeamAlias }
+				} else {
+					{ t.TeamID }
+				}
+			</a>
+		}
+		@table.Cell() {
+			if t.OrgAlias != "" {
+				<a href={ templ.SafeURL("/ui/orgs/" + t.OrgID) } class="text-sm hover:underline text-muted-foreground">
+					{ t.OrgAlias }
+				</a>
+			} else if t.OrgID != "" {
+				<span class="text-sm text-muted-foreground">{ t.OrgID }</span>
+			} else {
+				<span class="text-sm text-muted-foreground italic">No Organization</span>
+			}
+		}
+		@table.Cell() {
+			<span class="text-sm">{ fmt.Sprintf("%d", t.MemberCount) }</span>
+		}
+		@table.Cell() {
+			if t.MaxBudget != nil {
+				<span class="text-sm">{ fmt.Sprintf("$%.2f / $%.2f", t.Spend, *t.MaxBudget) }</span>
+			} else {
+				<span class="text-sm">{ fmt.Sprintf("$%.2f / ∞", t.Spend) }</span>
+			}
+		}
+		@table.Cell() {
+			if t.ModelCount == 0 {
+				<span class="text-sm text-muted-foreground italic">All</span>
+			} else {
+				<span class="text-sm">{ fmt.Sprintf("%d", t.ModelCount) }</span>
+			}
+		}
+		@table.Cell() {
+			<div id={ "team-status-" + t.TeamID }>
+				@TeamStatusBadge(t.Blocked)
+			</div>
+		}
+		@table.Cell() {
+			<span class="text-sm text-muted-foreground">{ t.CreatedAt.Format("2006-01-02") }</span>
+		}
+		@table.Cell(table.CellProps{Class: "text-right"}) {
+			<div class="flex items-center justify-end gap-1">
+				if t.Blocked {
+					<form hx-post={ "/ui/teams/" + t.TeamID + "/unblock" } hx-target="#teams-table" hx-swap="innerHTML">
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
+							Unblock
+						}
+					</form>
+				} else {
+					<form hx-post={ "/ui/teams/" + t.TeamID + "/block" } hx-target="#teams-table" hx-swap="innerHTML">
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
+							Block
+						}
+					</form>
+				}
+				@dialog.Dialog(dialog.Props{ID: "delete-team-" + t.TeamID}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantDestructive, Size: button.SizeSm}) {
+							@icon.Trash(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-sm"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete Team
+							}
+							@dialog.Description() {
+								if t.TeamAlias != "" {
+									{ "Are you sure you want to delete team \"" + t.TeamAlias + "\"? This action cannot be undone." }
+								} else {
+									This action cannot be undone.
+								}
+							}
+						}
+						@dialog.Footer() {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							<form hx-post={ "/ui/teams/" + t.TeamID + "/delete" } hx-target="body" hx-push-url="/ui/teams">
+								@button.Button(button.Props{Variant: button.VariantDestructive, Type: "submit"}) {
+									Delete
+								}
+							</form>
+						}
+					}
+				}
+			</div>
+		}
+	}
+}
+
+templ TeamsTableWithToast(data TeamsPageData, toastMsg string, toastVariant toast.Variant) {
+	@TeamsTablePartial(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
+
+// minInt returns the smaller of a and b.
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// --- Team Detail templates ---
+
+// TeamDetailPage renders the full team detail page.
+// TeamDetailHeader contains all swappable content (id="team-detail-content"),
+// so the edit form can swap the entire content area on update.
+templ TeamDetailPage(data TeamDetailData) {
+	@AppLayout(teamDetailTitle(data.Team)+" — Team Detail", "/ui/teams") {
+		@dialog.Script()
+		@input.Script()
+		@toast.Script()
+		@TeamDetailHeader(data)
+	}
+}
+
+// TeamDetailHeader renders the full page content (header + overview + sections + dialogs)
+// wrapped in id="team-detail-content" as the HTMX swap target for edit/update.
+templ TeamDetailHeader(data TeamDetailData) {
+	<div id="team-detail-content" class="space-y-6">
+		<!-- Page header -->
+		<div class="flex items-center justify-between">
+			<div class="space-y-1">
+				<div class="flex items-center gap-3">
+					<h2 class="text-lg font-semibold">{ teamDetailTitle(data.Team) }</h2>
+					@TeamStatusBadge(data.Team.Blocked)
+				</div>
+				<div class="text-xs text-muted-foreground">
+					ID: <span class="font-mono">{ data.Team.TeamID }</span>
+					if data.OrgAlias != "" {
+						· Org: { data.OrgAlias }
+					} else if data.Team.OrgID != "" {
+						· Org: <span class="font-mono">{ data.Team.OrgID }</span>
+					}
+					if !data.Team.CreatedAt.IsZero() {
+						· Created { data.Team.CreatedAt.Format("2006-01-02") }
+					}
+				</div>
+			</div>
+			<div class="flex items-center gap-2">
+				<a href="/ui/teams">
+					@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeSm}) {
+						← Back to Teams
+					}
+				</a>
+				if data.Team.Blocked {
+					<form method="POST" action={ templ.SafeURL("/ui/teams/" + data.Team.TeamID + "/unblock") }>
+						<input type="hidden" name="return_to" value="detail"/>
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
+							Unblock
+						}
+					</form>
+				} else {
+					<form method="POST" action={ templ.SafeURL("/ui/teams/" + data.Team.TeamID + "/block") }>
+						<input type="hidden" name="return_to" value="detail"/>
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
+							Block
+						}
+					</form>
+				}
+				@dialog.Dialog(dialog.Props{ID: "edit-team-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm}) {
+							@icon.Pencil(icon.Props{Size: 14, Class: "mr-1"})
+							Edit
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Edit Team
+							}
+						}
+						<form
+							hx-post={ "/ui/teams/" + data.Team.TeamID + "/update" }
+							hx-target="#team-detail-content"
+							hx-swap="outerHTML"
+						>
+							<div class="space-y-4 py-4">
+								<div class="space-y-2">
+									<label for="edit_team_alias" class="text-sm font-medium">Team Alias</label>
+									@input.Input(input.Props{
+										ID:    "edit_team_alias",
+										Name:  "team_alias",
+										Value: data.Team.TeamAlias,
+									})
+								</div>
+								<div class="grid grid-cols-2 gap-4">
+									<div class="space-y-2">
+										<label for="edit_max_budget" class="text-sm font-medium">Max Budget ($)</label>
+										@input.Input(input.Props{
+											ID:          "edit_max_budget",
+											Name:        "max_budget",
+											Type:        "number",
+											Placeholder: "100.00",
+											Value:       teamBudgetStr(data.Team.MaxBudget),
+											Attributes:  templ.Attributes{"step": "0.01", "min": "0"},
+										})
+									</div>
+									<div></div>
+								</div>
+								<div class="grid grid-cols-2 gap-4">
+									<div class="space-y-2">
+										<label for="edit_tpm_limit" class="text-sm font-medium">TPM Limit</label>
+										@input.Input(input.Props{
+											ID:          "edit_tpm_limit",
+											Name:        "tpm_limit",
+											Type:        "number",
+											Placeholder: "10000",
+											Value:       teamLimitStr(data.Team.TPMLimit),
+											Attributes:  templ.Attributes{"min": "1"},
+										})
+									</div>
+									<div class="space-y-2">
+										<label for="edit_rpm_limit" class="text-sm font-medium">RPM Limit</label>
+										@input.Input(input.Props{
+											ID:          "edit_rpm_limit",
+											Name:        "rpm_limit",
+											Type:        "number",
+											Placeholder: "100",
+											Value:       teamLimitStr(data.Team.RPMLimit),
+											Attributes:  templ.Attributes{"min": "1"},
+										})
+									</div>
+								</div>
+							</div>
+							@dialog.Footer() {
+								@dialog.Close() {
+									@button.Button(button.Props{Variant: button.VariantOutline}) {
+										Cancel
+									}
+								}
+								@button.Button(button.Props{Type: "submit"}) {
+									Save Changes
+								}
+							}
+						</form>
+					}
+				}
+				@dialog.Dialog(dialog.Props{ID: "delete-team-detail-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantDestructive, Size: button.SizeSm}) {
+							@icon.Trash(icon.Props{Size: 14, Class: "mr-1"})
+							Delete
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-sm"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete Team
+							}
+							@dialog.Description() {
+								{ "Are you sure you want to delete team \"" + teamDetailTitle(data.Team) + "\"? This action cannot be undone." }
+							}
+						}
+						@dialog.Footer() {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							<form hx-post={ "/ui/teams/" + data.Team.TeamID + "/delete" } hx-swap="none">
+								@button.Button(button.Props{Variant: button.VariantDestructive, Type: "submit"}) {
+									Delete
+								}
+							</form>
+						}
+					}
+				}
+			</div>
+		</div>
+		<!-- Overview cards -->
+		<div class="grid gap-4 md:grid-cols-3 pt-4">
+			@card.Card() {
+				@card.Header(card.HeaderProps{}) {
+					@card.Title(card.TitleProps{}) {
+						Spend / Budget
+					}
+				}
+				@card.Content(card.ContentProps{}) {
+					<div class="text-2xl font-bold">
+						{ fmt.Sprintf("$%.4f", data.Team.Spend) }
+					</div>
+					if data.Team.MaxBudget != nil {
+						<p class="text-sm text-muted-foreground">
+							{ fmt.Sprintf("of $%.2f limit", *data.Team.MaxBudget) }
+						</p>
+					} else {
+						<p class="text-sm text-muted-foreground">No budget limit</p>
+					}
+				}
+			}
+			@card.Card() {
+				@card.Header(card.HeaderProps{}) {
+					@card.Title(card.TitleProps{}) {
+						Rate Limits
+					}
+				}
+				@card.Content(card.ContentProps{}) {
+					<div class="space-y-1">
+						<div class="flex justify-between text-sm">
+							<span class="text-muted-foreground">TPM</span>
+							if data.Team.TPMLimit != nil {
+								<span class="font-mono">{ fmt.Sprintf("%d", *data.Team.TPMLimit) }</span>
+							} else {
+								<span class="text-muted-foreground italic">Unlimited</span>
+							}
+						</div>
+						<div class="flex justify-between text-sm">
+							<span class="text-muted-foreground">RPM</span>
+							if data.Team.RPMLimit != nil {
+								<span class="font-mono">{ fmt.Sprintf("%d", *data.Team.RPMLimit) }</span>
+							} else {
+								<span class="text-muted-foreground italic">Unlimited</span>
+							}
+						</div>
+					</div>
+				}
+			}
+			@card.Card() {
+				@card.Header(card.HeaderProps{}) {
+					@card.Title(card.TitleProps{}) {
+						Allowed Models
+					}
+				}
+				@card.Content(card.ContentProps{}) {
+					if len(data.Team.Models) == 0 {
+						<p class="text-sm text-muted-foreground italic">Inherited / All models</p>
+					} else {
+						<div class="flex flex-wrap gap-1">
+							for _, m := range data.Team.Models {
+								@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+									{ m }
+								}
+							}
+						</div>
+					}
+				}
+			}
+		</div>
+		<!-- Members section -->
+		<div id="team-members-section">
+			@TeamMembersTablePartial(data)
+		</div>
+		<!-- Models section -->
+		<div id="team-models-section">
+			@TeamModelsListPartial(data)
+		</div>
+		<!-- Metadata section -->
+		@card.Card() {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Metadata
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				<pre class="text-xs font-mono whitespace-pre-wrap">{ data.Metadata }</pre>
+			}
+		}
+	</div>
+}
+
+templ TeamMembersTablePartial(data TeamDetailData) {
+	@card.Card() {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) {
+				Members
+			}
+		}
+		@card.Content(card.ContentProps{}) {
+			<form
+				class="flex items-center gap-2 mb-4"
+				hx-post={ "/ui/teams/" + data.Team.TeamID + "/members/add" }
+				hx-target="#team-members-section"
+				hx-swap="innerHTML"
+			>
+				@input.Input(input.Props{
+					Name:        "user_id",
+					Placeholder: "user_id",
+					Class:       "w-48",
+				})
+				<select name="role" class="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+					<option value="member">member</option>
+					<option value="admin">admin</option>
+				</select>
+				@button.Button(button.Props{Type: "submit", Size: button.SizeSm}) {
+					@icon.Plus(icon.Props{Size: 14, Class: "mr-1"})
+					Add Member
+				}
+			</form>
+			if len(data.MembersWithRoles) == 0 {
+				<p class="text-sm text-muted-foreground italic">No members yet</p>
+			} else {
+				@table.Table() {
+					@table.Header() {
+						@table.Row() {
+							@table.Head() { User ID }
+							@table.Head() { Role }
+							@table.Head(table.HeadProps{Class: "text-right"}) { Actions }
+						}
+					}
+					@table.Body() {
+						for _, m := range data.MembersWithRoles {
+							@table.Row() {
+								@table.Cell() {
+									<span class="font-mono text-sm">{ m.UserID }</span>
+								}
+								@table.Cell() {
+									@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+										{ m.Role }
+									}
+								}
+								@table.Cell(table.CellProps{Class: "text-right"}) {
+									<form
+										hx-post={ "/ui/teams/" + data.Team.TeamID + "/members/remove" }
+										hx-target="#team-members-section"
+										hx-swap="innerHTML"
+									>
+										<input type="hidden" name="user_id" value={ m.UserID }/>
+										@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeSm, Type: "submit"}) {
+											@icon.Trash(icon.Props{Size: 14})
+										}
+									</form>
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+templ TeamModelsListPartial(data TeamDetailData) {
+	@card.Card() {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) {
+				Allowed Models
+			}
+		}
+		@card.Content(card.ContentProps{}) {
+			<form
+				class="flex items-center gap-2 mb-4"
+				hx-post={ "/ui/teams/" + data.Team.TeamID + "/models/add" }
+				hx-target="#team-models-section"
+				hx-swap="innerHTML"
+			>
+				if len(data.AvailableModels) > 0 {
+					<select name="model_name" class="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+						<option value="">Select a model...</option>
+						for _, m := range data.AvailableModels {
+							<option value={ m }>{ m }</option>
+						}
+					</select>
+				} else {
+					@input.Input(input.Props{
+						Name:        "model_name",
+						Placeholder: "model name",
+						Class:       "w-64",
+					})
+				}
+				@button.Button(button.Props{Type: "submit", Size: button.SizeSm}) {
+					@icon.Plus(icon.Props{Size: 14, Class: "mr-1"})
+					Add Model
+				}
+			</form>
+			if len(data.Team.Models) == 0 {
+				<p class="text-sm text-muted-foreground italic">Inherited / All models</p>
+			} else {
+				<div class="flex flex-wrap gap-2">
+					for _, m := range data.Team.Models {
+						<div class="flex items-center gap-1">
+							@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+								{ m }
+							}
+							<form
+								hx-post={ "/ui/teams/" + data.Team.TeamID + "/models/remove" }
+								hx-target="#team-models-section"
+								hx-swap="innerHTML"
+							>
+								<input type="hidden" name="model_name" value={ m }/>
+								@button.Button(button.Props{
+									Variant: button.VariantGhost,
+									Size:    button.SizeSm,
+									Type:    "submit",
+									Class:   "h-5 w-5 p-0",
+								}) {
+									×
+								}
+							</form>
+						</div>
+					}
+				</div>
+			}
+		}
+	}
+}
+
+templ TeamDetailHeaderWithToast(data TeamDetailData, toastMsg string, toastVariant toast.Variant) {
+	@TeamDetailHeader(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
+
+templ TeamMembersWithToast(data TeamDetailData, toastMsg string, toastVariant toast.Variant) {
+	@TeamMembersTablePartial(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
+
+templ TeamModelsWithToast(data TeamDetailData, toastMsg string, toastVariant toast.Variant) {
+	@TeamModelsListPartial(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
+
+// --- helper funcs for detail templates ---
+
+func teamDetailTitle(t TeamRow) string {
+	if t.TeamAlias != "" {
+		return t.TeamAlias
+	}
+	return t.TeamID
+}
+
+func teamBudgetStr(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", *v)
+}
+
+func teamLimitStr(v *int64) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%d", *v)
+}
