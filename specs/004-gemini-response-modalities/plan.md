@@ -1,104 +1,359 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Gemini Response Modalities (Image Output)
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Branch**: `feat/gemini-response-modalities` (spec: `004-gemini-response-modalities`)
+**Date**: 2026-02-26
+**Spec**: `specs/004-gemini-response-modalities/spec.md`
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Add support for Gemini image output (`modalities: ["text", "image"]`) through the
+TianjiLLM proxy. When a client sends `modalities: ["text", "image"]`, the proxy
+translates to `generationConfig.responseModalities: ["TEXT", "IMAGE"]` upstream, then
+maps returned `inlineData` parts back to OpenAI-compatible `image_url` content parts.
+Text-only flows are unchanged.
+
+Changes are confined to 4 files:
+- `internal/model/request.go` — add `Modalities` field
+- `internal/provider/gemini/gemini.go` — upstream request mapping + response transformation
+- `internal/provider/gemini/stream.go` — streaming `inlineData` handling
+- `internal/provider/gemini/gemini_test.go` — new unit tests
+
+No new libraries, no DB changes, no migrations.
+
+---
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
+**Language/Version**: Go 1.24.4
+**Primary Dependencies**: stdlib only (`encoding/json`, `strings`, `fmt`) — no new imports
+**Storage**: N/A — purely in-memory transformation
+**Testing**: `go test` + `testify` (existing)
+**Target Platform**: Linux server (existing deployment)
+**Project Type**: Single Go service
+**Performance Goals**: SC-005 — zero latency overhead for text-only requests
+**Constraints**: No breaking change to existing response format (FR-007)
+**Scale/Scope**: 4 files modified, ~100 lines net addition
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+---
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+### I. Python-First Reference
+- Python TianjiLLM not available locally. Gemini API behavior confirmed from spec
+  assertions and existing Go code patterns.
+- **Status**: ⚠️ Deviation documented — Python codebase unavailable in this environment.
+  Implementation follows Gemini API documentation (from spec) and existing Go patterns.
 
-[Gates determined based on constitution file]
+### II. Feature Parity
+- `modalities` field maps to Gemini `responseModalities` (uppercase values) as per
+  spec assumption and Gemini API docs.
+- Response format (`image_url` with data URL) matches OpenAI conventions for inline images.
+- **Status**: ✅ Compliant
+
+### III. Research Before Build
+- Research documented in `research.md`.
+- No new libraries evaluated — change uses only existing stdlib.
+- **Status**: ✅ Compliant
+
+### IV. Test-Driven Migration
+- Unit tests will cover all 3 mapping paths (SC-004):
+  - text-only → plain string (regression test)
+  - image-only → array with `image_url`
+  - mixed text+image → array preserving order
+- **Status**: ✅ Compliant
+
+### V. Go Best Practices
+- New `geminiInlineData` struct uses JSON tags with `omitempty`.
+- No new nesting levels added.
+- Helper functions stay single-purpose.
+- **Status**: ✅ Compliant
+
+### VI. No Stale Knowledge
+- `modalities` → `responseModalities` mapping confirmed from spec (issue #17).
+- No external library API calls to verify.
+- **Status**: ✅ Compliant
+
+### VII. sqlc-First Database Access
+- N/A — no database queries.
+- **Status**: ✅ N/A
+
+---
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+specs/004-gemini-response-modalities/
+├── plan.md              # This file
+├── research.md          # Decisions documented
+├── data-model.md        # Struct changes + mapping tables
+├── quickstart.md        # How to test manually
+├── contracts/           # JSON fixtures for all scenarios
+│   ├── request-image-output.json
+│   ├── request-image-to-image.json
+│   ├── gemini-upstream-request.json
+│   ├── gemini-upstream-response.json
+│   ├── response-mixed-content.json
+│   └── response-text-only-unchanged.json
+└── tasks.md             # Generated by /speckit.tasks (not yet)
 ```
 
-### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
+### Source Code
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+internal/
+├── model/
+│   └── request.go          # Add Modalities field + knownFields entry
+└── provider/
+    └── gemini/
+        ├── gemini.go        # Core changes (4 locations)
+        ├── gemini_test.go   # New tests (3 new test functions)
+        └── stream.go        # inlineData handling in streaming
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+---
+
+## Implementation Details
+
+### Change 1: `internal/model/request.go`
+
+**Add `Modalities` field to `ChatCompletionRequest`**:
+```go
+Modalities []string `json:"modalities,omitempty"` // NEW: e.g. ["text", "image"]
+```
+
+**Add to `knownFields` map**:
+```go
+"modalities": true,
+```
+
+---
+
+### Change 2: `internal/provider/gemini/gemini.go` — 4 sub-changes
+
+#### 2a. Add `geminiInlineData` struct + update `geminiPart`
+
+```go
+type geminiInlineData struct {
+    MimeType string `json:"mimeType"`
+    Data     string `json:"data"`
+}
+
+// geminiPart: add InlineData field
+type geminiPart struct {
+    Text         string            `json:"text,omitempty"`
+    FunctionCall *geminiFuncCall   `json:"functionCall,omitempty"`
+    InlineData   *geminiInlineData `json:"inlineData,omitempty"` // NEW
+}
+```
+
+#### 2b. `transformRequestBody` — inject `responseModalities`
+
+After the existing `generationConfig` block, add:
+```go
+if len(req.Modalities) > 0 {
+    modalities := make([]string, 0, len(req.Modalities))
+    for _, m := range req.Modalities {
+        modalities = append(modalities, strings.ToUpper(m))
+    }
+    genConfig["responseModalities"] = modalities
+}
+```
+
+Handles: `["text", "image"]` → `["TEXT", "IMAGE"]`. Empty `req.Modalities` → no field
+set (preserves FR-003 / SC-005).
+
+#### 2c. `transformToOpenAI` — handle mixed content
+
+Replace the `strings.Builder` accumulation in the parts loop:
+
+```go
+// In the candidate parts loop, detect whether any inlineData exists
+var textParts []string
+var contentParts []model.ContentPart
+hasImage := false
+
+for _, part := range candidate.Content.Parts {
+    if part.InlineData != nil {
+        hasImage = true
+        contentParts = append(contentParts, model.ContentPart{
+            Type: "image_url",
+            ImageURL: &model.ImageURL{
+                URL: "data:" + part.InlineData.MimeType + ";base64," + part.InlineData.Data,
+            },
+        })
+    } else if part.Text != "" {
+        textParts = append(textParts, part.Text)
+        contentParts = append(contentParts, model.ContentPart{
+            Type: "text",
+            Text: part.Text,
+        })
+    }
+    // ... existing FunctionCall handling unchanged
+}
+
+// Set message.Content
+if hasImage {
+    msg.Content = contentParts  // []ContentPart — typed array
+} else {
+    msg.Content = strings.Join(textParts, "")  // plain string — no regression
+}
+```
+
+#### 2d. Fix `transformContentPart` for image input data URLs
+
+Current code passes the full data URL as `inlineData.data` which is wrong. Fix:
+
+```go
+case "image_url":
+    if imageURL, ok := part["image_url"].(map[string]any); ok {
+        url, _ := imageURL["url"].(string)
+        mimeType := "image/jpeg"
+        data := url
+        if strings.HasPrefix(url, "data:") {
+            // Parse: data:<mimeType>;base64,<data>
+            rest := strings.TrimPrefix(url, "data:")
+            if idx := strings.Index(rest, ";base64,"); idx >= 0 {
+                mimeType = rest[:idx]
+                data = rest[idx+len(";base64,"):]
+            }
+        }
+        return map[string]any{
+            "inlineData": map[string]any{
+                "mimeType": mimeType,
+                "data":     data,
+            },
+        }
+    }
+```
+
+---
+
+### Change 3: `internal/provider/gemini/stream.go`
+
+In `ParseStreamChunk`, add `inlineData` handling alongside existing text/toolCall logic:
+
+```go
+for _, part := range candidate.Content.Parts {
+    if part.InlineData != nil {
+        // Encode as JSON string for streaming delta content
+        imgPart := model.ContentPart{
+            Type: "image_url",
+            ImageURL: &model.ImageURL{
+                URL: "data:" + part.InlineData.MimeType + ";base64," + part.InlineData.Data,
+            },
+        }
+        b, _ := json.Marshal(imgPart)
+        imgStr := string(b)
+        delta.Content = &imgStr  // JSON-encoded content part for streaming
+    }
+    if part.Text != "" {
+        delta.Content = &part.Text
+    }
+    // ... existing FunctionCall handling
+}
+```
+
+---
+
+### Change 4: `internal/provider/gemini/gemini_test.go`
+
+**New test functions to add**:
+
+1. `TestTransformResponse_ImageOutput` — image-only response → `[]ContentPart`
+2. `TestTransformResponse_MixedContent` — text + image parts → array, order preserved
+3. `TestTransformRequest_WithModalities` — verifies `responseModalities` in upstream request
+4. `TestTransformResponse_TextOnlyBackwardCompat` — no regression for text-only
+
+Use fixtures from `contracts/` as expected values (inline them as Go string literals).
+
+---
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
+No constitution violations. No complexity justification needed.
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+---
+
+## Risk Assessment
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| `message.Content` type change breaks JSON marshaling | Low | High | Existing `Content any` field handles both string and []ContentPart |
+| Gemini returns inlineData chunks in streaming | Medium | Low | Stream handler processes them; existing text streaming unaffected |
+| Data URL extraction regex edge cases | Low | Low | Simple prefix/index parsing; falls back to raw URL |
+| Existing text tests break | Very Low | High | Branch on `hasImage` bool; text path unchanged |
+
+---
+
+## Non-Goals
+
+- Vertex AI image generation (same code path, no special handling needed)
+- Audio modalities (not in spec, not implemented)
+- Image output caching
+- Client-side image validation (proxy passes through)
+
+---
+
+## Review Feedback (2026-02-26)
+
+### 🔧 Tech Review (魯班) — `review-tech.md`
+
+**Must-fix:**
+1. **Streaming image — Delta.Content 是 `*string`，不能塞 JSON ContentPart。**
+   - **調研結論：** Gemini streaming image 是整張圖一個 chunk（不 incrementally stream），同 function call args 行為。
+   - **決定：** 擴充 `Delta` struct 新增 `ContentParts []ContentPart` 欄位。當 streaming chunk 含 `inlineData` 時，用 `ContentParts` 而非 `Content`。SSE event 的 `delta` 物件會包含 `content_parts` array。Client 需檢查 `delta.content_parts`（有值時）或 `delta.content`（純文字時）。這符合 OpenAI 的 multimodal streaming 演進方向。
+2. **`genConfig` 注入位置：** `responseModalities` 必須在 `if len(genConfig) > 0` 判斷**之前**加入 `genConfig` map，否則空 map 時不會被寫入 body。
+
+**Important fix:**
+3. **`modalities: ["text"]` 不該設 `responseModalities`（違反 FR-003）。** 改為只有包含 `"image"` 時才設 `responseModalities`：
+   ```go
+   hasImage := false
+   for _, m := range req.Modalities {
+       if strings.EqualFold(m, "image") { hasImage = true; break }
+   }
+   if hasImage {
+       modalities := make([]string, 0, len(req.Modalities))
+       for _, m := range req.Modalities { modalities = append(modalities, strings.ToUpper(m)) }
+       genConfig["responseModalities"] = modalities
+   }
+   ```
+
+### 🧪 Test Review (魏徵) — `review-test.md`
+
+**P0 缺口（must-add）：**
+1. `TestStreamParseChunk_ImageInlineData` — streaming `inlineData` 處理
+2. `TestTransformContentPart_DataURLParsing` — data URL 解析 regression test
+
+**P1 建議增加：**
+3. `TestTransformRequest_ModalitiesTextOnly` — `["text"]` 不設 `responseModalities`
+4. `TestTransformRequest_ModalitiesEmpty` — `[]` 不設 `responseModalities`
+5. `TestTransformResponse_UnknownMimeType` — 未知 MIME type passthrough
+6. `TestTransformResponse_ImageInputRoundTrip` — image input + output round-trip
+
+**測試總數：** 從 4 → 10（4 原有 + 2 P0 + 4 P1）
+
+### 🎨 UI/UX Review (張大千) — `review-uiux.md`
+
+**結論：✅ 此 feature 不需要 UI 改動**（純 API proxy 層）
+
+**Low-priority follow-up（開 issue 追蹤）：**
+- Logs 頁面：image response badge/filter
+- Usage 頁面：區分 text vs image generation 用量
+- Models 頁面：capability badges 標示 modalities 支援
+
+---
+
+## Updated Change Summary (post-review)
+
+| Change | File | Description |
+|--------|------|-------------|
+| 1 | `internal/model/request.go` | Add `Modalities []string` field |
+| 2 | `internal/model/response.go` | Add `ContentParts []ContentPart` to `Delta` struct |
+| 2a | `internal/provider/gemini/gemini.go` | Add `geminiInlineData` struct |
+| 2b | `internal/provider/gemini/gemini.go` | Inject `responseModalities` (only when `"image"` present) |
+| 2c | `internal/provider/gemini/gemini.go` | Handle mixed content in `transformToOpenAI` |
+| 2d | `internal/provider/gemini/gemini.go` | Fix data URL parsing in `transformContentPart` |
+| 3 | `internal/provider/gemini/stream.go` | Handle `inlineData` in streaming via `Delta.ContentParts` |
+| 4 | `internal/provider/gemini/gemini_test.go` | 10 unit tests (4 original + 2 P0 + 4 P1) |
