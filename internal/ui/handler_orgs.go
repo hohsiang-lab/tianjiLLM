@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
@@ -159,24 +158,3 @@ func (h *UIHandler) handleOrgCreate(w http.ResponseWriter, r *http.Request) {
 	render(r.Context(), w, pages.OrgsTableWithToast(data, "Organization created successfully", toast.VariantSuccess))
 }
 
-func (h *UIHandler) handleOrgDelete(w http.ResponseWriter, r *http.Request) {
-	if h.DB == nil {
-		http.Error(w, "database not configured", http.StatusServiceUnavailable)
-		return
-	}
-
-	orgID := chi.URLParam(r, "org_id")
-	if orgID == "" {
-		http.Error(w, "org_id required", http.StatusBadRequest)
-		return
-	}
-
-	if err := h.DB.DeleteOrganization(r.Context(), orgID); err != nil {
-		data := h.loadOrgsPageData(r)
-		render(r.Context(), w, pages.OrgsTableWithToast(data, "Failed to delete organization: "+err.Error(), toast.VariantError))
-		return
-	}
-
-	w.Header().Set("HX-Redirect", "/ui/orgs")
-	w.WriteHeader(http.StatusOK)
-}

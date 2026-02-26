@@ -78,7 +78,14 @@ func (h *UIHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/orgs", h.handleOrgs)
 		r.Get("/orgs/table", h.handleOrgsTable)
 		r.Post("/orgs/create", h.handleOrgCreate)
+
+		// Org Detail
+		r.Get("/orgs/{org_id}", h.handleOrgDetail)
+		r.Post("/orgs/{org_id}/update", h.handleOrgUpdate)
 		r.Post("/orgs/{org_id}/delete", h.handleOrgDelete)
+		r.Post("/orgs/{org_id}/members/add", h.handleOrgMemberAdd)
+		r.Post("/orgs/{org_id}/members/update", h.handleOrgMemberUpdate)
+		r.Post("/orgs/{org_id}/members/remove", h.handleOrgMemberRemove)
 
 		// Logs
 		r.Get("/logs", h.handleLogs)

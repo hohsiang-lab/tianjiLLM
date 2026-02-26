@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
@@ -376,4 +377,409 @@ templ OrgsTableWithToast(data OrgsPageData, toastMsg string, toastVariant toast.
 			})
 		</div>
 	}
+}
+
+// --- Org Detail data types ---
+
+type OrgMemberRow struct {
+	UserID   string
+	Role     string
+	Spend    float64
+	JoinedAt time.Time
+}
+
+type OrgTeamRow struct {
+	TeamID      string
+	TeamAlias   string
+	MemberCount int
+}
+
+type OrgDetailData struct {
+	Org             OrgRow
+	Members         []OrgMemberRow
+	Teams           []OrgTeamRow
+	AvailableModels []string
+	Metadata        string // pretty-printed JSON
+}
+
+// --- Org Detail templates ---
+
+templ OrgDetailPage(data OrgDetailData) {
+	@AppLayout(orgDetailTitle(data.Org)+" — Organization Detail", "/ui/orgs") {
+		@dialog.Script()
+		@input.Script()
+		@toast.Script()
+		@OrgDetailHeader(data)
+	}
+}
+
+// OrgDetailHeader renders the full page content wrapped in id="org-detail-content".
+templ OrgDetailHeader(data OrgDetailData) {
+	<div id="org-detail-content" class="space-y-6">
+		<!-- Page header -->
+		<div class="flex items-center justify-between">
+			<div class="space-y-1">
+				<h2 class="text-lg font-semibold">{ orgDetailTitle(data.Org) }</h2>
+				<div class="text-xs text-muted-foreground">
+					ID: <span class="font-mono">{ data.Org.OrgID }</span>
+					if !data.Org.CreatedAt.IsZero() {
+						· Created { data.Org.CreatedAt.Format("2006-01-02") }
+					}
+				</div>
+			</div>
+			<div class="flex items-center gap-2">
+				<a href="/ui/orgs">
+					@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeSm}) {
+						← Back to Organizations
+					}
+				</a>
+				@dialog.Dialog(dialog.Props{ID: "edit-org-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm}) {
+							@icon.Pencil(icon.Props{Size: 14, Class: "mr-1"})
+							Edit
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Edit Organization
+							}
+						}
+						<form
+							hx-post={ "/ui/orgs/" + data.Org.OrgID + "/update" }
+							hx-target="#org-detail-content"
+							hx-swap="outerHTML"
+						>
+							<div class="space-y-4 py-4">
+								<div class="space-y-2">
+									<label for="edit_org_alias" class="text-sm font-medium">Organization Alias</label>
+									@input.Input(input.Props{
+										ID:    "edit_org_alias",
+										Name:  "org_alias",
+										Value: data.Org.OrgAlias,
+									})
+								</div>
+								<div class="space-y-2">
+									<label for="edit_org_max_budget" class="text-sm font-medium">Max Budget ($)</label>
+									@input.Input(input.Props{
+										ID:          "edit_org_max_budget",
+										Name:        "max_budget",
+										Type:        "number",
+										Placeholder: "100.00",
+										Value:       orgBudgetStr(data.Org.MaxBudget),
+										Attributes:  templ.Attributes{"step": "0.01", "min": "0"},
+									})
+								</div>
+							</div>
+							@dialog.Footer() {
+								@dialog.Close() {
+									@button.Button(button.Props{Variant: button.VariantOutline}) {
+										Cancel
+									}
+								}
+								@button.Button(button.Props{Type: "submit"}) {
+									Save Changes
+								}
+							}
+						</form>
+					}
+				}
+				@dialog.Dialog(dialog.Props{ID: "delete-org-detail-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantDestructive, Size: button.SizeSm}) {
+							@icon.Trash(icon.Props{Size: 14, Class: "mr-1"})
+							Delete
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-sm"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete Organization
+							}
+							@dialog.Description() {
+								{ "Are you sure you want to delete organization \"" + orgDetailTitle(data.Org) + "\"? This action cannot be undone." }
+							}
+						}
+						@dialog.Footer() {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							<form hx-post={ "/ui/orgs/" + data.Org.OrgID + "/delete" } hx-swap="none">
+								@button.Button(button.Props{Variant: button.VariantDestructive, Type: "submit"}) {
+									Delete
+								}
+							</form>
+						}
+					}
+				}
+			</div>
+		</div>
+		<!-- Overview cards -->
+		<div class="grid gap-4 md:grid-cols-3 pt-4">
+			@card.Card() {
+				@card.Header(card.HeaderProps{}) {
+					@card.Title(card.TitleProps{}) {
+						Spend / Budget
+					}
+				}
+				@card.Content(card.ContentProps{}) {
+					<div class="text-2xl font-bold">
+						{ fmt.Sprintf("$%.4f", data.Org.Spend) }
+					</div>
+					if data.Org.MaxBudget != nil {
+						<p class="text-sm text-muted-foreground">
+							{ fmt.Sprintf("of $%.2f limit", *data.Org.MaxBudget) }
+						</p>
+					} else {
+						<p class="text-sm text-muted-foreground">No budget limit</p>
+					}
+				}
+			}
+			@card.Card() {
+				@card.Header(card.HeaderProps{}) {
+					@card.Title(card.TitleProps{}) {
+						Rate Limits
+					}
+				}
+				@card.Content(card.ContentProps{}) {
+					<div class="space-y-1">
+						<div class="flex justify-between text-sm">
+							<span class="text-muted-foreground">TPM</span>
+							if data.Org.TpmLimit != nil {
+								<span class="font-mono">{ fmt.Sprintf("%d", *data.Org.TpmLimit) }</span>
+							} else {
+								<span class="text-muted-foreground italic">Unlimited</span>
+							}
+						</div>
+						<div class="flex justify-between text-sm">
+							<span class="text-muted-foreground">RPM</span>
+							if data.Org.RpmLimit != nil {
+								<span class="font-mono">{ fmt.Sprintf("%d", *data.Org.RpmLimit) }</span>
+							} else {
+								<span class="text-muted-foreground italic">Unlimited</span>
+							}
+						</div>
+					</div>
+				}
+			}
+			@card.Card() {
+				@card.Header(card.HeaderProps{}) {
+					@card.Title(card.TitleProps{}) {
+						Allowed Models
+					}
+				}
+				@card.Content(card.ContentProps{}) {
+					if len(data.Org.Models) == 0 {
+						<p class="text-sm text-muted-foreground italic">All models</p>
+					} else {
+						<div class="flex flex-wrap gap-1">
+							for _, m := range data.Org.Models {
+								@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+									{ m }
+								}
+							}
+						</div>
+					}
+				}
+			}
+		</div>
+		<!-- Members section -->
+		<div id="org-members-table">
+			@OrgMembersTablePartial(data)
+		</div>
+		<!-- Teams section -->
+		@card.Card() {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Teams
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				if len(data.Teams) == 0 {
+					<p class="text-sm text-muted-foreground italic">No teams in this organization</p>
+				} else {
+					@table.Table() {
+						@table.Header() {
+							@table.Row() {
+								@table.Head() { Alias }
+								@table.Head() { Members }
+							}
+						}
+						@table.Body() {
+							for _, t := range data.Teams {
+								@table.Row() {
+									@table.Cell() {
+										<a href={ templ.SafeURL("/ui/teams/" + t.TeamID) } class="font-medium hover:underline text-primary">
+											if t.TeamAlias != "" {
+												{ t.TeamAlias }
+											} else {
+												{ t.TeamID }
+											}
+										</a>
+									}
+									@table.Cell() {
+										<span class="text-sm">{ fmt.Sprintf("%d", t.MemberCount) }</span>
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		<!-- Metadata section -->
+		@card.Card() {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Metadata
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				<pre class="text-xs font-mono whitespace-pre-wrap">{ data.Metadata }</pre>
+			}
+		}
+	</div>
+}
+
+templ OrgMembersTablePartial(data OrgDetailData) {
+	@card.Card() {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) {
+				Members
+			}
+		}
+		@card.Content(card.ContentProps{}) {
+			<form
+				class="flex items-center gap-2 mb-4"
+				hx-post={ "/ui/orgs/" + data.Org.OrgID + "/members/add" }
+				hx-target="#org-members-table"
+				hx-swap="innerHTML"
+			>
+				@input.Input(input.Props{
+					Name:        "user_id",
+					Placeholder: "user_id",
+					Class:       "w-48",
+				})
+				<select name="user_role" class="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+					<option value="member">member</option>
+					<option value="admin">admin</option>
+					<option value="proxy_admin">proxy_admin</option>
+					<option value="org_admin">org_admin</option>
+				</select>
+				@button.Button(button.Props{Type: "submit", Size: button.SizeSm}) {
+					@icon.Plus(icon.Props{Size: 14, Class: "mr-1"})
+					Add Member
+				}
+			</form>
+			if len(data.Members) == 0 {
+				<p class="text-sm text-muted-foreground italic">No members yet</p>
+			} else {
+				@table.Table() {
+					@table.Header() {
+						@table.Row() {
+							@table.Head() { User ID }
+							@table.Head() { Role }
+							@table.Head() { Spend }
+							@table.Head() { Joined }
+							@table.Head(table.HeadProps{Class: "text-right"}) { Actions }
+						}
+					}
+					@table.Body() {
+						for _, m := range data.Members {
+							@table.Row() {
+								@table.Cell() {
+									<span class="font-mono text-sm">{ m.UserID }</span>
+								}
+								@table.Cell() {
+									<select
+										name="user_role"
+										class="flex h-8 rounded-md border border-input bg-background px-2 py-1 text-sm"
+										hx-post={ "/ui/orgs/" + data.Org.OrgID + "/members/update" }
+										hx-vals={ `{"user_id":"` + m.UserID + `"}` }
+										hx-target="#org-members-table"
+										hx-swap="innerHTML"
+										hx-trigger="change"
+									>
+										<option value="member" selected?={ m.Role == "member" }>member</option>
+										<option value="admin" selected?={ m.Role == "admin" }>admin</option>
+										<option value="proxy_admin" selected?={ m.Role == "proxy_admin" }>proxy_admin</option>
+										<option value="org_admin" selected?={ m.Role == "org_admin" }>org_admin</option>
+									</select>
+								}
+								@table.Cell() {
+									<span class="text-sm">{ fmt.Sprintf("$%.4f", m.Spend) }</span>
+								}
+								@table.Cell() {
+									<span class="text-sm text-muted-foreground">
+										if !m.JoinedAt.IsZero() {
+											{ m.JoinedAt.Format("2006-01-02") }
+										}
+									</span>
+								}
+								@table.Cell(table.CellProps{Class: "text-right"}) {
+									<form
+										hx-post={ "/ui/orgs/" + data.Org.OrgID + "/members/remove" }
+										hx-target="#org-members-table"
+										hx-swap="innerHTML"
+									>
+										<input type="hidden" name="user_id" value={ m.UserID }/>
+										@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeSm, Type: "submit"}) {
+											@icon.Trash(icon.Props{Size: 14})
+										}
+									</form>
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+templ OrgMembersWithToast(data OrgDetailData, toastMsg string, toastVariant toast.Variant) {
+	@OrgMembersTablePartial(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
+
+templ OrgDetailHeaderWithToast(data OrgDetailData, toastMsg string, toastVariant toast.Variant) {
+	@OrgDetailHeader(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
+
+// --- helper funcs for org detail templates ---
+
+func orgDetailTitle(o OrgRow) string {
+	if o.OrgAlias != "" {
+		return o.OrgAlias
+	}
+	return o.OrgID
+}
+
+func orgBudgetStr(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", *v)
 }
