@@ -74,6 +74,12 @@ func (h *UIHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/teams/{team_id}/unblock", h.handleTeamUnblock)
 		r.Post("/teams/{team_id}/delete", h.handleTeamDelete)
 
+		// Organizations
+		r.Get("/orgs", h.handleOrgs)
+		r.Get("/orgs/table", h.handleOrgsTable)
+		r.Post("/orgs/create", h.handleOrgCreate)
+		r.Post("/orgs/{org_id}/delete", h.handleOrgDelete)
+
 		// Logs
 		r.Get("/logs", h.handleLogs)
 		r.Get("/logs/table", h.handleLogsTable)

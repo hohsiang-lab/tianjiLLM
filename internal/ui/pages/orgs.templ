@@ -1,0 +1,379 @@
+package pages
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/pagination"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/table"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/toast"
+)
+
+// --- Data types ---
+
+type OrgRow struct {
+	OrgID       string
+	OrgAlias    string
+	TeamCount   int
+	MemberCount int
+	Spend       float64
+	MaxBudget   *float64
+	ModelCount  int
+	Models      []string
+	TpmLimit    *int64
+	RpmLimit    *int64
+	CreatedAt   time.Time
+}
+
+type OrgsPageData struct {
+	Orgs            []OrgRow
+	Page            int
+	TotalPages      int
+	TotalCount      int
+	PerPage         int
+	Search          string
+	AvailableModels []string
+}
+
+func (d OrgsPageData) orgsFilterQueryString() string {
+	var parts []string
+	if d.Search != "" {
+		parts = append(parts, "search="+d.Search)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "&" + strings.Join(parts, "&")
+}
+
+// --- Templates ---
+
+templ OrgsPage(data OrgsPageData) {
+	@AppLayout("Organizations", "/ui/orgs") {
+		@dialog.Script()
+		@input.Script()
+		@toast.Script()
+		<div class="space-y-3">
+			<div id="org-filters" class="flex items-center gap-2">
+				<div class="relative flex-1">
+					@icon.Search(icon.Props{Size: 16, Class: "absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"})
+					<input
+						type="text"
+						name="search"
+						placeholder="Search by alias..."
+						value={ data.Search }
+						class="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+						hx-get="/ui/orgs/table"
+						hx-trigger="input changed delay:300ms"
+						hx-target="#orgs-table"
+						hx-include="#org-filters"
+					/>
+				</div>
+				@dialog.Dialog(dialog.Props{ID: "create-org-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Size: button.SizeSm}) {
+							@icon.Plus(icon.Props{Size: 16, Class: "mr-1"})
+							New Organization
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Create New Organization
+							}
+							@dialog.Description() {
+								Create an organization with an alias and optional budget, models, and limits.
+							}
+						}
+						@createOrgForm(data)
+					}
+				}
+			</div>
+			<div id="orgs-table" data-testid="orgs-table">
+				@OrgsTablePartial(data)
+			</div>
+		</div>
+	}
+}
+
+templ createOrgForm(data OrgsPageData) {
+	<form
+		hx-post="/ui/orgs/create"
+		hx-target="#orgs-table"
+	>
+		<div class="space-y-4 py-4">
+			<div class="space-y-2">
+				<label for="org_alias" class="text-sm font-medium">Organization Alias <span class="text-destructive">*</span></label>
+				@input.Input(input.Props{
+					ID:          "org_alias",
+					Name:        "org_alias",
+					Placeholder: "my-org",
+					Attributes:  templ.Attributes{"required": "true"},
+				})
+			</div>
+			<details class="space-y-4">
+				<summary class="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">Optional Settings</summary>
+				<div class="space-y-4 pt-2">
+					<div class="space-y-2">
+						<label for="org_max_budget" class="text-sm font-medium">Max Budget ($)</label>
+						@input.Input(input.Props{
+							ID:          "org_max_budget",
+							Name:        "max_budget",
+							Type:        "number",
+							Placeholder: "100.00",
+							Attributes:  templ.Attributes{"step": "0.01", "min": "0"},
+						})
+					</div>
+					<div class="grid grid-cols-2 gap-4">
+						<div class="space-y-2">
+							<label for="org_tpm_limit" class="text-sm font-medium">TPM Limit</label>
+							@input.Input(input.Props{
+								ID:         "org_tpm_limit",
+								Name:       "tpm_limit",
+								Type:       "number",
+								Placeholder: "10000",
+								Attributes: templ.Attributes{"min": "1"},
+							})
+						</div>
+						<div class="space-y-2">
+							<label for="org_rpm_limit" class="text-sm font-medium">RPM Limit</label>
+							@input.Input(input.Props{
+								ID:         "org_rpm_limit",
+								Name:       "rpm_limit",
+								Type:       "number",
+								Placeholder: "100",
+								Attributes: templ.Attributes{"min": "1"},
+							})
+						</div>
+					</div>
+					<div class="space-y-2">
+						<label class="text-sm font-medium">Models</label>
+						@modelsMultiSelect("create-org", data.AvailableModels, []string{})
+					</div>
+				</div>
+			</details>
+		</div>
+		@dialog.Footer() {
+			@dialog.Close() {
+				@button.Button(button.Props{Variant: button.VariantOutline}) {
+					Cancel
+				}
+			}
+			@button.Button(button.Props{Type: "submit"}) {
+				Create Organization
+			}
+		}
+	</form>
+}
+
+templ OrgsTablePartial(data OrgsPageData) {
+	@card.Card() {
+		@card.Content(card.ContentProps{Class: "p-0"}) {
+			@table.Table() {
+				@table.Header() {
+					@table.Row() {
+						@table.Head() { Alias }
+						@table.Head() { Teams }
+						@table.Head() { Members }
+						@table.Head() { Spend / Budget }
+						@table.Head() { Models }
+						@table.Head() { Created }
+						@table.Head(table.HeadProps{Class: "text-right"}) { Actions }
+					}
+				}
+				@table.Body() {
+					if len(data.Orgs) == 0 {
+						@table.Row() {
+							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": "7"}}) {
+								if data.Search != "" {
+									<div class="py-8 text-center text-muted-foreground">No organizations match your filters</div>
+								} else {
+									<div class="py-8 text-center text-muted-foreground">No organizations found</div>
+								}
+							}
+						}
+					}
+					for _, o := range data.Orgs {
+						@orgTableRow(o)
+					}
+				}
+			}
+		}
+	}
+	<div class="mt-4 flex items-center justify-between">
+		<span class="text-sm text-muted-foreground">
+			if data.TotalCount == 0 {
+				No results
+			} else {
+				{ fmt.Sprintf("Showing %d–%d of %d results", (data.Page-1)*data.PerPage+1, minInt((data.Page)*data.PerPage, data.TotalCount), data.TotalCount) }
+			}
+		</span>
+		if data.TotalPages > 1 {
+			{{ pg := pagination.CreatePagination(data.Page, data.TotalPages, 5) }}
+			{{ qs := data.orgsFilterQueryString() }}
+			@pagination.Pagination() {
+				@pagination.Content() {
+					@pagination.Item() {
+						@pagination.Previous(pagination.PreviousProps{
+							Disabled: !pg.HasPrevious,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/orgs/table?page=%d%s", data.Page-1, qs),
+								"hx-target": "#orgs-table",
+							},
+						})
+					}
+					if pg.Pages[0] > 1 {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/orgs/table?page=1%s", qs),
+									"hx-target": "#orgs-table",
+								},
+							}) {
+								1
+							}
+						}
+						if pg.Pages[0] > 2 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+					}
+					for _, p := range pg.Pages {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								IsActive: p == pg.CurrentPage,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/orgs/table?page=%d%s", p, qs),
+									"hx-target": "#orgs-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", p) }
+							}
+						}
+					}
+					if pg.Pages[len(pg.Pages)-1] < pg.TotalPages {
+						if pg.Pages[len(pg.Pages)-1] < pg.TotalPages-1 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/orgs/table?page=%d%s", pg.TotalPages, qs),
+									"hx-target": "#orgs-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", pg.TotalPages) }
+							}
+						}
+					}
+					@pagination.Item() {
+						@pagination.Next(pagination.NextProps{
+							Disabled: !pg.HasNext,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/orgs/table?page=%d%s", data.Page+1, qs),
+								"hx-target": "#orgs-table",
+							},
+						})
+					}
+				}
+			}
+		}
+	</div>
+}
+
+templ orgTableRow(o OrgRow) {
+	@table.Row() {
+		@table.Cell() {
+			<a href={ templ.SafeURL("/ui/orgs/" + o.OrgID) } class="font-medium hover:underline text-primary">
+				if o.OrgAlias != "" {
+					{ o.OrgAlias }
+				} else {
+					{ o.OrgID }
+				}
+			</a>
+		}
+		@table.Cell() {
+			<span class="text-sm">{ fmt.Sprintf("%d", o.TeamCount) }</span>
+		}
+		@table.Cell() {
+			<span class="text-sm">{ fmt.Sprintf("%d", o.MemberCount) }</span>
+		}
+		@table.Cell() {
+			if o.MaxBudget != nil {
+				<span class="text-sm">{ fmt.Sprintf("$%.2f / $%.2f", o.Spend, *o.MaxBudget) }</span>
+			} else {
+				<span class="text-sm">{ fmt.Sprintf("$%.2f / ∞", o.Spend) }</span>
+			}
+		}
+		@table.Cell() {
+			if o.ModelCount == 0 {
+				<span class="text-sm text-muted-foreground italic">All</span>
+			} else {
+				<span class="text-sm">{ fmt.Sprintf("%d", o.ModelCount) }</span>
+			}
+		}
+		@table.Cell() {
+			<span class="text-sm text-muted-foreground">{ o.CreatedAt.Format("2006-01-02") }</span>
+		}
+		@table.Cell(table.CellProps{Class: "text-right"}) {
+			<div class="flex items-center justify-end gap-1">
+				@dialog.Dialog(dialog.Props{ID: "delete-org-" + o.OrgID}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantDestructive, Size: button.SizeSm}) {
+							@icon.Trash(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-sm"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete Organization
+							}
+							@dialog.Description() {
+								if o.OrgAlias != "" {
+									{ "Are you sure you want to delete organization \"" + o.OrgAlias + "\"? This action cannot be undone." }
+								} else {
+									This action cannot be undone.
+								}
+							}
+						}
+						@dialog.Footer() {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							<form hx-post={ "/ui/orgs/" + o.OrgID + "/delete" } hx-target="body" hx-push-url="/ui/orgs">
+								@button.Button(button.Props{Variant: button.VariantDestructive, Type: "submit"}) {
+									Delete
+								}
+							</form>
+						}
+					}
+				}
+			</div>
+		}
+	}
+}
+
+templ OrgsTableWithToast(data OrgsPageData, toastMsg string, toastVariant toast.Variant) {
+	@OrgsTablePartial(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
