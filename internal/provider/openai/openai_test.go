@@ -147,3 +147,69 @@ func TestTransformRequest_CustomBaseURL(t *testing.T) {
 	p := NewWithBaseURL(server.URL)
 	assert.Equal(t, server.URL+"/chat/completions", p.GetRequestURL("gpt-4o"))
 }
+
+func TestTransformResponse_ImagesPassthrough(t *testing.T) {
+	// Simulate OpenRouter response with images[] field
+	responseBody := `{
+		"id": "gen-abc123",
+		"object": "chat.completion",
+		"created": 1700000000,
+		"model": "google/gemini-3-pro-image-preview",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": "Here is your red circle",
+				"images": [{
+					"image_url": {
+						"url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=="
+					}
+				}]
+			},
+			"finish_reason": "stop"
+		}],
+		"usage": {"prompt_tokens": 10, "completion_tokens": 125, "total_tokens": 135}
+	}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}
+
+	p := New()
+	result, err := p.TransformResponse(context.Background(), resp)
+	require.NoError(t, err)
+	require.Len(t, result.Choices, 1)
+
+	msg := result.Choices[0].Message
+	require.NotNil(t, msg)
+	assert.Equal(t, "Here is your red circle", msg.Content)
+	require.Len(t, msg.Images, 1, "images should be preserved in passthrough")
+	assert.Equal(t, "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==", msg.Images[0].ImageURL.URL)
+}
+
+func TestTransformRequest_ModalitiesPassthrough(t *testing.T) {
+	p := New()
+	ctx := context.Background()
+
+	req := &model.ChatCompletionRequest{
+		Model:      "openrouter/google/gemini-3-pro-image-preview",
+		Modalities: []string{"text", "image"},
+		Messages: []model.Message{
+			{Role: "user", Content: "Draw a circle"},
+		},
+	}
+
+	httpReq, err := p.TransformRequest(ctx, req, "sk-test")
+	require.NoError(t, err)
+
+	body, _ := io.ReadAll(httpReq.Body)
+	var parsed map[string]any
+	json.Unmarshal(body, &parsed)
+
+	modalities, ok := parsed["modalities"].([]any)
+	require.True(t, ok, "modalities should be in request body")
+	assert.Equal(t, "text", modalities[0])
+	assert.Equal(t, "image", modalities[1])
+}

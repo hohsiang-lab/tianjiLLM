@@ -32,12 +32,18 @@ type ChatCompletionRequest struct {
 	PromptVersion   *int              `json:"prompt_version,omitempty"`
 }
 
+// ImagePart represents an image in the OpenRouter images[] response format.
+type ImagePart struct {
+	ImageURL *ImageURL `json:"image_url,omitempty"`
+}
+
 type Message struct {
-	Role       string     `json:"role"`
-	Content    any        `json:"content"`
-	Name       *string    `json:"name,omitempty"`
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID *string    `json:"tool_call_id,omitempty"`
+	Role       string      `json:"role"`
+	Content    any         `json:"content"`
+	Name       *string     `json:"name,omitempty"`
+	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
+	ToolCallID *string     `json:"tool_call_id,omitempty"`
+	Images     []ImagePart `json:"images,omitempty"`
 }
 
 type Tool struct {
