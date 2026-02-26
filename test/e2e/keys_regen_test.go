@@ -22,6 +22,7 @@ func TestKeyRegenerate_ShowsNewKey(t *testing.T) {
 
 	// Submit regeneration
 	f.SubmitDialog("regenerate-dialog", "Regenerate")
+	f.WaitRegenerateResult()
 
 	// New raw key should appear in #regenerate-result
 	result := f.Text("#regenerate-result")
@@ -39,6 +40,7 @@ func TestKeyRegenerate_CopyButtonExists(t *testing.T) {
 	f.WaitDialogOpen("regenerate-dialog")
 
 	f.SubmitDialog("regenerate-dialog", "Regenerate")
+	f.WaitRegenerateResult()
 
 	// Copy button should exist
 	assert.True(t, f.Has("#regenerate-result button"), "copy button should exist")
@@ -79,6 +81,7 @@ func TestKeyRegenerate_WithUpdatedLimits(t *testing.T) {
 	f.InputByID("regen_tpm_limit", "50000")
 
 	f.SubmitDialog("regenerate-dialog", "Regenerate")
+	f.WaitRegenerateResult()
 
 	// New key should appear
 	result := f.Text("#regenerate-result")

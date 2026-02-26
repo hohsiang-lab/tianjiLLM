@@ -283,8 +283,34 @@ func (f *Fixture) NavigateToSettings(token string) {
 func (f *Fixture) NavigateToSettingsEdit(token string) {
 	f.T.Helper()
 	f.NavigateToSettings(token)
+	// Wait for the settings tab content to become visible after client-side tab switch.
+	require.NoError(f.T, f.Page.Locator("#settings-content").WaitFor(playwright.LocatorWaitForOptions{
+		State:   playwright.WaitForSelectorStateVisible,
+		Timeout: playwright.Float(5000),
+	}))
 	f.ClickButton("Edit Settings")
 	f.WaitStable()
+}
+
+// WaitRegenerateResult waits for the regenerated key to appear in #regenerate-result.
+// HTMX swaps the result asynchronously; this ensures the DOM is updated before assertions.
+func (f *Fixture) WaitRegenerateResult() {
+	f.T.Helper()
+	require.NoError(f.T, f.Page.Locator("#regenerate-result button").WaitFor(playwright.LocatorWaitForOptions{
+		Timeout: playwright.Float(10000),
+	}))
+}
+
+// WaitForTextIn waits until the text content of the given selector contains substr.
+// Useful after HTMX swaps where WaitStable (networkidle) may resolve before DOM update.
+func (f *Fixture) WaitForTextIn(selector, substr string) {
+	f.T.Helper()
+	loc := f.Page.Locator(selector)
+	require.NoError(f.T, loc.Filter(playwright.LocatorFilterOptions{
+		HasText: substr,
+	}).WaitFor(playwright.LocatorWaitForOptions{
+		Timeout: playwright.Float(5000),
+	}))
 }
 
 // FilterByName fills a filter input inside #key-filters by name attribute.
@@ -293,7 +319,7 @@ func (f *Fixture) NavigateToSettingsEdit(token string) {
 func (f *Fixture) FilterByName(name, value string) {
 	f.T.Helper()
 	sel := fmt.Sprintf(`#key-filters input[name="%s"]`, name)
-	require.NoError(f.T, f.Page.Locator(sel).Fill(value))
+	require.NoError(f.T, f.Page.Locator(sel).First().Fill(value))
 }
 
 // InputByID fills an element by #id. Playwright Fill triggers real input events,
