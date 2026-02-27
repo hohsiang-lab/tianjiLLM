@@ -141,14 +141,36 @@ templ createGuardrailForm() {
 					<option value="">Select type...</option>
 					<option value="openai_moderation">OpenAI Moderation</option>
 					<option value="presidio">Presidio</option>
+					<option value="prompt_injection">Prompt Injection</option>
 					<option value="lakera_guard">Lakera Guard</option>
+					<option value="bedrock_guardrail">Bedrock Guardrail</option>
+					<option value="azure_prompt_shield">Azure Prompt Shield</option>
+					<option value="azure_text_moderation">Azure Text Moderation</option>
+					<option value="content_filter">Content Filter</option>
+					<option value="tool_permission">Tool Permission</option>
+					<option value="generic">Generic</option>
+					<option value="aim">AIM</option>
 					<option value="aporia">Aporia</option>
-					<option value="bedrock">Bedrock</option>
-					<option value="aim_safety">AIM Safety</option>
-					<option value="google_text_moderation">Google Text Moderation</option>
+					<option value="custom_code">Custom Code</option>
+					<option value="dynamoai">DynamoAI</option>
+					<option value="enkryptai">EnkryptAI</option>
+					<option value="grayswan">Gray Swan</option>
 					<option value="guardrails_ai">Guardrails AI</option>
-					<option value="llm_guard">LLM Guard</option>
-					<option value="custom">Custom</option>
+					<option value="hiddenlayer">HiddenLayer</option>
+					<option value="ibm_guardrails">IBM Guardrails</option>
+					<option value="javelin">Javelin</option>
+					<option value="lakera_v2">Lakera V2</option>
+					<option value="lasso">Lasso</option>
+					<option value="model_armor">Model Armor</option>
+					<option value="noma">Noma</option>
+					<option value="onyx">Onyx</option>
+					<option value="pangea">Pangea</option>
+					<option value="panw_prisma_airs">PANW Prisma AIRS</option>
+					<option value="pillar">Pillar</option>
+					<option value="prompt_security">Prompt Security</option>
+					<option value="qualifire">Qualifire</option>
+					<option value="unified_guardrail">Unified Guardrail</option>
+					<option value="zscaler_ai_guard">Zscaler AI Guard</option>
 				</select>
 			</div>
 			<div class="space-y-2">
@@ -207,7 +229,14 @@ templ GuardrailsTablePartial(data GuardrailsPageData) {
 								if data.Search != "" {
 									<div class="py-8 text-center text-muted-foreground">No guardrails match your search</div>
 								} else {
-									<div class="py-8 text-center text-muted-foreground">No guardrails configured</div>
+									<div class="py-8 text-center text-muted-foreground">
+										No guardrails configured
+										<br/>
+										<button
+											onclick="document.querySelector('[data-dialog-id=\"create-guardrail-dialog\"] [data-dialog-trigger]').click()"
+											class="mt-2 inline-flex items-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+										>New Guardrail</button>
+									</div>
 								}
 							}
 						}
@@ -480,14 +509,36 @@ templ editGuardrailForm(g GuardrailRow) {
 				<select name="guardrail_type" id={ "edit_type_" + g.ID } class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
 					<option value="openai_moderation" selected?={ g.Type == "openai_moderation" }>OpenAI Moderation</option>
 					<option value="presidio" selected?={ g.Type == "presidio" }>Presidio</option>
+					<option value="prompt_injection" selected?={ g.Type == "prompt_injection" }>Prompt Injection</option>
 					<option value="lakera_guard" selected?={ g.Type == "lakera_guard" }>Lakera Guard</option>
+					<option value="bedrock_guardrail" selected?={ g.Type == "bedrock_guardrail" }>Bedrock Guardrail</option>
+					<option value="azure_prompt_shield" selected?={ g.Type == "azure_prompt_shield" }>Azure Prompt Shield</option>
+					<option value="azure_text_moderation" selected?={ g.Type == "azure_text_moderation" }>Azure Text Moderation</option>
+					<option value="content_filter" selected?={ g.Type == "content_filter" }>Content Filter</option>
+					<option value="tool_permission" selected?={ g.Type == "tool_permission" }>Tool Permission</option>
+					<option value="generic" selected?={ g.Type == "generic" }>Generic</option>
+					<option value="aim" selected?={ g.Type == "aim" }>AIM</option>
 					<option value="aporia" selected?={ g.Type == "aporia" }>Aporia</option>
-					<option value="bedrock" selected?={ g.Type == "bedrock" }>Bedrock</option>
-					<option value="aim_safety" selected?={ g.Type == "aim_safety" }>AIM Safety</option>
-					<option value="google_text_moderation" selected?={ g.Type == "google_text_moderation" }>Google Text Moderation</option>
+					<option value="custom_code" selected?={ g.Type == "custom_code" }>Custom Code</option>
+					<option value="dynamoai" selected?={ g.Type == "dynamoai" }>DynamoAI</option>
+					<option value="enkryptai" selected?={ g.Type == "enkryptai" }>EnkryptAI</option>
+					<option value="grayswan" selected?={ g.Type == "grayswan" }>Gray Swan</option>
 					<option value="guardrails_ai" selected?={ g.Type == "guardrails_ai" }>Guardrails AI</option>
-					<option value="llm_guard" selected?={ g.Type == "llm_guard" }>LLM Guard</option>
-					<option value="custom" selected?={ g.Type == "custom" }>Custom</option>
+					<option value="hiddenlayer" selected?={ g.Type == "hiddenlayer" }>HiddenLayer</option>
+					<option value="ibm_guardrails" selected?={ g.Type == "ibm_guardrails" }>IBM Guardrails</option>
+					<option value="javelin" selected?={ g.Type == "javelin" }>Javelin</option>
+					<option value="lakera_v2" selected?={ g.Type == "lakera_v2" }>Lakera V2</option>
+					<option value="lasso" selected?={ g.Type == "lasso" }>Lasso</option>
+					<option value="model_armor" selected?={ g.Type == "model_armor" }>Model Armor</option>
+					<option value="noma" selected?={ g.Type == "noma" }>Noma</option>
+					<option value="onyx" selected?={ g.Type == "onyx" }>Onyx</option>
+					<option value="pangea" selected?={ g.Type == "pangea" }>Pangea</option>
+					<option value="panw_prisma_airs" selected?={ g.Type == "panw_prisma_airs" }>PANW Prisma AIRS</option>
+					<option value="pillar" selected?={ g.Type == "pillar" }>Pillar</option>
+					<option value="prompt_security" selected?={ g.Type == "prompt_security" }>Prompt Security</option>
+					<option value="qualifire" selected?={ g.Type == "qualifire" }>Qualifire</option>
+					<option value="unified_guardrail" selected?={ g.Type == "unified_guardrail" }>Unified Guardrail</option>
+					<option value="zscaler_ai_guard" selected?={ g.Type == "zscaler_ai_guard" }>Zscaler AI Guard</option>
 				</select>
 			</div>
 			<div class="space-y-2">

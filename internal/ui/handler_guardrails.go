@@ -270,6 +270,28 @@ func (h *UIHandler) handleGuardrailDelete(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	g, err := h.DB.GetGuardrailConfig(r.Context(), id)
+	if err != nil {
+		data := h.loadGuardrailsPageData(r)
+		render(r.Context(), w, pages.GuardrailsTableWithToast(data, "Guardrail not found: "+err.Error(), toast.VariantError))
+		return
+	}
+
+	policies, err := h.DB.ListPolicies(r.Context())
+	if err != nil {
+		data := h.loadGuardrailsPageData(r)
+		render(r.Context(), w, pages.GuardrailsTableWithToast(data, "Failed to check policy references: "+err.Error(), toast.VariantError))
+		return
+	}
+
+	for _, p := range policies {
+		if slices.Contains(p.GuardrailsAdd, g.GuardrailName) {
+			data := h.loadGuardrailsPageData(r)
+			render(r.Context(), w, pages.GuardrailsTableWithToast(data, "Cannot delete: guardrail is referenced by policy \""+p.Name+"\"", toast.VariantError))
+			return
+		}
+	}
+
 	if err := h.DB.DeleteGuardrailConfig(r.Context(), id); err != nil {
 		data := h.loadGuardrailsPageData(r)
 		render(r.Context(), w, pages.GuardrailsTableWithToast(data, "Failed to delete guardrail: "+err.Error(), toast.VariantError))
