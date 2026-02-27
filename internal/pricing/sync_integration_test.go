@@ -87,7 +87,7 @@ func TestIntegration_SyncWritesToDB(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	count, err := SyncFromUpstream(ctx, pool, queries, calc, srv.URL)
+	count, err := SyncFromUpstream(ctx, pool, queries, calc, srv.URL, "")
 	if err != nil {
 		t.Fatalf("SyncFromUpstream failed: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestIntegration_CalcLookupUsesDBAfterSync(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if _, err := SyncFromUpstream(ctx, pool, queries, calc, srv.URL); err != nil {
+	if _, err := SyncFromUpstream(ctx, pool, queries, calc, srv.URL, ""); err != nil {
 		t.Fatalf("SyncFromUpstream: %v", err)
 	}
 
@@ -143,7 +143,7 @@ func TestIntegration_RestartReloadFromDB(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if _, err := SyncFromUpstream(ctx, pool, queries, calc1, srv.URL); err != nil {
+	if _, err := SyncFromUpstream(ctx, pool, queries, calc1, srv.URL, ""); err != nil {
 		t.Fatalf("SyncFromUpstream: %v", err)
 	}
 
@@ -190,7 +190,7 @@ func TestIntegration_SyncFailureRollback(t *testing.T) {
 	}))
 	defer errSrv.Close()
 
-	_, err := SyncFromUpstream(ctx, pool, queries, calc, errSrv.URL)
+	_, err := SyncFromUpstream(ctx, pool, queries, calc, errSrv.URL, "")
 	if err == nil {
 		t.Fatal("expected error from 500 server")
 	}

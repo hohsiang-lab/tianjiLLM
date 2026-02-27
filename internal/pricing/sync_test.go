@@ -235,3 +235,285 @@ func TestModelEntryFieldsMissing(t *testing.T) {
 		t.Errorf("expected 50 good entries, got %d", goodCount)
 	}
 }
+
+// --- OpenRouter unit tests ---
+
+// buildOpenRouterJSON returns a JSON response in OpenRouter /api/v1/models format.
+func buildOpenRouterJSON(models []struct{ id, prompt, completion string }) []byte {
+	data := make([]map[string]any, len(models))
+	for i, m := range models {
+		data[i] = map[string]any{
+			"id": m.id,
+			"pricing": map[string]any{
+				"prompt":     m.prompt,
+				"completion": m.completion,
+			},
+		}
+	}
+	b, _ := json.Marshal(map[string]any{"data": data})
+	return b
+}
+
+// TestFetchOpenRouter_Success verifies basic fetch and dual-key expansion.
+func TestFetchOpenRouter_Success(t *testing.T) {
+	body := buildOpenRouterJSON([]struct{ id, prompt, completion string }{
+		{"google/gemini-2.5-pro-preview", "0.000001", "0.000002"},
+		{"anthropic/claude-3-opus", "0.000015", "0.000075"},
+	})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	entries, err := fetchOpenRouter(t.Context(), srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Each model produces 2 entries (full id + bare name)
+	if len(entries) != 4 {
+		t.Errorf("expected 4 entries (2 models × 2 keys), got %d", len(entries))
+	}
+
+	names := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		names[e.name] = true
+	}
+	for _, want := range []string{
+		"google/gemini-2.5-pro-preview",
+		"gemini-2.5-pro-preview",
+		"anthropic/claude-3-opus",
+		"claude-3-opus",
+	} {
+		if !names[want] {
+			t.Errorf("expected entry %q not found", want)
+		}
+	}
+}
+
+// TestFetchOpenRouter_PricingParsed verifies price string → float64 conversion.
+func TestFetchOpenRouter_PricingParsed(t *testing.T) {
+	body := buildOpenRouterJSON([]struct{ id, prompt, completion string }{
+		{"openai/gpt-4o", "0.000005", "0.000015"},
+	})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	entries, err := fetchOpenRouter(t.Context(), srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, e := range entries {
+		if e.name == "openai/gpt-4o" {
+			if e.info.InputCostPerToken != 0.000005 {
+				t.Errorf("input cost: want 0.000005, got %v", e.info.InputCostPerToken)
+			}
+			if e.info.OutputCostPerToken != 0.000015 {
+				t.Errorf("output cost: want 0.000015, got %v", e.info.OutputCostPerToken)
+			}
+			if e.info.LiteLLMProvider != "openai" {
+				t.Errorf("provider: want openai, got %q", e.info.LiteLLMProvider)
+			}
+		}
+	}
+}
+
+// TestFetchOpenRouter_HTTP500 verifies non-200 status returns error.
+func TestFetchOpenRouter_HTTP500(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "server error", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	_, err := fetchOpenRouter(t.Context(), srv.URL)
+	if err == nil {
+		t.Fatal("expected error for 500 response")
+	}
+	if !strings.Contains(err.Error(), "500") {
+		t.Errorf("error should mention status code: %v", err)
+	}
+}
+
+// TestFetchOpenRouter_ConnectionRefused verifies network failure returns error.
+func TestFetchOpenRouter_ConnectionRefused(t *testing.T) {
+	_, err := fetchOpenRouter(t.Context(), "http://127.0.0.1:19998")
+	if err == nil {
+		t.Fatal("expected error for connection refused")
+	}
+}
+
+// TestFetchOpenRouter_InvalidJSON verifies JSON parse failure returns error.
+func TestFetchOpenRouter_InvalidJSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("not-json"))
+	}))
+	defer srv.Close()
+
+	_, err := fetchOpenRouter(t.Context(), srv.URL)
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+// TestFetchOpenRouter_EmptyData verifies empty data array returns no entries.
+func TestFetchOpenRouter_EmptyData(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer srv.Close()
+
+	entries, err := fetchOpenRouter(t.Context(), srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(entries))
+	}
+}
+
+// TestFetchOpenRouter_NoPrefixModel verifies model IDs without "/" produce only one entry.
+func TestFetchOpenRouter_NoPrefixModel(t *testing.T) {
+	body := buildOpenRouterJSON([]struct{ id, prompt, completion string }{
+		{"bare-model", "0.000001", "0.000002"},
+	})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	entries, err := fetchOpenRouter(t.Context(), srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// No "/" in id → only one entry (bare-model itself)
+	if len(entries) != 1 {
+		t.Errorf("expected 1 entry for bare model id, got %d", len(entries))
+	}
+	if entries[0].name != "bare-model" {
+		t.Errorf("expected entry name 'bare-model', got %q", entries[0].name)
+	}
+}
+
+// TestMergeOpenRouterEntries_LiteLLMTakesPrecedence verifies LiteLLM models are not overwritten.
+func TestMergeOpenRouterEntries_LiteLLMTakesPrecedence(t *testing.T) {
+	litellm := []parsedEntry{
+		{name: "gpt-4o", info: upstreamModelEntry{InputCostPerToken: 0.000005}},
+		{name: "claude-3-opus", info: upstreamModelEntry{InputCostPerToken: 0.000015}},
+	}
+	openrouter := []parsedEntry{
+		{name: "gpt-4o", info: upstreamModelEntry{InputCostPerToken: 9999}},       // should NOT overwrite
+		{name: "gemini-2.5-pro", info: upstreamModelEntry{InputCostPerToken: 0.001}}, // should be added
+	}
+
+	merged := mergeOpenRouterEntries(litellm, openrouter)
+
+	if len(merged) != 3 {
+		t.Errorf("expected 3 entries (2 litellm + 1 new from openrouter), got %d", len(merged))
+	}
+
+	for _, e := range merged {
+		if e.name == "gpt-4o" && e.info.InputCostPerToken != 0.000005 {
+			t.Errorf("gpt-4o should keep LiteLLM price 0.000005, got %v", e.info.InputCostPerToken)
+		}
+	}
+}
+
+// TestMergeOpenRouterEntries_NewModelsAdded verifies OpenRouter-only models are included.
+func TestMergeOpenRouterEntries_NewModelsAdded(t *testing.T) {
+	litellm := []parsedEntry{
+		{name: "gpt-4o", info: upstreamModelEntry{InputCostPerToken: 0.000005}},
+	}
+	openrouter := []parsedEntry{
+		{name: "google/gemini-2.5-pro", info: upstreamModelEntry{InputCostPerToken: 0.001}},
+		{name: "gemini-2.5-pro", info: upstreamModelEntry{InputCostPerToken: 0.001}},
+	}
+
+	merged := mergeOpenRouterEntries(litellm, openrouter)
+
+	if len(merged) != 3 {
+		t.Errorf("expected 3 entries, got %d", len(merged))
+	}
+
+	names := make(map[string]bool, len(merged))
+	for _, e := range merged {
+		names[e.name] = true
+	}
+	if !names["google/gemini-2.5-pro"] {
+		t.Error("expected 'google/gemini-2.5-pro' to be added from OpenRouter")
+	}
+	if !names["gemini-2.5-pro"] {
+		t.Error("expected 'gemini-2.5-pro' to be added from OpenRouter")
+	}
+}
+
+// TestMergeOpenRouterEntries_NoDuplicates verifies OpenRouter entries don't produce duplicates.
+func TestMergeOpenRouterEntries_NoDuplicates(t *testing.T) {
+	litellm := []parsedEntry{}
+	// Simulate OR response where bare name appears twice (from two different providers)
+	openrouter := []parsedEntry{
+		{name: "google/gemini-pro", info: upstreamModelEntry{InputCostPerToken: 0.001}},
+		{name: "gemini-pro", info: upstreamModelEntry{InputCostPerToken: 0.001}},
+		{name: "openai/gemini-pro", info: upstreamModelEntry{InputCostPerToken: 0.002}},
+		{name: "gemini-pro", info: upstreamModelEntry{InputCostPerToken: 0.002}}, // duplicate bare name
+	}
+
+	merged := mergeOpenRouterEntries(litellm, openrouter)
+
+	count := 0
+	for _, e := range merged {
+		if e.name == "gemini-pro" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected exactly 1 'gemini-pro' entry (no duplicates), got %d", count)
+	}
+}
+
+// TestMergeOpenRouterEntries_OpenRouterFailureDoesNotBlock verifies that when
+// OR fetch fails the LiteLLM entries are returned unchanged.
+func TestMergeOpenRouterEntries_OpenRouterFailureDoesNotBlock(t *testing.T) {
+	litellm := []parsedEntry{
+		{name: "gpt-4o", info: upstreamModelEntry{InputCostPerToken: 0.000005}},
+	}
+
+	// Simulate OR failure: we call mergeOpenRouterEntries with empty OR slice
+	merged := mergeOpenRouterEntries(litellm, nil)
+
+	if len(merged) != 1 {
+		t.Errorf("expected 1 litellm entry unchanged, got %d", len(merged))
+	}
+	if merged[0].name != "gpt-4o" {
+		t.Errorf("expected gpt-4o, got %q", merged[0].name)
+	}
+}
+
+// TestFetchOpenRouter_DualKeyStorage verifies the dual key storage pattern end-to-end.
+func TestFetchOpenRouter_DualKeyStorage(t *testing.T) {
+	body := buildOpenRouterJSON([]struct{ id, prompt, completion string }{
+		{"google/gemini-2.5-pro-preview", "0.000001", "0.000002"},
+	})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	entries, err := fetchOpenRouter(t.Context(), srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	names := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		names[e.name] = true
+	}
+
+	if !names["google/gemini-2.5-pro-preview"] {
+		t.Error("expected full provider/model key 'google/gemini-2.5-pro-preview'")
+	}
+	if !names["gemini-2.5-pro-preview"] {
+		t.Error("expected bare model key 'gemini-2.5-pro-preview'")
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -51,13 +52,37 @@ type upstreamModelEntry struct {
 	LiteLLMProvider    string  `json:"litellm_provider"`
 }
 
+// parsedEntry is a resolved model entry ready for DB upsert.
+type parsedEntry struct {
+	name string
+	info upstreamModelEntry
+}
+
+// openRouterResponse is the top-level response from OpenRouter's /api/v1/models.
+type openRouterResponse struct {
+	Data []openRouterModel `json:"data"`
+}
+
+// openRouterModel is a single model entry from OpenRouter.
+type openRouterModel struct {
+	ID      string            `json:"id"`
+	Pricing openRouterPricing `json:"pricing"`
+}
+
+// openRouterPricing holds per-token pricing strings from OpenRouter.
+type openRouterPricing struct {
+	Prompt     string `json:"prompt"`
+	Completion string `json:"completion"`
+}
+
 var syncHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 // SyncFromUpstream fetches model pricing from the upstream URL, validates it,
 // batch-upserts into the DB, and reloads the in-memory calculator.
+// Also fetches from openRouterURL (secondary source); failures are logged but non-fatal.
 // Returns the number of models synced.
-func SyncFromUpstream(ctx context.Context, pool *pgxpool.Pool, queries *db.Queries, calc *Calculator, upstreamURL string) (int, error) {
-	// Step 1: HTTP fetch
+func SyncFromUpstream(ctx context.Context, pool *pgxpool.Pool, queries *db.Queries, calc *Calculator, upstreamURL string, openRouterURL string) (int, error) {
+	// Step 1: HTTP fetch LiteLLM
 	raw, err := fetchUpstream(ctx, upstreamURL)
 	if err != nil {
 		return 0, err
@@ -68,11 +93,7 @@ func SyncFromUpstream(ctx context.Context, pool *pgxpool.Pool, queries *db.Queri
 		return 0, valErr
 	}
 
-	// Step 3: parse individual entries (skip sample_spec, skip bad entries)
-	type parsedEntry struct {
-		name string
-		info upstreamModelEntry
-	}
+	// Step 3: parse LiteLLM entries (skip sample_spec, skip bad entries)
 	entries := make([]parsedEntry, 0, len(raw))
 	for name, data := range raw {
 		if name == "sample_spec" {
@@ -86,7 +107,17 @@ func SyncFromUpstream(ctx context.Context, pool *pgxpool.Pool, queries *db.Queri
 		entries = append(entries, parsedEntry{name: name, info: info})
 	}
 
-	// Step 4: batch upsert inside a transaction (all-or-nothing)
+	// Step 4: fetch OpenRouter and merge (non-fatal on failure)
+	if openRouterURL != "" {
+		orEntries, orErr := fetchOpenRouter(ctx, openRouterURL)
+		if orErr != nil {
+			log.Printf("pricing sync: OpenRouter fetch failed (non-fatal): %v", orErr)
+		} else {
+			entries = mergeOpenRouterEntries(entries, orEntries)
+		}
+	}
+
+	// Step 5: batch upsert inside a transaction (all-or-nothing)
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("begin transaction: %w", err)
@@ -123,7 +154,7 @@ func SyncFromUpstream(ctx context.Context, pool *pgxpool.Pool, queries *db.Queri
 		return 0, fmt.Errorf("commit transaction: %w", err)
 	}
 
-	// Step 5: reload in-memory calculator
+	// Step 6: reload in-memory calculator
 	dbEntries, err := queries.ListModelPricing(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("list model pricing after sync: %w", err)
@@ -172,4 +203,95 @@ func validateUpstreamData(raw map[string]json.RawMessage) error {
 		return fmt.Errorf("upstream returned only %d models, expected at least %d (possible corruption)", count, minModelCount)
 	}
 	return nil
+}
+
+// fetchOpenRouter fetches model pricing from OpenRouter and returns parsed entries.
+// Each model produces two entries: the full id (e.g. "google/gemini-2.5-pro") and
+// the bare name without provider prefix (e.g. "gemini-2.5-pro").
+func fetchOpenRouter(ctx context.Context, url string) ([]parsedEntry, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := syncHTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http fetch: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("openrouter returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	var orResp openRouterResponse
+	if parseErr := json.Unmarshal(body, &orResp); parseErr != nil {
+		return nil, fmt.Errorf("parse openrouter JSON: %w", parseErr)
+	}
+
+	entries := make([]parsedEntry, 0, len(orResp.Data)*2)
+	for _, m := range orResp.Data {
+		if m.ID == "" {
+			continue
+		}
+
+		provider := ""
+		bareName := m.ID
+		if idx := strings.Index(m.ID, "/"); idx >= 0 {
+			provider = m.ID[:idx]
+			bareName = m.ID[idx+1:]
+		}
+
+		info := upstreamModelEntry{
+			InputCostPerToken:  parseOpenRouterPrice(m.Pricing.Prompt),
+			OutputCostPerToken: parseOpenRouterPrice(m.Pricing.Completion),
+			Mode:               "chat",
+			LiteLLMProvider:    provider,
+		}
+
+		// Full id entry: "google/gemini-2.5-pro"
+		entries = append(entries, parsedEntry{name: m.ID, info: info})
+
+		// Bare name entry: "gemini-2.5-pro" (only when id contains "/")
+		if bareName != m.ID {
+			entries = append(entries, parsedEntry{name: bareName, info: info})
+		}
+	}
+	return entries, nil
+}
+
+// mergeOpenRouterEntries adds OpenRouter entries that are not already present
+// in the LiteLLM entries. LiteLLM takes precedence.
+func mergeOpenRouterEntries(litellm []parsedEntry, openrouter []parsedEntry) []parsedEntry {
+	existing := make(map[string]struct{}, len(litellm))
+	for _, e := range litellm {
+		existing[e.name] = struct{}{}
+	}
+
+	merged := litellm
+	for _, e := range openrouter {
+		if _, found := existing[e.name]; !found {
+			merged = append(merged, e)
+			existing[e.name] = struct{}{} // avoid duplicate bare names from same OR response
+		}
+	}
+	return merged
+}
+
+// parseOpenRouterPrice converts an OpenRouter price string (e.g. "0.000001") to float64.
+// Returns 0 on parse failure.
+func parseOpenRouterPrice(s string) float64 {
+	if s == "" || s == "0" {
+		return 0
+	}
+	var f float64
+	if _, err := fmt.Sscanf(s, "%f", &f); err != nil {
+		return 0
+	}
+	return f
 }

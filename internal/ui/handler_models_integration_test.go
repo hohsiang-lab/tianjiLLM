@@ -78,6 +78,12 @@ func TestIntegrationUI_SyncPricingSuccess(t *testing.T) {
 	upstream := buildUpstreamServer(t, 60)
 
 	t.Setenv("PRICING_UPSTREAM_URL", upstream.URL)
+	// Use an error-returning stub to keep model count deterministic (graceful degradation skips it).
+	orSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "disabled in tests", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(orSrv.Close)
+	t.Setenv("OPENROUTER_PRICING_URL", orSrv.URL)
 
 	h := &UIHandler{
 		DB:      queries,
@@ -160,6 +166,11 @@ func TestIntegrationUI_ConcurrentSafeRace(t *testing.T) {
 	upstream := buildUpstreamServer(t, 60)
 
 	t.Setenv("PRICING_UPSTREAM_URL", upstream.URL)
+	orSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "disabled in tests", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(orSrv.Close)
+	t.Setenv("OPENROUTER_PRICING_URL", orSrv.URL)
 
 	h := &UIHandler{
 		DB:      queries,
