@@ -412,7 +412,7 @@ func buildModelRowUnmasked(m db.ProxyModelTable) pages.ModelRow {
 
 	provider, providerModel := splitProviderModel(str(tp, "model"))
 
-	return pages.ModelRow{
+	row := pages.ModelRow{
 		ID:            m.ModelID,
 		ModelName:     m.ModelName,
 		Provider:      provider,
@@ -422,6 +422,8 @@ func buildModelRowUnmasked(m db.ProxyModelTable) pages.ModelRow {
 		TPM:           int64Val(tp, "tpm"),
 		RPM:           int64Val(tp, "rpm"),
 	}
+	extractAccessControl(m.ModelInfo, &row)
+	return row
 }
 
 // buildModelRowFromConfig converts a YAML config model entry into the view model.
@@ -444,7 +446,7 @@ func buildModelRowFromConfig(m config.ModelConfig) pages.ModelRow {
 		rpm = *m.TianjiParams.RPM
 	}
 
-	return pages.ModelRow{
+	row := pages.ModelRow{
 		ModelName:     m.ModelName,
 		Provider:      provider,
 		ProviderModel: providerModel,
@@ -453,6 +455,13 @@ func buildModelRowFromConfig(m config.ModelConfig) pages.ModelRow {
 		TPM:           tpm,
 		RPM:           rpm,
 	}
+	if ac := m.AccessControl; ac != nil && !ac.IsPublic() {
+		row.AllowedOrgs = ac.AllowedOrgs
+		row.AllowedTeams = ac.AllowedTeams
+		row.AllowedKeys = ac.AllowedKeys
+		row.IsRestricted = true
+	}
+	return row
 }
 
 // splitProviderModel splits "provider/model" into its parts.
