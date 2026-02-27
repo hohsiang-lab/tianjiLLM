@@ -314,6 +314,8 @@ func (h *UIHandler) handleUserDelete(w http.ResponseWriter, r *http.Request) {
 		count, err := h.DB.CountUsersByRole(r.Context(), "proxy_admin")
 		if err == nil && count <= 1 {
 			data := h.loadUsersPageData(r)
+			w.Header().Set("HX-Retarget", "#users-table")
+			w.Header().Set("HX-Reswap", "innerHTML")
 			render(r.Context(), w, pages.UsersTableWithToast(data, "Cannot delete the last admin user", toast.VariantError))
 			return
 		}
@@ -324,6 +326,8 @@ func (h *UIHandler) handleUserDelete(w http.ResponseWriter, r *http.Request) {
 		UpdatedBy: "admin",
 	}); err != nil {
 		data := h.loadUsersPageData(r)
+		w.Header().Set("HX-Retarget", "#users-table")
+		w.Header().Set("HX-Reswap", "innerHTML")
 		render(r.Context(), w, pages.UsersTableWithToast(data, "Failed to delete user: "+err.Error(), toast.VariantError))
 		return
 	}
