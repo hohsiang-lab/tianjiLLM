@@ -45,13 +45,22 @@ Need to add to `internal/db/queries/user.sql`:
 SELECT * FROM "UserTable"
 WHERE ($1::text = '' OR user_alias ILIKE '%' || $1 || '%' OR user_email ILIKE '%' || $1 || '%')
   AND ($2::text = '' OR user_role = $2)
+  AND ($3::text = '' OR COALESCE(metadata->>'status', 'active') = $3)
+  AND COALESCE(metadata->>'status', 'active') != 'deleted'
 ORDER BY created_at DESC
-LIMIT $3 OFFSET $4;
+LIMIT $4 OFFSET $5;
 
 -- name: CountUsers :one
 SELECT COUNT(*) FROM "UserTable"
 WHERE ($1::text = '' OR user_alias ILIKE '%' || $1 || '%' OR user_email ILIKE '%' || $1 || '%')
-  AND ($2::text = '' OR user_role = $2);
+  AND ($2::text = '' OR user_role = $2)
+  AND ($3::text = '' OR COALESCE(metadata->>'status', 'active') = $3)
+  AND COALESCE(metadata->>'status', 'active') != 'deleted';
+
+-- name: CountUsersByRole :one
+SELECT COUNT(*) FROM "UserTable"
+WHERE user_role = $1
+  AND COALESCE(metadata->>'status', 'active') != 'deleted';
 
 -- name: SoftDeleteUser :exec
 UPDATE "UserTable"
@@ -80,6 +89,33 @@ r.Post("/users/{user_id}/block", h.handleUserBlock)
 r.Post("/users/{user_id}/unblock", h.handleUserUnblock)
 r.Post("/users/{user_id}/delete", h.handleUserDelete)
 ```
+
+## Review Feedback (諸葛亮 2026-02-27)
+
+### 🔴 Critical Fix #1: RBAC
+- v1 策略：新增 `requireAdmin` middleware（跟 Teams/Orgs 保持一致，它們也沒做 per-user 權限）
+- `/users` 所有 route 加 `r.Use(h.requireAdmin)`
+- `requireAdmin` 從 session 讀 user role，非 `proxy_admin` 回 403
+- v2 再做 Member 看自己、Viewer 唯讀
+
+### 🔴 Critical Fix #2: Soft Delete 過濾
+- `ListUsersPaginated` 加 `AND (metadata->>'status' IS NULL OR metadata->>'status' != 'deleted')`
+- `CountUsers` 同上
+- `GetUserByEmail` 在 handler 層處理（查到 deleted user 視為不存在）
+
+### 🔴 Critical Fix #3: metadata.status NULL 處理
+- 現有 user metadata 是 `{}`，沒有 status key → 視為 active
+- 所有查詢：`metadata->>'status' IS NULL OR metadata->>'status' = 'active'` = active user
+- `metadata->>'status' = 'disabled'` = disabled
+- `metadata->>'status' = 'deleted'` = soft deleted
+
+### 🟡 Important 決策
+- **metadata.status vs blocked boolean**：選 metadata 避免 schema migration，Plan 明確記錄
+- **DB-level pagination**：刻意改進，比 Teams 的 in-memory filter 更好。Teams 之後也應改（follow-up）
+- **CountUsers 加 status 參數**：跟 ListUsersPaginated WHERE 完全一致
+- **Last admin 保護**：handler 層先 `SELECT COUNT(*) FROM "UserTable" WHERE user_role = 'proxy_admin'`，只剩 1 個時阻止 role change / delete
+- **Per-model spend**：v1 只顯示 total spend（UserTable.spend），per-model breakdown 開 follow-up
+- **Auth**：v1 不管 password/login，user 靠 API key 或 master key 操作。明確 out of scope
 
 ## Implementation Phases
 
