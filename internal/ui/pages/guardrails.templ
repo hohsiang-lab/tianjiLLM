@@ -1,0 +1,461 @@
+package pages
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/pagination"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/table"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/toast"
+)
+
+// --- Data types ---
+
+type GuardrailRow struct {
+	ID            string
+	Name          string
+	Type          string
+	FailurePolicy string
+	Enabled       bool
+	CreatedAt     time.Time
+	ConfigJSON    string
+}
+
+type GuardrailsPageData struct {
+	Guardrails []GuardrailRow
+	Page       int
+	TotalPages int
+	TotalCount int
+	PerPage    int
+	Search     string
+}
+
+func (d GuardrailsPageData) guardrailsFilterQueryString() string {
+	if d.Search != "" {
+		return "&search=" + d.Search
+	}
+	return ""
+}
+
+// --- Templates ---
+
+templ guardrailEnabledBadge(enabled bool) {
+	if enabled {
+		@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+			Enabled
+		}
+	} else {
+		@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+			Disabled
+		}
+	}
+}
+
+templ GuardrailsPage(data GuardrailsPageData) {
+	@AppLayout("Guardrails", "/ui/guardrails") {
+		@dialog.Script()
+		@input.Script()
+		@toast.Script()
+		<div class="space-y-3">
+			<div id="guardrail-filters" class="flex items-center gap-2">
+				<div class="relative flex-1">
+					@icon.Search(icon.Props{Size: 16, Class: "absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"})
+					<input
+						type="text"
+						name="search"
+						placeholder="Search by name..."
+						value={ data.Search }
+						class="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+						hx-get="/ui/guardrails/table"
+						hx-trigger="input changed delay:300ms"
+						hx-target="#guardrails-table"
+						hx-include="#guardrail-filters"
+					/>
+				</div>
+				@dialog.Dialog(dialog.Props{ID: "create-guardrail-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Size: button.SizeSm}) {
+							@icon.Plus(icon.Props{Size: 16, Class: "mr-1"})
+							New Guardrail
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Create New Guardrail
+							}
+							@dialog.Description() {
+								Configure a guardrail to filter or moderate requests and responses.
+							}
+						}
+						@createGuardrailForm()
+					}
+				}
+			</div>
+			<div id="guardrails-table" data-testid="guardrails-table">
+				@GuardrailsTablePartial(data)
+			</div>
+		</div>
+	}
+}
+
+templ createGuardrailForm() {
+	<form
+		hx-post="/ui/guardrails/create"
+		hx-target="#guardrails-table"
+	>
+		<div class="space-y-4 py-4">
+			<div class="space-y-2">
+				<label for="guardrail_name" class="text-sm font-medium">Name <span class="text-destructive">*</span></label>
+				@input.Input(input.Props{
+					ID:          "guardrail_name",
+					Name:        "guardrail_name",
+					Placeholder: "my-guardrail",
+					Attributes:  templ.Attributes{"required": "true"},
+				})
+			</div>
+			<div class="space-y-2">
+				<label for="guardrail_type" class="text-sm font-medium">Type <span class="text-destructive">*</span></label>
+				<select name="guardrail_type" id="guardrail_type" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required>
+					<option value="">Select type...</option>
+					<option value="openai_moderation">OpenAI Moderation</option>
+					<option value="presidio">Presidio</option>
+					<option value="lakera_guard">Lakera Guard</option>
+					<option value="aporia">Aporia</option>
+					<option value="bedrock">Bedrock</option>
+					<option value="aim_safety">AIM Safety</option>
+					<option value="google_text_moderation">Google Text Moderation</option>
+					<option value="guardrails_ai">Guardrails AI</option>
+					<option value="llm_guard">LLM Guard</option>
+					<option value="custom">Custom</option>
+				</select>
+			</div>
+			<div class="space-y-2">
+				<label for="guardrail_failure_policy" class="text-sm font-medium">Failure Policy</label>
+				<select name="failure_policy" id="guardrail_failure_policy" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+					<option value="fail_open">Fail Open (allow on error)</option>
+					<option value="fail_closed">Fail Closed (block on error)</option>
+				</select>
+			</div>
+			<div class="space-y-2">
+				<label for="guardrail_config" class="text-sm font-medium">Config (JSON)</label>
+				<textarea
+					name="config"
+					id="guardrail_config"
+					rows="4"
+					placeholder="{}"
+					class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+				>{}</textarea>
+			</div>
+			<div class="flex items-center gap-2">
+				<input type="checkbox" name="enabled" id="guardrail_enabled" class="h-4 w-4 rounded border border-input" checked/>
+				<label for="guardrail_enabled" class="text-sm font-medium">Enabled</label>
+			</div>
+		</div>
+		@dialog.Footer() {
+			@dialog.Close() {
+				@button.Button(button.Props{Variant: button.VariantOutline}) {
+					Cancel
+				}
+			}
+			@button.Button(button.Props{Type: "submit"}) {
+				Create Guardrail
+			}
+		}
+	</form>
+}
+
+templ GuardrailsTablePartial(data GuardrailsPageData) {
+	@card.Card() {
+		@card.Content(card.ContentProps{Class: "p-0"}) {
+			@table.Table() {
+				@table.Header() {
+					@table.Row() {
+						@table.Head() { Name }
+						@table.Head() { Type }
+						@table.Head() { Failure Policy }
+						@table.Head() { Status }
+						@table.Head() { Created }
+						@table.Head(table.HeadProps{Class: "text-right"}) { Actions }
+					}
+				}
+				@table.Body() {
+					if len(data.Guardrails) == 0 {
+						@table.Row() {
+							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": "6"}}) {
+								if data.Search != "" {
+									<div class="py-8 text-center text-muted-foreground">No guardrails match your search</div>
+								} else {
+									<div class="py-8 text-center text-muted-foreground">No guardrails configured</div>
+								}
+							}
+						}
+					}
+					for _, g := range data.Guardrails {
+						@guardrailTableRow(g)
+					}
+				}
+			}
+		}
+	}
+	<div class="mt-4 flex items-center justify-between">
+		<span class="text-sm text-muted-foreground">
+			if data.TotalCount == 0 {
+				No results
+			} else {
+				{ fmt.Sprintf("Showing %d–%d of %d results", (data.Page-1)*data.PerPage+1, minInt((data.Page)*data.PerPage, data.TotalCount), data.TotalCount) }
+			}
+		</span>
+		if data.TotalPages > 1 {
+			{{ pg := pagination.CreatePagination(data.Page, data.TotalPages, 5) }}
+			{{ qs := data.guardrailsFilterQueryString() }}
+			@pagination.Pagination() {
+				@pagination.Content() {
+					@pagination.Item() {
+						@pagination.Previous(pagination.PreviousProps{
+							Disabled: !pg.HasPrevious,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/guardrails/table?page=%d%s", data.Page-1, qs),
+								"hx-target": "#guardrails-table",
+							},
+						})
+					}
+					if pg.Pages[0] > 1 {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/guardrails/table?page=1%s", qs),
+									"hx-target": "#guardrails-table",
+								},
+							}) {
+								1
+							}
+						}
+						if pg.Pages[0] > 2 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+					}
+					for _, p := range pg.Pages {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								IsActive: p == pg.CurrentPage,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/guardrails/table?page=%d%s", p, qs),
+									"hx-target": "#guardrails-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", p) }
+							}
+						}
+					}
+					if pg.Pages[len(pg.Pages)-1] < pg.TotalPages {
+						if pg.Pages[len(pg.Pages)-1] < pg.TotalPages-1 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/guardrails/table?page=%d%s", pg.TotalPages, qs),
+									"hx-target": "#guardrails-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", pg.TotalPages) }
+							}
+						}
+					}
+					@pagination.Item() {
+						@pagination.Next(pagination.NextProps{
+							Disabled: !pg.HasNext,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/guardrails/table?page=%d%s", data.Page+1, qs),
+								"hx-target": "#guardrails-table",
+							},
+						})
+					}
+				}
+			}
+		}
+	</div>
+}
+
+templ guardrailTableRow(g GuardrailRow) {
+	@table.Row() {
+		@table.Cell() {
+			<span class="font-medium">{ g.Name }</span>
+		}
+		@table.Cell() {
+			<span class="text-sm font-mono text-muted-foreground">{ g.Type }</span>
+		}
+		@table.Cell() {
+			if g.FailurePolicy == "fail_closed" {
+				@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+					fail_closed
+				}
+			} else {
+				@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+					fail_open
+				}
+			}
+		}
+		@table.Cell() {
+			@guardrailEnabledBadge(g.Enabled)
+		}
+		@table.Cell() {
+			<span class="text-sm text-muted-foreground">{ g.CreatedAt.Format("2006-01-02") }</span>
+		}
+		@table.Cell(table.CellProps{Class: "text-right"}) {
+			<div class="flex items-center justify-end gap-1">
+				if g.Enabled {
+					<form hx-post={ "/ui/guardrails/" + g.ID + "/toggle" } hx-target="#guardrails-table" hx-swap="innerHTML">
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
+							Disable
+						}
+					</form>
+				} else {
+					<form hx-post={ "/ui/guardrails/" + g.ID + "/toggle" } hx-target="#guardrails-table" hx-swap="innerHTML">
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
+							Enable
+						}
+					</form>
+				}
+				@dialog.Dialog(dialog.Props{ID: "edit-guardrail-" + g.ID}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm}) {
+							@icon.Pencil(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Edit Guardrail
+							}
+						}
+						@editGuardrailForm(g)
+					}
+				}
+				@dialog.Dialog(dialog.Props{ID: "delete-guardrail-" + g.ID}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantDestructive, Size: button.SizeSm}) {
+							@icon.Trash(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-sm"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete Guardrail
+							}
+							@dialog.Description() {
+								{ "Are you sure you want to delete guardrail \"" + g.Name + "\"? This action cannot be undone." }
+							}
+						}
+						@dialog.Footer() {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							<form hx-post={ "/ui/guardrails/" + g.ID + "/delete" } hx-target="#guardrails-table" hx-swap="innerHTML">
+								@button.Button(button.Props{Variant: button.VariantDestructive, Type: "submit"}) {
+									Delete
+								}
+							</form>
+						}
+					}
+				}
+			</div>
+		}
+	}
+}
+
+templ editGuardrailForm(g GuardrailRow) {
+	<form
+		hx-post={ "/ui/guardrails/" + g.ID + "/update" }
+		hx-target="#guardrails-table"
+		hx-swap="innerHTML"
+	>
+		<div class="space-y-4 py-4">
+			<div class="space-y-2">
+				<label for={ "edit_name_" + g.ID } class="text-sm font-medium">Name <span class="text-destructive">*</span></label>
+				@input.Input(input.Props{
+					ID:         "edit_name_" + g.ID,
+					Name:       "guardrail_name",
+					Value:      g.Name,
+					Attributes: templ.Attributes{"required": "true"},
+				})
+			</div>
+			<div class="space-y-2">
+				<label for={ "edit_type_" + g.ID } class="text-sm font-medium">Type</label>
+				<select name="guardrail_type" id={ "edit_type_" + g.ID } class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+					<option value="openai_moderation" selected?={ g.Type == "openai_moderation" }>OpenAI Moderation</option>
+					<option value="presidio" selected?={ g.Type == "presidio" }>Presidio</option>
+					<option value="lakera_guard" selected?={ g.Type == "lakera_guard" }>Lakera Guard</option>
+					<option value="aporia" selected?={ g.Type == "aporia" }>Aporia</option>
+					<option value="bedrock" selected?={ g.Type == "bedrock" }>Bedrock</option>
+					<option value="aim_safety" selected?={ g.Type == "aim_safety" }>AIM Safety</option>
+					<option value="google_text_moderation" selected?={ g.Type == "google_text_moderation" }>Google Text Moderation</option>
+					<option value="guardrails_ai" selected?={ g.Type == "guardrails_ai" }>Guardrails AI</option>
+					<option value="llm_guard" selected?={ g.Type == "llm_guard" }>LLM Guard</option>
+					<option value="custom" selected?={ g.Type == "custom" }>Custom</option>
+				</select>
+			</div>
+			<div class="space-y-2">
+				<label for={ "edit_policy_" + g.ID } class="text-sm font-medium">Failure Policy</label>
+				<select name="failure_policy" id={ "edit_policy_" + g.ID } class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+					<option value="fail_open" selected?={ g.FailurePolicy == "fail_open" }>Fail Open (allow on error)</option>
+					<option value="fail_closed" selected?={ g.FailurePolicy == "fail_closed" }>Fail Closed (block on error)</option>
+				</select>
+			</div>
+			<div class="space-y-2">
+				<label for={ "edit_config_" + g.ID } class="text-sm font-medium">Config (JSON)</label>
+				<textarea
+					name="config"
+					id={ "edit_config_" + g.ID }
+					rows="4"
+					class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+				>{ g.ConfigJSON }</textarea>
+			</div>
+			<div class="flex items-center gap-2">
+				if g.Enabled {
+					<input type="checkbox" name="enabled" id={ "edit_enabled_" + g.ID } class="h-4 w-4 rounded border border-input" checked/>
+				} else {
+					<input type="checkbox" name="enabled" id={ "edit_enabled_" + g.ID } class="h-4 w-4 rounded border border-input"/>
+				}
+				<label for={ "edit_enabled_" + g.ID } class="text-sm font-medium">Enabled</label>
+			</div>
+		</div>
+		@dialog.Footer() {
+			@dialog.Close() {
+				@button.Button(button.Props{Variant: button.VariantOutline}) {
+					Cancel
+				}
+			}
+			@button.Button(button.Props{Type: "submit"}) {
+				Save Changes
+			}
+		}
+	</form>
+}
+
+templ GuardrailsTableWithToast(data GuardrailsPageData, toastMsg string, toastVariant toast.Variant) {
+	@GuardrailsTablePartial(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}

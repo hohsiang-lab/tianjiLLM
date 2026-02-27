@@ -92,6 +92,14 @@ func (h *UIHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/logs", h.handleLogs)
 		r.Get("/logs/table", h.handleLogsTable)
 
+		// Guardrails
+		r.Get("/guardrails", h.handleGuardrails)
+		r.Get("/guardrails/table", h.handleGuardrailsTable)
+		r.Post("/guardrails/create", h.handleGuardrailCreate)
+		r.Post("/guardrails/{id}/update", h.handleGuardrailUpdate)
+		r.Post("/guardrails/{id}/toggle", h.handleGuardrailToggle)
+		r.Post("/guardrails/{id}/delete", h.handleGuardrailDelete)
+
 		// Users (admin only)
 		r.Group(func(r chi.Router) {
 			r.Use(h.requireAdmin)
