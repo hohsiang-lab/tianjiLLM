@@ -116,7 +116,7 @@ func SyncFromUpstream(ctx context.Context, pool *pgxpool.Pool, queries *db.Queri
 			for _, m := range orModels {
 				promptCost, promptErr := strconv.ParseFloat(m.Pricing.Prompt, 64)
 				completionCost, completionErr := strconv.ParseFloat(m.Pricing.Completion, 64)
-				if promptErr != nil && completionErr != nil {
+				if (promptErr != nil && completionErr != nil) || (promptCost == 0 && completionCost == 0) {
 					continue
 				}
 
