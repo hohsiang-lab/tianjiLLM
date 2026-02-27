@@ -185,6 +185,14 @@ func (h *UIHandler) handleGuardrailUpdate(w http.ResponseWriter, r *http.Request
 		render(r.Context(), w, pages.GuardrailsTableWithToast(data, "Config must be valid JSON", toast.VariantError))
 		return
 	}
+	// Check name uniqueness (exclude self)
+	existing, nameErr := h.DB.GetGuardrailConfigByName(r.Context(), name)
+	if nameErr == nil && existing.ID != "" && existing.ID != id {
+		data := h.loadGuardrailsPageData(r)
+		render(r.Context(), w, pages.GuardrailsTableWithToast(data, "Guardrail name already exists", toast.VariantError))
+		return
+	}
+
 	enabled := r.FormValue("enabled") == "on" || r.FormValue("enabled") == "true"
 
 	params := db.UpdateGuardrailConfigParams{
