@@ -86,6 +86,21 @@ func (h *UIHandler) handleLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/ui/login", http.StatusSeeOther)
 }
 
+func (h *UIHandler) requireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, ok := getSessionFromRequest(r, h.sessionKey())
+		if !ok || session.Role != "admin" {
+			if r.Header.Get("HX-Request") == "true" {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (h *UIHandler) sessionAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, ok := getSessionFromRequest(r, h.sessionKey())

@@ -1,0 +1,828 @@
+package pages
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/pagination"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/table"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/toast"
+)
+
+// --- Data types ---
+
+type UserRow struct {
+	UserID    string
+	UserAlias string
+	UserEmail string
+	UserRole  string
+	Teams     []string
+	Spend     float64
+	MaxBudget *float64
+	Models    []string
+	Status    string // "active", "disabled"
+	TPMLimit  *int64
+	RPMLimit  *int64
+	CreatedAt time.Time
+}
+
+type UserTeamRow struct {
+	TeamID    string
+	TeamAlias string
+}
+
+type UserDetailData struct {
+	User     UserRow
+	Teams    []UserTeamRow
+	Metadata string // pretty-printed JSON
+	Status   string
+}
+
+type UsersPageData struct {
+	Users        []UserRow
+	Page         int
+	TotalPages   int
+	TotalCount   int
+	PerPage      int
+	Search       string
+	FilterRole   string
+	FilterStatus string
+}
+
+func (d UsersPageData) usersFilterQueryString() string {
+	var parts []string
+	if d.Search != "" {
+		parts = append(parts, "search="+d.Search)
+	}
+	if d.FilterRole != "" {
+		parts = append(parts, "filter_role="+d.FilterRole)
+	}
+	if d.FilterStatus != "" {
+		parts = append(parts, "filter_status="+d.FilterStatus)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "&" + strings.Join(parts, "&")
+}
+
+// --- Templates ---
+
+templ UserStatusBadge(status string) {
+	if status == "disabled" {
+		@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+			Disabled
+		}
+	} else {
+		@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+			Active
+		}
+	}
+}
+
+templ UserRoleBadge(role string) {
+	if role == "proxy_admin" {
+		@badge.Badge(badge.Props{Variant: badge.VariantDefault}) {
+			Admin
+		}
+	} else if role == "internal_user_viewer" {
+		@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
+			Viewer
+		}
+	} else {
+		@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+			User
+		}
+	}
+}
+
+templ UsersPage(data UsersPageData) {
+	@AppLayout("Users", "/ui/users") {
+		@dialog.Script()
+		@input.Script()
+		@toast.Script()
+		<div class="space-y-3">
+			<div id="user-filters" class="flex items-center gap-2">
+				<div class="relative flex-1">
+					@icon.Search(icon.Props{Size: 16, Class: "absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"})
+					<input
+						type="text"
+						name="search"
+						placeholder="Search by alias or email..."
+						value={ data.Search }
+						class="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+						hx-get="/ui/users/table"
+						hx-trigger="input changed delay:300ms"
+						hx-target="#users-table"
+						hx-include="#user-filters"
+					/>
+				</div>
+				<select
+					name="filter_role"
+					class="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+					hx-get="/ui/users/table"
+					hx-trigger="change"
+					hx-target="#users-table"
+					hx-include="#user-filters"
+				>
+					<option value="">All Roles</option>
+					<option value="proxy_admin" selected?={ data.FilterRole == "proxy_admin" }>Admin</option>
+					<option value="internal_user" selected?={ data.FilterRole == "internal_user" }>User</option>
+					<option value="internal_user_viewer" selected?={ data.FilterRole == "internal_user_viewer" }>Viewer</option>
+				</select>
+				<select
+					name="filter_status"
+					class="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+					hx-get="/ui/users/table"
+					hx-trigger="change"
+					hx-target="#users-table"
+					hx-include="#user-filters"
+				>
+					<option value="">All Statuses</option>
+					<option value="active" selected?={ data.FilterStatus == "active" }>Active</option>
+					<option value="disabled" selected?={ data.FilterStatus == "disabled" }>Disabled</option>
+				</select>
+				@dialog.Dialog(dialog.Props{ID: "create-user-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Size: button.SizeSm}) {
+							@icon.Plus(icon.Props{Size: 16, Class: "mr-1"})
+							New User
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Create New User
+							}
+							@dialog.Description() {
+								Create a user with an email, role, and optional budget and limits.
+							}
+						}
+						@createUserForm(data)
+					}
+				}
+			</div>
+			<div id="users-table" data-testid="users-table">
+				@UsersTablePartial(data)
+			</div>
+		</div>
+	}
+}
+
+templ createUserForm(data UsersPageData) {
+	<form
+		hx-post="/ui/users/create"
+		hx-target="#users-table"
+	>
+		<div class="space-y-4 py-4">
+			<div class="space-y-2">
+				<label for="user_email" class="text-sm font-medium">Email <span class="text-destructive">*</span></label>
+				@input.Input(input.Props{
+					ID:          "user_email",
+					Name:        "user_email",
+					Type:        "email",
+					Placeholder: "user@example.com",
+					Attributes:  templ.Attributes{"required": "true"},
+				})
+			</div>
+			<div class="space-y-2">
+				<label for="user_alias" class="text-sm font-medium">Alias</label>
+				@input.Input(input.Props{
+					ID:          "user_alias",
+					Name:        "user_alias",
+					Placeholder: "John Doe",
+				})
+			</div>
+			<div class="space-y-2">
+				<label for="user_role" class="text-sm font-medium">Role</label>
+				<select name="user_role" id="user_role" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+					<option value="internal_user" selected>User</option>
+					<option value="proxy_admin">Admin</option>
+					<option value="internal_user_viewer">Viewer</option>
+				</select>
+			</div>
+			<details class="space-y-4">
+				<summary class="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">Optional Settings</summary>
+				<div class="space-y-4 pt-2">
+					<div class="space-y-2">
+						<label for="user_max_budget" class="text-sm font-medium">Max Budget ($)</label>
+						@input.Input(input.Props{
+							ID:          "user_max_budget",
+							Name:        "max_budget",
+							Type:        "number",
+							Placeholder: "100.00",
+							Attributes:  templ.Attributes{"step": "0.01", "min": "0"},
+						})
+					</div>
+					<div class="grid grid-cols-2 gap-4">
+						<div class="space-y-2">
+							<label for="user_tpm_limit" class="text-sm font-medium">TPM Limit</label>
+							@input.Input(input.Props{
+								ID:          "user_tpm_limit",
+								Name:        "tpm_limit",
+								Type:        "number",
+								Placeholder: "10000",
+								Attributes:  templ.Attributes{"min": "1"},
+							})
+						</div>
+						<div class="space-y-2">
+							<label for="user_rpm_limit" class="text-sm font-medium">RPM Limit</label>
+							@input.Input(input.Props{
+								ID:          "user_rpm_limit",
+								Name:        "rpm_limit",
+								Type:        "number",
+								Placeholder: "100",
+								Attributes:  templ.Attributes{"min": "1"},
+							})
+						</div>
+					</div>
+				</div>
+			</details>
+		</div>
+		@dialog.Footer() {
+			@dialog.Close() {
+				@button.Button(button.Props{Variant: button.VariantOutline}) {
+					Cancel
+				}
+			}
+			@button.Button(button.Props{Type: "submit"}) {
+				Create User
+			}
+		}
+	</form>
+}
+
+templ UsersTablePartial(data UsersPageData) {
+	@card.Card() {
+		@card.Content(card.ContentProps{Class: "p-0"}) {
+			@table.Table() {
+				@table.Header() {
+					@table.Row() {
+						@table.Head() {
+							User
+						}
+						@table.Head() {
+							Role
+						}
+						@table.Head() {
+							Teams
+						}
+						@table.Head() {
+							Spend
+						}
+						@table.Head() {
+							Status
+						}
+						@table.Head() {
+							Created
+						}
+						@table.Head(table.HeadProps{Class: "text-right"}) {
+							Actions
+						}
+					}
+				}
+				@table.Body() {
+					if len(data.Users) == 0 {
+						@table.Row() {
+							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": "7"}}) {
+								<div class="py-8 text-center text-muted-foreground">No users found</div>
+							}
+						}
+					} else {
+						for _, u := range data.Users {
+							@userTableRow(u)
+						}
+					}
+				}
+			}
+		}
+	}
+	<div class="flex items-center justify-between pt-2">
+		<span class="text-sm text-muted-foreground">
+			if data.TotalCount == 0 {
+				No results
+			} else {
+				{ fmt.Sprintf("Showing %d–%d of %d results", (data.Page-1)*data.PerPage+1, minInt((data.Page)*data.PerPage, data.TotalCount), data.TotalCount) }
+			}
+		</span>
+		if data.TotalPages > 1 {
+			{{ pg := pagination.CreatePagination(data.Page, data.TotalPages, 5) }}
+			{{ qs := data.usersFilterQueryString() }}
+			@pagination.Pagination() {
+				@pagination.Content() {
+					@pagination.Item() {
+						@pagination.Previous(pagination.PreviousProps{
+							Disabled: !pg.HasPrevious,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/users/table?page=%d%s", data.Page-1, qs),
+								"hx-target": "#users-table",
+							},
+						})
+					}
+					if pg.Pages[0] > 1 {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/users/table?page=1%s", qs),
+									"hx-target": "#users-table",
+								},
+							}) {
+								1
+							}
+						}
+						if pg.Pages[0] > 2 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+					}
+					for _, p := range pg.Pages {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								IsActive: p == pg.CurrentPage,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/users/table?page=%d%s", p, qs),
+									"hx-target": "#users-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", p) }
+							}
+						}
+					}
+					if pg.Pages[len(pg.Pages)-1] < pg.TotalPages {
+						if pg.Pages[len(pg.Pages)-1] < pg.TotalPages-1 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/users/table?page=%d%s", pg.TotalPages, qs),
+									"hx-target": "#users-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", pg.TotalPages) }
+							}
+						}
+					}
+					@pagination.Item() {
+						@pagination.Next(pagination.NextProps{
+							Disabled: !pg.HasNext,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/users/table?page=%d%s", data.Page+1, qs),
+								"hx-target": "#users-table",
+							},
+						})
+					}
+				}
+			}
+		}
+	</div>
+}
+
+templ userTableRow(u UserRow) {
+	@table.Row() {
+		@table.Cell() {
+			<a href={ templ.SafeURL("/ui/users/" + u.UserID) } class="font-medium hover:underline text-primary">
+				if u.UserAlias != "" {
+					{ u.UserAlias }
+				} else if u.UserEmail != "" {
+					{ u.UserEmail }
+				} else {
+					{ u.UserID[:8] + "..." }
+				}
+			</a>
+			if u.UserAlias != "" && u.UserEmail != "" {
+				<div class="text-xs text-muted-foreground">{ u.UserEmail }</div>
+			}
+		}
+		@table.Cell() {
+			@UserRoleBadge(u.UserRole)
+		}
+		@table.Cell() {
+			<span class="text-sm">{ fmt.Sprintf("%d", len(u.Teams)) }</span>
+		}
+		@table.Cell() {
+			if u.MaxBudget != nil {
+				<span class="text-sm">{ fmt.Sprintf("$%.2f / $%.2f", u.Spend, *u.MaxBudget) }</span>
+			} else {
+				<span class="text-sm">{ fmt.Sprintf("$%.2f / ∞", u.Spend) }</span>
+			}
+		}
+		@table.Cell() {
+			<div id={ "user-status-" + u.UserID }>
+				@UserStatusBadge(u.Status)
+			</div>
+		}
+		@table.Cell() {
+			<span class="text-sm text-muted-foreground">{ u.CreatedAt.Format("2006-01-02") }</span>
+		}
+		@table.Cell(table.CellProps{Class: "text-right"}) {
+			<div class="flex items-center justify-end gap-1">
+				if u.Status == "disabled" {
+					<form hx-post={ "/ui/users/" + u.UserID + "/unblock" } hx-target="#users-table" hx-swap="innerHTML">
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
+							Enable
+						}
+					</form>
+				} else {
+					<form hx-post={ "/ui/users/" + u.UserID + "/block" } hx-target="#users-table" hx-swap="innerHTML">
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
+							Disable
+						}
+					</form>
+				}
+				@dialog.Dialog(dialog.Props{ID: "delete-user-" + u.UserID}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantDestructive, Size: button.SizeSm}) {
+							@icon.Trash(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-sm"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete User
+							}
+							@dialog.Description() {
+								if u.UserAlias != "" {
+									{ "Are you sure you want to delete user \"" + u.UserAlias + "\"? This action cannot be undone." }
+								} else if u.UserEmail != "" {
+									{ "Are you sure you want to delete user \"" + u.UserEmail + "\"? This action cannot be undone." }
+								} else {
+									This action cannot be undone.
+								}
+							}
+						}
+						@dialog.Footer() {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							<form hx-post={ "/ui/users/" + u.UserID + "/delete" } hx-target="body" hx-push-url="/ui/users">
+								@button.Button(button.Props{Variant: button.VariantDestructive, Type: "submit"}) {
+									Delete
+								}
+							</form>
+						}
+					}
+				}
+			</div>
+		}
+	}
+}
+
+templ UsersTableWithToast(data UsersPageData, toastMsg string, toastVariant toast.Variant) {
+	@UsersTablePartial(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
+
+// --- User Detail templates ---
+
+func userDetailTitle(u UserRow) string {
+	if u.UserAlias != "" {
+		return u.UserAlias
+	}
+	if u.UserEmail != "" {
+		return u.UserEmail
+	}
+	return u.UserID[:8] + "..."
+}
+
+func userBudgetStr(b *float64) string {
+	if b == nil {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", *b)
+}
+
+func userLimitStr(l *int64) string {
+	if l == nil {
+		return ""
+	}
+	return fmt.Sprintf("%d", *l)
+}
+
+templ UserDetailPage(data UserDetailData) {
+	@AppLayout(userDetailTitle(data.User)+" — User Detail", "/ui/users") {
+		@dialog.Script()
+		@input.Script()
+		@toast.Script()
+		@UserDetailHeader(data)
+	}
+}
+
+templ UserDetailHeader(data UserDetailData) {
+	<div id="user-detail-content" class="space-y-6">
+		<!-- Page header -->
+		<div class="flex items-center justify-between">
+			<div class="space-y-1">
+				<div class="flex items-center gap-3">
+					<h2 class="text-lg font-semibold">{ userDetailTitle(data.User) }</h2>
+					@UserStatusBadge(data.Status)
+					@UserRoleBadge(data.User.UserRole)
+				</div>
+				<div class="text-xs text-muted-foreground">
+					ID: <span class="font-mono">{ data.User.UserID }</span>
+					if data.User.UserEmail != "" {
+						· { data.User.UserEmail }
+					}
+					if !data.User.CreatedAt.IsZero() {
+						· Created { data.User.CreatedAt.Format("2006-01-02") }
+					}
+				</div>
+			</div>
+			<div class="flex items-center gap-2">
+				<a href="/ui/users">
+					@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeSm}) {
+						← Back to Users
+					}
+				</a>
+				if data.Status == "disabled" {
+					<form method="POST" action={ templ.SafeURL("/ui/users/" + data.User.UserID + "/unblock") }>
+						<input type="hidden" name="return_to" value="detail"/>
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
+							Enable
+						}
+					</form>
+				} else {
+					<form method="POST" action={ templ.SafeURL("/ui/users/" + data.User.UserID + "/block") }>
+						<input type="hidden" name="return_to" value="detail"/>
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
+							Disable
+						}
+					</form>
+				}
+				@dialog.Dialog(dialog.Props{ID: "edit-user-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm}) {
+							@icon.Pencil(icon.Props{Size: 14, Class: "mr-1"})
+							Edit
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Edit User
+							}
+						}
+						<form
+							hx-post={ "/ui/users/" + data.User.UserID + "/update" }
+							hx-target="#user-detail-content"
+							hx-swap="outerHTML"
+						>
+							<div class="space-y-4 py-4">
+								<div class="space-y-2">
+									<label for="edit_user_alias" class="text-sm font-medium">Alias</label>
+									@input.Input(input.Props{
+										ID:    "edit_user_alias",
+										Name:  "user_alias",
+										Value: data.User.UserAlias,
+									})
+								</div>
+								<div class="space-y-2">
+									<label for="edit_user_email" class="text-sm font-medium">Email</label>
+									@input.Input(input.Props{
+										ID:    "edit_user_email",
+										Name:  "user_email",
+										Type:  "email",
+										Value: data.User.UserEmail,
+									})
+								</div>
+								<div class="space-y-2">
+									<label for="edit_user_role" class="text-sm font-medium">Role</label>
+									<select name="user_role" id="edit_user_role" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+										<option value="internal_user" selected?={ data.User.UserRole == "internal_user" }>User</option>
+										<option value="proxy_admin" selected?={ data.User.UserRole == "proxy_admin" }>Admin</option>
+										<option value="internal_user_viewer" selected?={ data.User.UserRole == "internal_user_viewer" }>Viewer</option>
+									</select>
+								</div>
+								<div class="grid grid-cols-2 gap-4">
+									<div class="space-y-2">
+										<label for="edit_max_budget" class="text-sm font-medium">Max Budget ($)</label>
+										@input.Input(input.Props{
+											ID:          "edit_max_budget",
+											Name:        "max_budget",
+											Type:        "number",
+											Placeholder: "100.00",
+											Value:       userBudgetStr(data.User.MaxBudget),
+											Attributes:  templ.Attributes{"step": "0.01", "min": "0"},
+										})
+									</div>
+									<div></div>
+								</div>
+								<div class="grid grid-cols-2 gap-4">
+									<div class="space-y-2">
+										<label for="edit_tpm_limit" class="text-sm font-medium">TPM Limit</label>
+										@input.Input(input.Props{
+											ID:          "edit_tpm_limit",
+											Name:        "tpm_limit",
+											Type:        "number",
+											Placeholder: "10000",
+											Value:       userLimitStr(data.User.TPMLimit),
+											Attributes:  templ.Attributes{"min": "1"},
+										})
+									</div>
+									<div class="space-y-2">
+										<label for="edit_rpm_limit" class="text-sm font-medium">RPM Limit</label>
+										@input.Input(input.Props{
+											ID:          "edit_rpm_limit",
+											Name:        "rpm_limit",
+											Type:        "number",
+											Placeholder: "100",
+											Value:       userLimitStr(data.User.RPMLimit),
+											Attributes:  templ.Attributes{"min": "1"},
+										})
+									</div>
+								</div>
+							</div>
+							@dialog.Footer() {
+								@dialog.Close() {
+									@button.Button(button.Props{Variant: button.VariantOutline}) {
+										Cancel
+									}
+								}
+								@button.Button(button.Props{Type: "submit"}) {
+									Save Changes
+								}
+							}
+						</form>
+					}
+				}
+				@dialog.Dialog(dialog.Props{ID: "delete-user-detail-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantDestructive, Size: button.SizeSm}) {
+							@icon.Trash(icon.Props{Size: 14, Class: "mr-1"})
+							Delete
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-sm"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete User
+							}
+							@dialog.Description() {
+								{ "Are you sure you want to delete user \"" + userDetailTitle(data.User) + "\"? This action cannot be undone." }
+							}
+						}
+						@dialog.Footer() {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							<form hx-post={ "/ui/users/" + data.User.UserID + "/delete" } hx-swap="none">
+								@button.Button(button.Props{Variant: button.VariantDestructive, Type: "submit"}) {
+									Delete
+								}
+							</form>
+						}
+					}
+				}
+			</div>
+		</div>
+		<!-- Overview cards -->
+		<div class="grid gap-4 md:grid-cols-3 pt-4">
+			@card.Card() {
+				@card.Header(card.HeaderProps{}) {
+					@card.Title(card.TitleProps{}) {
+						Spend / Budget
+					}
+				}
+				@card.Content(card.ContentProps{}) {
+					<div class="text-2xl font-bold">
+						{ fmt.Sprintf("$%.4f", data.User.Spend) }
+					</div>
+					if data.User.MaxBudget != nil {
+						<p class="text-sm text-muted-foreground">
+							{ fmt.Sprintf("of $%.2f limit", *data.User.MaxBudget) }
+						</p>
+					} else {
+						<p class="text-sm text-muted-foreground">No budget limit</p>
+					}
+				}
+			}
+			@card.Card() {
+				@card.Header(card.HeaderProps{}) {
+					@card.Title(card.TitleProps{}) {
+						Rate Limits
+					}
+				}
+				@card.Content(card.ContentProps{}) {
+					<div class="grid grid-cols-2 gap-4">
+						<div>
+							<div class="text-sm font-medium">TPM</div>
+							if data.User.TPMLimit != nil {
+								<div class="text-2xl font-bold">{ fmt.Sprintf("%d", *data.User.TPMLimit) }</div>
+							} else {
+								<div class="text-2xl font-bold text-muted-foreground">∞</div>
+							}
+						</div>
+						<div>
+							<div class="text-sm font-medium">RPM</div>
+							if data.User.RPMLimit != nil {
+								<div class="text-2xl font-bold">{ fmt.Sprintf("%d", *data.User.RPMLimit) }</div>
+							} else {
+								<div class="text-2xl font-bold text-muted-foreground">∞</div>
+							}
+						</div>
+					</div>
+				}
+			}
+			@card.Card() {
+				@card.Header(card.HeaderProps{}) {
+					@card.Title(card.TitleProps{}) {
+						Teams
+					}
+				}
+				@card.Content(card.ContentProps{}) {
+					<div class="text-2xl font-bold">{ fmt.Sprintf("%d", len(data.Teams)) }</div>
+				}
+			}
+		</div>
+		<!-- Teams section -->
+		if len(data.Teams) > 0 {
+			@card.Card() {
+				@card.Header(card.HeaderProps{}) {
+					@card.Title(card.TitleProps{}) {
+						Teams
+					}
+				}
+				@card.Content(card.ContentProps{Class: "p-0"}) {
+					@table.Table() {
+						@table.Header() {
+							@table.Row() {
+								@table.Head() {
+									Team
+								}
+								@table.Head() {
+									ID
+								}
+							}
+						}
+						@table.Body() {
+							for _, t := range data.Teams {
+								@table.Row() {
+									@table.Cell() {
+										<a href={ templ.SafeURL("/ui/teams/" + t.TeamID) } class="font-medium hover:underline text-primary">
+											if t.TeamAlias != "" {
+												{ t.TeamAlias }
+											} else {
+												{ t.TeamID[:8] + "..." }
+											}
+										</a>
+									}
+									@table.Cell() {
+										<span class="text-xs font-mono text-muted-foreground">{ t.TeamID }</span>
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		<!-- Metadata section -->
+		@card.Card() {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Metadata
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				<pre class="text-xs bg-muted p-3 rounded-md overflow-x-auto">{ data.Metadata }</pre>
+			}
+		}
+	</div>
+}
+
+templ UserDetailHeaderWithToast(data UserDetailData, toastMsg string, toastVariant toast.Variant) {
+	@UserDetailHeader(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}

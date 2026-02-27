@@ -91,5 +91,19 @@ func (h *UIHandler) RegisterRoutes(r chi.Router) {
 		// Logs
 		r.Get("/logs", h.handleLogs)
 		r.Get("/logs/table", h.handleLogsTable)
+
+		// Users (admin only)
+		r.Group(func(r chi.Router) {
+			r.Use(h.requireAdmin)
+			r.Get("/users", h.handleUsers)
+			r.Get("/users/table", h.handleUsersTable)
+			r.Post("/users/create", h.handleUserCreate)
+			r.Get("/users/{user_id}", h.handleUserDetail)
+			r.Get("/users/{user_id}/edit", h.handleUserEdit)
+			r.Post("/users/{user_id}/update", h.handleUserUpdate)
+			r.Post("/users/{user_id}/block", h.handleUserBlock)
+			r.Post("/users/{user_id}/unblock", h.handleUserUnblock)
+			r.Post("/users/{user_id}/delete", h.handleUserDelete)
+		})
 	})
 }
