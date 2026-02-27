@@ -3,6 +3,7 @@ package pages
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
@@ -24,6 +25,11 @@ type ModelRow struct {
 	TPM           int64  // From tianji_params.tpm
 	RPM           int64  // From tianji_params.rpm
 	Source        string // "db" or "config" — controls edit/delete availability
+	// Access control
+	AllowedOrgs  []string
+	AllowedTeams []string
+	AllowedKeys  []string
+	IsRestricted bool
 }
 
 type ModelsPageData struct {
@@ -155,6 +161,25 @@ templ createModelForm() {
 				</div>
 			</div>
 		</div>
+		<!-- Access Control -->
+		<div class="space-y-4 border-t pt-4">
+			<div>
+				<p class="text-sm font-medium">Access Control <span class="text-muted-foreground font-normal">(optional)</span></p>
+				<p class="text-xs text-muted-foreground">Leave all empty for public access. Caller matching ANY field gains access.</p>
+			</div>
+			<div class="space-y-2">
+				<label for="allowed_orgs" class="text-sm font-medium">Allowed Orgs</label>
+				<textarea id="allowed_orgs" name="allowed_orgs" rows="2" class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="org_acme&#10;org_bigcorp"></textarea>
+			</div>
+			<div class="space-y-2">
+				<label for="allowed_teams" class="text-sm font-medium">Allowed Teams</label>
+				<textarea id="allowed_teams" name="allowed_teams" rows="2" class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="team_ml_research"></textarea>
+			</div>
+			<div class="space-y-2">
+				<label for="allowed_keys" class="text-sm font-medium">Allowed Keys</label>
+				<textarea id="allowed_keys" name="allowed_keys" rows="2" class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="sk-hash-abc123"></textarea>
+			</div>
+		</div>
 		@dialog.Footer() {
 			@dialog.Close() {
 				@button.Button(button.Props{Variant: button.VariantOutline}) {
@@ -181,6 +206,7 @@ templ ModelsTable(data ModelsPageData) {
 						@table.Head() { API Key }
 						@table.Head() { TPM }
 						@table.Head() { RPM }
+						@table.Head() { Access }
 						if data.DBAvailable {
 							@table.Head(table.HeadProps{Class: "text-right"}) { Actions }
 						}
@@ -189,9 +215,9 @@ templ ModelsTable(data ModelsPageData) {
 				@table.Body() {
 					if len(data.Models) == 0 {
 						@table.Row() {
-							{{ colspan := "7" }}
+							{{ colspan := "8" }}
 							if data.DBAvailable {
-								{{ colspan = "8" }}
+								{{ colspan = "9" }}
 							}
 							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": colspan}}) {
 								if data.Search != "" {
@@ -330,6 +356,16 @@ templ modelRow(m ModelRow, dbAvailable bool) {
 				<span class="text-muted-foreground text-xs">-</span>
 			}
 		}
+		@table.Cell() {
+			if m.IsRestricted {
+				<span
+					class="inline-flex items-center rounded-md bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+					title={ accessControlTitle(m) }
+				>Restricted</span>
+			} else {
+				<span class="inline-flex items-center rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">Public</span>
+			}
+		}
 		if dbAvailable {
 			@table.Cell(table.CellProps{Class: "text-right"}) {
 				if m.Source == "config" {
@@ -465,6 +501,25 @@ templ EditModelForm(m ModelRow) {
 							</div>
 						</div>
 					</div>
+					<!-- Access Control -->
+					<div class="space-y-4 border-t pt-4">
+						<div>
+							<p class="text-sm font-medium">Access Control <span class="text-muted-foreground font-normal">(optional)</span></p>
+							<p class="text-xs text-muted-foreground">Leave all empty for public access. Caller matching ANY field gains access.</p>
+						</div>
+						<div class="space-y-2">
+							<label for="edit_allowed_orgs" class="text-sm font-medium">Allowed Orgs</label>
+							<textarea id="edit_allowed_orgs" name="allowed_orgs" rows="2" class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="org_acme&#10;org_bigcorp">{ strings.Join(m.AllowedOrgs, "\n") }</textarea>
+						</div>
+						<div class="space-y-2">
+							<label for="edit_allowed_teams" class="text-sm font-medium">Allowed Teams</label>
+							<textarea id="edit_allowed_teams" name="allowed_teams" rows="2" class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="team_ml_research">{ strings.Join(m.AllowedTeams, "\n") }</textarea>
+						</div>
+						<div class="space-y-2">
+							<label for="edit_allowed_keys" class="text-sm font-medium">Allowed Keys</label>
+							<textarea id="edit_allowed_keys" name="allowed_keys" rows="2" class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="sk-hash-abc123">{ strings.Join(m.AllowedKeys, "\n") }</textarea>
+						</div>
+					</div>
 					@dialog.Footer() {
 						@dialog.Close() {
 							@button.Button(button.Props{Variant: button.VariantOutline}) {
@@ -496,6 +551,21 @@ func apiKeyPlaceholder(maskedKey string) string {
 		return maskedKey + " (leave empty to keep)"
 	}
 	return "sk-..."
+}
+
+// accessControlTitle builds a tooltip string describing the access restrictions.
+func accessControlTitle(m ModelRow) string {
+	parts := []string{}
+	if len(m.AllowedOrgs) > 0 {
+		parts = append(parts, "Orgs: "+strings.Join(m.AllowedOrgs, ", "))
+	}
+	if len(m.AllowedTeams) > 0 {
+		parts = append(parts, "Teams: "+strings.Join(m.AllowedTeams, ", "))
+	}
+	if len(m.AllowedKeys) > 0 {
+		parts = append(parts, "Keys: "+strings.Join(m.AllowedKeys, ", "))
+	}
+	return strings.Join(parts, " | ")
 }
 
 // syncPricingButton renders the Sync Pricing action button in the models header.

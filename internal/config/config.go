@@ -22,12 +22,50 @@ type ProxyConfig struct {
 	Overflow map[string]any `yaml:",inline"`
 }
 
+// AccessControl restricts which callers can use a deployment.
+// All fields use OR logic: if the caller matches ANY field, access is granted.
+// Nil/empty struct = public (no restrictions).
+type AccessControl struct {
+	AllowedOrgs  []string `yaml:"allowed_orgs,omitempty" json:"allowed_orgs,omitempty"`
+	AllowedTeams []string `yaml:"allowed_teams,omitempty" json:"allowed_teams,omitempty"`
+	AllowedKeys  []string `yaml:"allowed_keys,omitempty" json:"allowed_keys,omitempty"`
+}
+
+// IsPublic returns true if no restrictions are configured.
+func (ac *AccessControl) IsPublic() bool {
+	return ac == nil || (len(ac.AllowedOrgs) == 0 && len(ac.AllowedTeams) == 0 && len(ac.AllowedKeys) == 0)
+}
+
+// IsAllowed checks if the given caller identity passes access control.
+func (ac *AccessControl) IsAllowed(orgID, teamID, tokenHash string) bool {
+	if ac.IsPublic() {
+		return true
+	}
+	for _, o := range ac.AllowedOrgs {
+		if o == orgID {
+			return true
+		}
+	}
+	for _, t := range ac.AllowedTeams {
+		if t == teamID {
+			return true
+		}
+	}
+	for _, k := range ac.AllowedKeys {
+		if k == tokenHash {
+			return true
+		}
+	}
+	return false
+}
+
 // ModelConfig represents a single model entry in model_list.
 type ModelConfig struct {
-	ModelName    string       `yaml:"model_name"`
-	TianjiParams TianjiParams `yaml:"tianji_params"`
-	ModelInfo    *ModelInfo   `yaml:"model_info,omitempty"`
-	Tags         []string     `yaml:"tags,omitempty"`
+	ModelName     string         `yaml:"model_name"`
+	TianjiParams  TianjiParams   `yaml:"tianji_params"`
+	ModelInfo     *ModelInfo     `yaml:"model_info,omitempty"`
+	Tags          []string       `yaml:"tags,omitempty"`
+	AccessControl *AccessControl `yaml:"access_control,omitempty"`
 }
 
 // TianjiParams holds provider-specific parameters for a model.

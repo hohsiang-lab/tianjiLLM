@@ -200,11 +200,18 @@ func (h *UIHandler) handleModelCreate(w http.ResponseWriter, r *http.Request) {
 
 	tianjiJSON, _ := json.Marshal(tp)
 
+	// Build model_info with optional access_control.
+	modelInfo := map[string]any{}
+	if ac := buildAccessControlJSON(r); ac != nil {
+		modelInfo["access_control"] = ac
+	}
+	modelInfoJSON, _ := json.Marshal(modelInfo)
+
 	_, err := h.DB.CreateProxyModel(r.Context(), db.CreateProxyModelParams{
 		ModelID:      uuid.New().String(),
 		ModelName:    modelName,
 		TianjiParams: tianjiJSON,
-		ModelInfo:    []byte("{}"),
+		ModelInfo:    modelInfoJSON,
 		CreatedBy:    "ui",
 	})
 	if err != nil {
@@ -299,11 +306,26 @@ func (h *UIHandler) handleModelUpdate(w http.ResponseWriter, r *http.Request) {
 
 	tianjiJSON, _ := json.Marshal(existingTP)
 
+	// Merge model_info, updating access_control.
+	var existingInfo map[string]any
+	if len(existing.ModelInfo) > 0 {
+		_ = json.Unmarshal(existing.ModelInfo, &existingInfo)
+	}
+	if existingInfo == nil {
+		existingInfo = map[string]any{}
+	}
+	if ac := buildAccessControlJSON(r); ac != nil {
+		existingInfo["access_control"] = ac
+	} else {
+		delete(existingInfo, "access_control")
+	}
+	modelInfoJSON, _ := json.Marshal(existingInfo)
+
 	_, err = h.DB.UpdateProxyModel(r.Context(), db.UpdateProxyModelParams{
 		ModelID:      modelID,
 		ModelName:    modelName,
 		TianjiParams: tianjiJSON,
-		ModelInfo:    existing.ModelInfo,
+		ModelInfo:    modelInfoJSON,
 		UpdatedBy:    "ui",
 	})
 	if err != nil {
@@ -370,7 +392,7 @@ func buildModelRow(m db.ProxyModelTable) pages.ModelRow {
 
 	provider, providerModel := splitProviderModel(str(tp, "model"))
 
-	return pages.ModelRow{
+	row := pages.ModelRow{
 		ID:            m.ModelID,
 		ModelName:     m.ModelName,
 		Provider:      provider,
@@ -380,6 +402,8 @@ func buildModelRow(m db.ProxyModelTable) pages.ModelRow {
 		TPM:           int64Val(tp, "tpm"),
 		RPM:           int64Val(tp, "rpm"),
 	}
+	extractAccessControl(m.ModelInfo, &row)
+	return row
 }
 
 // buildModelRowUnmasked is like buildModelRow but exposes the raw API key for edit forms.
@@ -464,6 +488,68 @@ func int64Val(m map[string]any, key string) int64 {
 		return v
 	}
 	return 0
+}
+
+// parseLines splits a textarea value into non-empty trimmed strings.
+func parseLines(s string) []string {
+	var result []string
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			result = append(result, line)
+		}
+	}
+	return result
+}
+
+// buildAccessControlJSON returns the access_control map for model_info, or nil if all empty.
+func buildAccessControlJSON(r *http.Request) map[string]any {
+	orgs := parseLines(r.FormValue("allowed_orgs"))
+	teams := parseLines(r.FormValue("allowed_teams"))
+	keys := parseLines(r.FormValue("allowed_keys"))
+	if len(orgs) == 0 && len(teams) == 0 && len(keys) == 0 {
+		return nil
+	}
+	ac := map[string]any{}
+	if len(orgs) > 0 {
+		ac["allowed_orgs"] = orgs
+	}
+	if len(teams) > 0 {
+		ac["allowed_teams"] = teams
+	}
+	if len(keys) > 0 {
+		ac["allowed_keys"] = keys
+	}
+	return ac
+}
+
+// extractAccessControl reads access control fields from model_info JSON into ModelRow fields.
+func extractAccessControl(modelInfo []byte, row *pages.ModelRow) {
+	var info map[string]any
+	if len(modelInfo) > 0 {
+		_ = json.Unmarshal(modelInfo, &info)
+	}
+	if ac, ok := info["access_control"].(map[string]any); ok {
+		row.AllowedOrgs = toStringSlice(ac["allowed_orgs"])
+		row.AllowedTeams = toStringSlice(ac["allowed_teams"])
+		row.AllowedKeys = toStringSlice(ac["allowed_keys"])
+		row.IsRestricted = len(row.AllowedOrgs) > 0 || len(row.AllowedTeams) > 0 || len(row.AllowedKeys) > 0
+	}
+}
+
+// toStringSlice converts an any (expected []any of strings) to []string.
+func toStringSlice(v any) []string {
+	arr, ok := v.([]any)
+	if !ok {
+		return nil
+	}
+	result := make([]string, 0, len(arr))
+	for _, item := range arr {
+		if s, ok := item.(string); ok {
+			result = append(result, s)
+		}
+	}
+	return result
 }
 
 // syncPricingToast returns a templ component that renders a toast notification.

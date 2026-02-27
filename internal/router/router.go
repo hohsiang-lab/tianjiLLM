@@ -11,6 +11,7 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 	"github.com/praxisllmlab/tianjiLLM/internal/wildcard"
 )
 
@@ -166,6 +167,12 @@ func (r *Router) Route(ctx context.Context, modelName string, req *model.ChatCom
 		return nil, nil, fmt.Errorf("no deployments for model %q", modelName)
 	}
 
+	// Filter by access control before health check.
+	allDeployments = r.filterByAccessControl(ctx, allDeployments)
+	if len(allDeployments) == 0 {
+		return nil, nil, fmt.Errorf("no accessible deployments for model %q", modelName)
+	}
+
 	healthy := r.healthyDeployments(allDeployments)
 	if len(healthy) == 0 {
 		// All in cooldown — try them anyway as last resort
@@ -271,6 +278,27 @@ func (r *Router) ListModelGroups() map[string][]*Deployment {
 		result[k] = v
 	}
 	return result
+}
+
+// filterByAccessControl removes deployments the caller is not authorized to use.
+// Master key callers bypass all access control checks.
+func (r *Router) filterByAccessControl(ctx context.Context, deployments []*Deployment) []*Deployment {
+	isMaster, _ := ctx.Value(middleware.ContextKeyIsMasterKey).(bool)
+	if isMaster {
+		return deployments
+	}
+
+	orgID, _ := ctx.Value(middleware.ContextKeyOrgID).(string)
+	teamID, _ := ctx.Value(middleware.ContextKeyTeamID).(string)
+	tokenHash, _ := ctx.Value(middleware.ContextKeyTokenHash).(string)
+
+	filtered := make([]*Deployment, 0, len(deployments))
+	for _, d := range deployments {
+		if d.Config.AccessControl.IsAllowed(orgID, teamID, tokenHash) {
+			filtered = append(filtered, d)
+		}
+	}
+	return filtered
 }
 
 func (r *Router) healthyDeployments(all []*Deployment) []*Deployment {
