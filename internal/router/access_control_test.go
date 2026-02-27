@@ -6,8 +6,8 @@ import (
 
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
-	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 	_ "github.com/praxisllmlab/tianjiLLM/internal/provider/openai"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
