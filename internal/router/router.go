@@ -170,7 +170,7 @@ func (r *Router) Route(ctx context.Context, modelName string, req *model.ChatCom
 	// Filter by access control before health check.
 	allDeployments = r.filterByAccessControl(ctx, allDeployments)
 	if len(allDeployments) == 0 {
-		return nil, nil, fmt.Errorf("no accessible deployments for model %q", modelName)
+		return nil, nil, fmt.Errorf("no deployments for model %q", modelName)
 	}
 
 	healthy := r.healthyDeployments(allDeployments)
@@ -269,13 +269,17 @@ func (r *Router) GetDeployments(modelName string) []*Deployment {
 	return r.deployments[modelName]
 }
 
-// ListModelGroups returns all model group names and their deployments.
-func (r *Router) ListModelGroups() map[string][]*Deployment {
+// ListModelGroups returns model group names and their deployments, filtered by access control.
+// The caller's identity is extracted from ctx (same as Route). Master key callers see all.
+func (r *Router) ListModelGroups(ctx context.Context) map[string][]*Deployment {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	result := make(map[string][]*Deployment, len(r.deployments))
 	for k, v := range r.deployments {
-		result[k] = v
+		filtered := r.filterByAccessControl(ctx, v)
+		if len(filtered) > 0 {
+			result[k] = filtered
+		}
 	}
 	return result
 }

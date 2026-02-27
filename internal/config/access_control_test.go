@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestAccessControl_IsPublic(t *testing.T) {
@@ -94,6 +96,74 @@ model_list:
 	// Second model has no access control
 	assert.Nil(t, cfg.ModelList[1].AccessControl)
 	assert.True(t, cfg.ModelList[1].AccessControl.IsPublic())
+}
+
+func TestAccessControl_RoundTrip(t *testing.T) {
+	yamlContent := `
+model_list:
+  - model_name: gpt-4o
+    tianji_params:
+      model: openai/gpt-4o
+      api_key: sk-test
+    access_control:
+      allowed_orgs:
+        - org_acme
+      allowed_teams:
+        - team_ml
+      allowed_keys:
+        - sk-hash-abc
+`
+	tmpDir := t.TempDir()
+	path := tmpDir + "/config.yaml"
+	require.NoError(t, writeTestFile(path, yamlContent))
+
+	cfg, err := Load(path)
+	require.NoError(t, err)
+
+	ac := cfg.ModelList[0].AccessControl
+	require.NotNil(t, ac)
+	assert.Equal(t, []string{"org_acme"}, ac.AllowedOrgs)
+	assert.Equal(t, []string{"team_ml"}, ac.AllowedTeams)
+	assert.Equal(t, []string{"sk-hash-abc"}, ac.AllowedKeys)
+
+	// Marshal back to YAML and reload
+	out, err := yaml.Marshal(cfg)
+	require.NoError(t, err)
+
+	path2 := tmpDir + "/config2.yaml"
+	require.NoError(t, writeTestFile(path2, string(out)))
+
+	cfg2, err := Load(path2)
+	require.NoError(t, err)
+
+	ac2 := cfg2.ModelList[0].AccessControl
+	require.NotNil(t, ac2)
+	assert.Equal(t, ac.AllowedOrgs, ac2.AllowedOrgs)
+	assert.Equal(t, ac.AllowedTeams, ac2.AllowedTeams)
+	assert.Equal(t, ac.AllowedKeys, ac2.AllowedKeys)
+}
+
+func TestAccessControl_MixedFields(t *testing.T) {
+	ac := &AccessControl{
+		AllowedOrgs:  []string{"org_acme"},
+		AllowedTeams: []string{"team_ml"},
+		AllowedKeys:  []string{"sk-hash-abc"},
+	}
+
+	assert.False(t, ac.IsPublic())
+
+	// Any single matching field grants access
+	assert.True(t, ac.IsAllowed("org_acme", "", ""))
+	assert.True(t, ac.IsAllowed("", "team_ml", ""))
+	assert.True(t, ac.IsAllowed("", "", "sk-hash-abc"))
+
+	// Non-matching across all fields denies
+	assert.False(t, ac.IsAllowed("org_x", "team_x", "sk-x"))
+
+	// Matching one field is enough even if others don't match
+	assert.True(t, ac.IsAllowed("org_acme", "team_x", "sk-x"))
+	assert.True(t, ac.IsAllowed("org_x", "team_ml", "sk-x"))
+	assert.True(t, ac.IsAllowed("org_x", "team_x", "sk-hash-abc"))
 }
 
 func writeTestFile(path, content string) error {

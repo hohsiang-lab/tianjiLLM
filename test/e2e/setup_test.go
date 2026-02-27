@@ -77,7 +77,7 @@ func TestMain(m *testing.M) {
 	}
 
 	srv := proxy.NewServer(proxy.ServerConfig{
-		Handlers:  &handler.Handlers{Config: cfg},
+		Handlers:  &handler.Handlers{Config: cfg, DB: testDB},
 		MasterKey: masterKey,
 		UIHandler: uiHandler,
 	})

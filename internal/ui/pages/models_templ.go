@@ -2055,20 +2055,20 @@ func EditModelForm(m ModelRow) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "</textarea></div><div class=\"space-y-2\"><label for=\"edit_allowed_keys\" class=\"text-sm font-medium\">Allowed Keys</label> <textarea id=\"edit_allowed_keys\" name=\"allowed_keys\" rows=\"2\" class=\"flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm\" placeholder=\"sk-hash-abc123\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "</textarea></div><div class=\"space-y-2\"><label for=\"edit_allowed_keys\" class=\"text-sm font-medium\">Allowed Keys</label> <textarea id=\"edit_allowed_keys\" name=\"allowed_keys\" rows=\"2\" class=\"flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm\" placeholder=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var81 string
-				templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(m.AllowedKeys, "\n"))
+				templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(allowedKeysPlaceholder(m))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/models.templ`, Line: 520, Col: 216}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/models.templ`, Line: 520, Col: 191}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "</textarea></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "\"></textarea></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2195,18 +2195,29 @@ func apiKeyPlaceholder(maskedKey string) string {
 }
 
 // accessControlTitle builds a tooltip string describing the access restrictions.
+// AllowedTeams and AllowedKeys show counts only to avoid leaking internal IDs/hashes.
+// AllowedOrgs are shown in full as org names are not sensitive.
 func accessControlTitle(m ModelRow) string {
 	parts := []string{}
 	if len(m.AllowedOrgs) > 0 {
 		parts = append(parts, "Orgs: "+strings.Join(m.AllowedOrgs, ", "))
 	}
 	if len(m.AllowedTeams) > 0 {
-		parts = append(parts, "Teams: "+strings.Join(m.AllowedTeams, ", "))
+		parts = append(parts, fmt.Sprintf("Teams: %d configured", len(m.AllowedTeams)))
 	}
 	if len(m.AllowedKeys) > 0 {
-		parts = append(parts, "Keys: "+strings.Join(m.AllowedKeys, ", "))
+		parts = append(parts, fmt.Sprintf("Keys: %d configured", len(m.AllowedKeys)))
 	}
 	return strings.Join(parts, " | ")
+}
+
+// allowedKeysPlaceholder returns a masked placeholder for the edit form allowed_keys textarea.
+// When keys are already configured, shows a count hint so users know not to re-enter.
+func allowedKeysPlaceholder(m ModelRow) string {
+	if len(m.AllowedKeys) == 0 {
+		return "sk-hash-abc123"
+	}
+	return fmt.Sprintf("*** (%d key(s) configured, leave empty to keep)", len(m.AllowedKeys))
 }
 
 // syncPricingButton renders the Sync Pricing action button in the models header.

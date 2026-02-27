@@ -29,7 +29,10 @@ func (h *Handlers) ModelGroupInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filter := r.URL.Query().Get("model_group")
-	groups := h.Router.ListModelGroups()
+	// NOTE: DB-managed models (proxy_model_table) are not part of the router;
+	// they are only served via the UI. Access control filtering here applies
+	// only to router-based (config) deployments.
+	groups := h.Router.ListModelGroups(r.Context())
 	calc := pricing.Default()
 
 	var results []modelGroupInfoResponse

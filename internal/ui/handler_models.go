@@ -314,7 +314,7 @@ func (h *UIHandler) handleModelUpdate(w http.ResponseWriter, r *http.Request) {
 	if existingInfo == nil {
 		existingInfo = map[string]any{}
 	}
-	if ac := buildAccessControlJSON(r); ac != nil {
+	if ac := buildAccessControlJSONForUpdate(r, existingInfo); ac != nil {
 		existingInfo["access_control"] = ac
 	} else {
 		delete(existingInfo, "access_control")
@@ -388,29 +388,25 @@ func parseTianjiParams(raw []byte) map[string]any {
 
 // buildModelRow converts a DB row into the view model with masked API key.
 func buildModelRow(m db.ProxyModelTable) pages.ModelRow {
-	tp := parseTianjiParams(m.TianjiParams)
-
-	provider, providerModel := splitProviderModel(str(tp, "model"))
-
-	row := pages.ModelRow{
-		ID:            m.ModelID,
-		ModelName:     m.ModelName,
-		Provider:      provider,
-		ProviderModel: providerModel,
-		APIBase:       str(tp, "api_base"),
-		APIKey:        maskAPIKey(str(tp, "api_key")),
-		TPM:           int64Val(tp, "tpm"),
-		RPM:           int64Val(tp, "rpm"),
-	}
-	extractAccessControl(m.ModelInfo, &row)
-	return row
+	return buildModelRowFromDB(m, true)
 }
 
 // buildModelRowUnmasked is like buildModelRow but exposes the raw API key for edit forms.
 func buildModelRowUnmasked(m db.ProxyModelTable) pages.ModelRow {
+	return buildModelRowFromDB(m, false)
+}
+
+// buildModelRowFromDB is the shared implementation for building a ModelRow from a DB row.
+// When maskKey is true, the API key is masked for display; when false, the raw key is exposed.
+func buildModelRowFromDB(m db.ProxyModelTable, maskKey bool) pages.ModelRow {
 	tp := parseTianjiParams(m.TianjiParams)
 
 	provider, providerModel := splitProviderModel(str(tp, "model"))
+
+	apiKey := str(tp, "api_key")
+	if maskKey {
+		apiKey = maskAPIKey(apiKey)
+	}
 
 	row := pages.ModelRow{
 		ID:            m.ModelID,
@@ -418,7 +414,7 @@ func buildModelRowUnmasked(m db.ProxyModelTable) pages.ModelRow {
 		Provider:      provider,
 		ProviderModel: providerModel,
 		APIBase:       str(tp, "api_base"),
-		APIKey:        str(tp, "api_key"),
+		APIKey:        apiKey,
 		TPM:           int64Val(tp, "tpm"),
 		RPM:           int64Val(tp, "rpm"),
 	}
@@ -500,13 +496,22 @@ func int64Val(m map[string]any, key string) int64 {
 }
 
 // parseLines splits a textarea value into non-empty trimmed strings.
+// Normalizes Windows (\r\n) and old-Mac (\r) line endings before splitting.
+// Lines containing whitespace in the middle are skipped (IDs/hashes should not have spaces).
 func parseLines(s string) []string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
 	var result []string
 	for _, line := range strings.Split(s, "\n") {
 		line = strings.TrimSpace(line)
-		if line != "" {
-			result = append(result, line)
+		if line == "" {
+			continue
 		}
+		// Skip lines with embedded whitespace — IDs and key hashes should be single tokens.
+		if strings.ContainsAny(line, " \t") {
+			continue
+		}
+		result = append(result, line)
 	}
 	return result
 }
@@ -516,6 +521,36 @@ func buildAccessControlJSON(r *http.Request) map[string]any {
 	orgs := parseLines(r.FormValue("allowed_orgs"))
 	teams := parseLines(r.FormValue("allowed_teams"))
 	keys := parseLines(r.FormValue("allowed_keys"))
+	if len(orgs) == 0 && len(teams) == 0 && len(keys) == 0 {
+		return nil
+	}
+	ac := map[string]any{}
+	if len(orgs) > 0 {
+		ac["allowed_orgs"] = orgs
+	}
+	if len(teams) > 0 {
+		ac["allowed_teams"] = teams
+	}
+	if len(keys) > 0 {
+		ac["allowed_keys"] = keys
+	}
+	return ac
+}
+
+// buildAccessControlJSONForUpdate is like buildAccessControlJSON but preserves existing
+// allowed_keys when the form field is empty (since keys are masked in the edit form).
+func buildAccessControlJSONForUpdate(r *http.Request, existingInfo map[string]any) map[string]any {
+	orgs := parseLines(r.FormValue("allowed_orgs"))
+	teams := parseLines(r.FormValue("allowed_teams"))
+	keys := parseLines(r.FormValue("allowed_keys"))
+
+	// If keys field is empty, preserve existing keys from model_info.
+	if len(keys) == 0 {
+		if existingAC, ok := existingInfo["access_control"].(map[string]any); ok {
+			keys = toStringSlice(existingAC["allowed_keys"])
+		}
+	}
+
 	if len(orgs) == 0 && len(teams) == 0 && len(keys) == 0 {
 		return nil
 	}

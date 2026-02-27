@@ -517,7 +517,7 @@ templ EditModelForm(m ModelRow) {
 						</div>
 						<div class="space-y-2">
 							<label for="edit_allowed_keys" class="text-sm font-medium">Allowed Keys</label>
-							<textarea id="edit_allowed_keys" name="allowed_keys" rows="2" class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="sk-hash-abc123">{ strings.Join(m.AllowedKeys, "\n") }</textarea>
+							<textarea id="edit_allowed_keys" name="allowed_keys" rows="2" class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder={ allowedKeysPlaceholder(m) }></textarea>
 						</div>
 					</div>
 					@dialog.Footer() {
@@ -554,18 +554,29 @@ func apiKeyPlaceholder(maskedKey string) string {
 }
 
 // accessControlTitle builds a tooltip string describing the access restrictions.
+// AllowedTeams and AllowedKeys show counts only to avoid leaking internal IDs/hashes.
+// AllowedOrgs are shown in full as org names are not sensitive.
 func accessControlTitle(m ModelRow) string {
 	parts := []string{}
 	if len(m.AllowedOrgs) > 0 {
 		parts = append(parts, "Orgs: "+strings.Join(m.AllowedOrgs, ", "))
 	}
 	if len(m.AllowedTeams) > 0 {
-		parts = append(parts, "Teams: "+strings.Join(m.AllowedTeams, ", "))
+		parts = append(parts, fmt.Sprintf("Teams: %d configured", len(m.AllowedTeams)))
 	}
 	if len(m.AllowedKeys) > 0 {
-		parts = append(parts, "Keys: "+strings.Join(m.AllowedKeys, ", "))
+		parts = append(parts, fmt.Sprintf("Keys: %d configured", len(m.AllowedKeys)))
 	}
 	return strings.Join(parts, " | ")
+}
+
+// allowedKeysPlaceholder returns a masked placeholder for the edit form allowed_keys textarea.
+// When keys are already configured, shows a count hint so users know not to re-enter.
+func allowedKeysPlaceholder(m ModelRow) string {
+	if len(m.AllowedKeys) == 0 {
+		return "sk-hash-abc123"
+	}
+	return fmt.Sprintf("*** (%d key(s) configured, leave empty to keep)", len(m.AllowedKeys))
 }
 
 // syncPricingButton renders the Sync Pricing action button in the models header.

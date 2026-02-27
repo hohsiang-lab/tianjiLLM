@@ -37,6 +37,9 @@ func (ac *AccessControl) IsPublic() bool {
 }
 
 // IsAllowed checks if the given caller identity passes access control.
+// It uses OR semantics: the caller is allowed if ANY of the provided identifiers
+// (orgID, teamID, tokenHash) matches any entry in the corresponding allow-list.
+// A nil or empty AccessControl (IsPublic) always returns true.
 func (ac *AccessControl) IsAllowed(orgID, teamID, tokenHash string) bool {
 	if ac.IsPublic() {
 		return true
