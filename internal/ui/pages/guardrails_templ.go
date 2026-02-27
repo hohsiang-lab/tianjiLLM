@@ -431,7 +431,7 @@ func createGuardrailForm() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div><div class=\"space-y-2\"><label for=\"guardrail_type\" class=\"text-sm font-medium\">Type <span class=\"text-destructive\">*</span></label> <select name=\"guardrail_type\" id=\"guardrail_type\" class=\"flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm\" required><option value=\"\">Select type...</option> <option value=\"openai_moderation\">OpenAI Moderation</option> <option value=\"presidio\">Presidio</option> <option value=\"lakera_guard\">Lakera Guard</option> <option value=\"aporia\">Aporia</option> <option value=\"bedrock\">Bedrock</option> <option value=\"aim_safety\">AIM Safety</option> <option value=\"google_text_moderation\">Google Text Moderation</option> <option value=\"guardrails_ai\">Guardrails AI</option> <option value=\"llm_guard\">LLM Guard</option> <option value=\"custom\">Custom</option></select></div><div class=\"space-y-2\"><label for=\"guardrail_failure_policy\" class=\"text-sm font-medium\">Failure Policy</label> <select name=\"failure_policy\" id=\"guardrail_failure_policy\" class=\"flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm\"><option value=\"fail_open\">Fail Open (allow on error)</option> <option value=\"fail_closed\">Fail Closed (block on error)</option></select></div><div class=\"space-y-2\"><label for=\"guardrail_config\" class=\"text-sm font-medium\">Config (JSON)</label> <textarea name=\"config\" id=\"guardrail_config\" rows=\"4\" placeholder=\"{}\" class=\"flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]\"></textarea></div><div class=\"flex items-center gap-2\"><input type=\"checkbox\" name=\"enabled\" id=\"guardrail_enabled\" class=\"h-4 w-4 rounded border border-input\" checked> <label for=\"guardrail_enabled\" class=\"text-sm font-medium\">Enabled</label></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div><div class=\"space-y-2\"><label for=\"guardrail_type\" class=\"text-sm font-medium\">Type <span class=\"text-destructive\">*</span></label> <select name=\"guardrail_type\" id=\"guardrail_type\" class=\"flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm\" required><option value=\"\">Select type...</option> <option value=\"openai_moderation\">OpenAI Moderation</option> <option value=\"presidio\">Presidio</option> <option value=\"prompt_injection\">Prompt Injection</option> <option value=\"lakera_guard\">Lakera Guard</option> <option value=\"bedrock_guardrail\">Bedrock Guardrail</option> <option value=\"azure_prompt_shield\">Azure Prompt Shield</option> <option value=\"azure_text_moderation\">Azure Text Moderation</option> <option value=\"content_filter\">Content Filter</option> <option value=\"tool_permission\">Tool Permission</option> <option value=\"generic\">Generic</option> <option value=\"aim\">AIM</option> <option value=\"aporia\">Aporia</option> <option value=\"custom_code\">Custom Code</option> <option value=\"dynamoai\">DynamoAI</option> <option value=\"enkryptai\">EnkryptAI</option> <option value=\"grayswan\">Gray Swan</option> <option value=\"guardrails_ai\">Guardrails AI</option> <option value=\"hiddenlayer\">HiddenLayer</option> <option value=\"ibm_guardrails\">IBM Guardrails</option> <option value=\"javelin\">Javelin</option> <option value=\"lakera_v2\">Lakera V2</option> <option value=\"lasso\">Lasso</option> <option value=\"model_armor\">Model Armor</option> <option value=\"noma\">Noma</option> <option value=\"onyx\">Onyx</option> <option value=\"pangea\">Pangea</option> <option value=\"panw_prisma_airs\">PANW Prisma AIRS</option> <option value=\"pillar\">Pillar</option> <option value=\"prompt_security\">Prompt Security</option> <option value=\"qualifire\">Qualifire</option> <option value=\"unified_guardrail\">Unified Guardrail</option> <option value=\"zscaler_ai_guard\">Zscaler AI Guard</option></select></div><div class=\"space-y-2\"><label for=\"guardrail_failure_policy\" class=\"text-sm font-medium\">Failure Policy</label> <select name=\"failure_policy\" id=\"guardrail_failure_policy\" class=\"flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm\"><option value=\"fail_open\">Fail Open (allow on error)</option> <option value=\"fail_closed\">Fail Closed (block on error)</option></select></div><div class=\"space-y-2\"><label for=\"guardrail_config\" class=\"text-sm font-medium\">Config (JSON)</label> <textarea name=\"config\" id=\"guardrail_config\" rows=\"4\" placeholder=\"{}\" class=\"flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]\"></textarea></div><div class=\"flex items-center gap-2\"><input type=\"checkbox\" name=\"enabled\" id=\"guardrail_enabled\" class=\"h-4 w-4 rounded border border-input\" checked> <label for=\"guardrail_enabled\" class=\"text-sm font-medium\">Enabled</label></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -819,7 +819,15 @@ func GuardrailsTablePartial(data GuardrailsPageData) templ.Component {
 											return templ_7745c5c3_Err
 										}
 									} else {
-										templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<div class=\"py-8 text-center text-muted-foreground\">No guardrails configured</div>")
+										templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<div class=\"py-8 text-center text-muted-foreground\">No guardrails configured<br><button")
+										if templ_7745c5c3_Err != nil {
+											return templ_7745c5c3_Err
+										}
+										templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, templ.Attributes{"onclick": `document.querySelector('[data-dialog-id="create-guardrail-dialog"] [data-dialog-trigger]').click()`})
+										if templ_7745c5c3_Err != nil {
+											return templ_7745c5c3_Err
+										}
+										templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, " class=\"mt-2 inline-flex items-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground\">New Guardrail</button></div>")
 										if templ_7745c5c3_Err != nil {
 											return templ_7745c5c3_Err
 										}
@@ -867,12 +875,12 @@ func GuardrailsTablePartial(data GuardrailsPageData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<div class=\"mt-4 flex items-center justify-between\"><span class=\"text-sm text-muted-foreground\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<div class=\"mt-4 flex items-center justify-between\"><span class=\"text-sm text-muted-foreground\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.TotalCount == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "No results")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "No results")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -880,14 +888,14 @@ func GuardrailsTablePartial(data GuardrailsPageData) templ.Component {
 			var templ_7745c5c3_Var34 string
 			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("Showing %d–%d of %d results", (data.Page-1)*data.PerPage+1, minInt((data.Page)*data.PerPage, data.TotalCount), data.TotalCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 227, Col: 148}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 256, Col: 148}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</span> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</span> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -946,7 +954,7 @@ func GuardrailsTablePartial(data GuardrailsPageData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -975,7 +983,7 @@ func GuardrailsTablePartial(data GuardrailsPageData) templ.Component {
 									}()
 								}
 								ctx = templ.InitializeContext(ctx)
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "1")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "1")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -996,7 +1004,7 @@ func GuardrailsTablePartial(data GuardrailsPageData) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, " ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, " ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1053,7 +1061,7 @@ func GuardrailsTablePartial(data GuardrailsPageData) templ.Component {
 								var templ_7745c5c3_Var43 string
 								templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", p))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 270, Col: 30}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 299, Col: 30}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 								if templ_7745c5c3_Err != nil {
@@ -1078,7 +1086,7 @@ func GuardrailsTablePartial(data GuardrailsPageData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1107,7 +1115,7 @@ func GuardrailsTablePartial(data GuardrailsPageData) templ.Component {
 								return templ_7745c5c3_Err
 							}
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, " ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, " ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1138,7 +1146,7 @@ func GuardrailsTablePartial(data GuardrailsPageData) templ.Component {
 								var templ_7745c5c3_Var47 string
 								templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", pg.TotalPages))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 287, Col: 42}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 316, Col: 42}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 								if templ_7745c5c3_Err != nil {
@@ -1162,7 +1170,7 @@ func GuardrailsTablePartial(data GuardrailsPageData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1207,7 +1215,7 @@ func GuardrailsTablePartial(data GuardrailsPageData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1260,20 +1268,20 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<span class=\"font-medium\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<span class=\"font-medium\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var52 string
 				templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(g.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 309, Col: 37}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 338, Col: 37}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1283,7 +1291,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1299,20 +1307,20 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<span class=\"text-sm font-mono text-muted-foreground\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<span class=\"text-sm font-mono text-muted-foreground\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var54 string
 				templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(g.Type)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 312, Col: 65}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 341, Col: 65}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1322,7 +1330,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1351,7 +1359,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "fail_closed")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "fail_closed")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1374,7 +1382,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "fail_open")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "fail_open")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1391,7 +1399,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1417,7 +1425,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1433,20 +1441,20 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<span class=\"text-sm text-muted-foreground\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<span class=\"text-sm text-muted-foreground\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var60 string
 				templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(g.CreatedAt.Format("2006-01-02"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 329, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 358, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "</span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "</span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1456,7 +1464,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1472,25 +1480,25 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<div class=\"flex items-center justify-end gap-1\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<div class=\"flex items-center justify-end gap-1\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if g.Enabled {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<form hx-post=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "<form hx-post=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var62 string
 					templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinStringErrs("/ui/guardrails/" + g.ID + "/toggle")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 334, Col: 57}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 363, Col: 57}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\" hx-target=\"#guardrails-table\" hx-swap=\"innerHTML\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "\" hx-target=\"#guardrails-table\" hx-swap=\"innerHTML\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1506,7 +1514,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "Disable")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "Disable")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1516,25 +1524,25 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "</form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "</form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "<form hx-post=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "<form hx-post=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var64 string
 					templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs("/ui/guardrails/" + g.ID + "/toggle")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 340, Col: 57}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 369, Col: 57}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "\" hx-target=\"#guardrails-table\" hx-swap=\"innerHTML\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "\" hx-target=\"#guardrails-table\" hx-swap=\"innerHTML\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1550,7 +1558,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "Enable")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "Enable")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1560,7 +1568,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "</form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "</form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1605,7 +1613,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, " Bindings")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, " Bindings")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -1621,7 +1629,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1661,7 +1669,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 									}()
 								}
 								ctx = templ.InitializeContext(ctx)
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "Policy Bindings")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "Policy Bindings")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -1671,7 +1679,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, " ")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, " ")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -1690,7 +1698,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 								var templ_7745c5c3_Var73 string
 								templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs("Policies using guardrail \"" + g.Name + "\"")
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 359, Col: 55}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 388, Col: 55}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
 								if templ_7745c5c3_Err != nil {
@@ -1708,46 +1716,46 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, " <div id=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, " <div id=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var74 string
 						templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs("bindings-content-" + g.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 363, Col: 38}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 392, Col: 38}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "\" hx-get=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "\" hx-get=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var75 string
 						templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs("/ui/guardrails/" + g.ID + "/bindings")
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 364, Col: 54}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 393, Col: 54}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "\" hx-trigger=\"revealed\" hx-target=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "\" hx-trigger=\"revealed\" hx-target=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var76 string
 						templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs("#bindings-content-" + g.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 366, Col: 46}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 395, Col: 46}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "\" class=\"min-h-[4rem]\"><p class=\"text-sm text-muted-foreground\">Loading...</p></div>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "\" class=\"min-h-[4rem]\"><p class=\"text-sm text-muted-foreground\">Loading...</p></div>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1803,7 +1811,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, " Test")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, " Test")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -1819,7 +1827,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1859,7 +1867,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 									}()
 								}
 								ctx = templ.InitializeContext(ctx)
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "Test Guardrail")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "Test Guardrail")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -1869,7 +1877,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, " ")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, " ")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -1888,7 +1896,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 								var templ_7745c5c3_Var84 string
 								templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.JoinStringErrs("Test guardrail \"" + g.Name + "\" with a sample prompt")
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 386, Col: 66}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 415, Col: 66}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var84))
 								if templ_7745c5c3_Err != nil {
@@ -1906,33 +1914,33 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, " <div class=\"space-y-4 py-2\"><form hx-post=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, " <div class=\"space-y-4 py-2\"><form hx-post=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var85 string
 						templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs("/ui/guardrails/" + g.ID + "/test")
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 391, Col: 52}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 420, Col: 52}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var85))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "\" hx-target=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "\" hx-target=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var86 string
 						templ_7745c5c3_Var86, templ_7745c5c3_Err = templ.JoinStringErrs("#test-result-" + g.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 392, Col: 42}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 421, Col: 42}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var86))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "\" class=\"space-y-3\"><div class=\"space-y-2\"><label class=\"text-sm font-medium\">Test Prompt</label> <textarea name=\"test_text\" rows=\"3\" placeholder=\"Enter a test prompt to check against this guardrail...\" class=\"flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]\"></textarea></div>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "\" class=\"space-y-3\"><div class=\"space-y-2\"><label class=\"text-sm font-medium\">Test Prompt</label> <textarea name=\"test_text\" rows=\"3\" placeholder=\"Enter a test prompt to check against this guardrail...\" class=\"flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]\"></textarea></div>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1952,7 +1960,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, " Run Test")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, " Run Test")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -1962,20 +1970,20 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "</form><div id=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "</form><div id=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var88 string
 						templ_7745c5c3_Var88, templ_7745c5c3_Err = templ.JoinStringErrs("test-result-" + g.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 409, Col: 38}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 438, Col: 38}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var88))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "\"></div></div>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "\"></div></div>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -2043,7 +2051,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -2083,7 +2091,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 									}()
 								}
 								ctx = templ.InitializeContext(ctx)
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "Edit Guardrail")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "Edit Guardrail")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -2099,7 +2107,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, " ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, " ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -2171,7 +2179,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -2211,7 +2219,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 									}()
 								}
 								ctx = templ.InitializeContext(ctx)
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "Delete Guardrail")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "Delete Guardrail")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -2221,7 +2229,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, " ")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, " ")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -2240,7 +2248,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 								var templ_7745c5c3_Var102 string
 								templ_7745c5c3_Var102, templ_7745c5c3_Err = templ.JoinStringErrs("Are you sure you want to delete guardrail \"" + g.Name + "\"? This action cannot be undone.")
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 440, Col: 103}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 469, Col: 103}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var102))
 								if templ_7745c5c3_Err != nil {
@@ -2258,7 +2266,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, " ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, " ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -2298,7 +2306,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 										}()
 									}
 									ctx = templ.InitializeContext(ctx)
-									templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "Cancel")
+									templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "Cancel")
 									if templ_7745c5c3_Err != nil {
 										return templ_7745c5c3_Err
 									}
@@ -2314,20 +2322,20 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, " <form hx-post=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, " <form hx-post=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var106 string
 							templ_7745c5c3_Var106, templ_7745c5c3_Err = templ.JoinStringErrs("/ui/guardrails/" + g.ID + "/delete")
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 449, Col: 59}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 478, Col: 59}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var106))
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "\" hx-target=\"#guardrails-table\" hx-swap=\"innerHTML\">")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "\" hx-target=\"#guardrails-table\" hx-swap=\"innerHTML\">")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -2343,7 +2351,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 									}()
 								}
 								ctx = templ.InitializeContext(ctx)
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "Delete")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "Delete")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -2353,7 +2361,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "</form>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "</form>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -2375,7 +2383,7 @@ func guardrailTableRow(g GuardrailRow) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2416,33 +2424,33 @@ func editGuardrailForm(g GuardrailRow) templ.Component {
 			templ_7745c5c3_Var108 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "<form hx-post=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "<form hx-post=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var109 string
 		templ_7745c5c3_Var109, templ_7745c5c3_Err = templ.JoinStringErrs("/ui/guardrails/" + g.ID + "/update")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 464, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 493, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var109))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "\" hx-target=\"#guardrails-table\" hx-swap=\"innerHTML\"><div class=\"space-y-4 py-4\"><div class=\"space-y-2\"><label for=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "\" hx-target=\"#guardrails-table\" hx-swap=\"innerHTML\"><div class=\"space-y-4 py-4\"><div class=\"space-y-2\"><label for=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var110 string
 		templ_7745c5c3_Var110, templ_7745c5c3_Err = templ.JoinStringErrs("edit_name_" + g.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 470, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 499, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var110))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "\" class=\"text-sm font-medium\">Name <span class=\"text-destructive\">*</span></label>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "\" class=\"text-sm font-medium\">Name <span class=\"text-destructive\">*</span></label>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2455,272 +2463,492 @@ func editGuardrailForm(g GuardrailRow) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "</div><div class=\"space-y-2\"><label for=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "</div><div class=\"space-y-2\"><label for=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var111 string
 		templ_7745c5c3_Var111, templ_7745c5c3_Err = templ.JoinStringErrs("edit_type_" + g.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 479, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 508, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var111))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "\" class=\"text-sm font-medium\">Type</label> <select name=\"guardrail_type\" id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "\" class=\"text-sm font-medium\">Type</label> <select name=\"guardrail_type\" id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var112 string
 		templ_7745c5c3_Var112, templ_7745c5c3_Err = templ.JoinStringErrs("edit_type_" + g.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 480, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 509, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var112))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "\" class=\"flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm\"><option value=\"openai_moderation\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "\" class=\"flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm\"><option value=\"openai_moderation\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if g.Type == "openai_moderation" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, " selected")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, ">OpenAI Moderation</option> <option value=\"presidio\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, ">OpenAI Moderation</option> <option value=\"presidio\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if g.Type == "presidio" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, " selected")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, ">Presidio</option> <option value=\"lakera_guard\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, ">Presidio</option> <option value=\"prompt_injection\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "prompt_injection" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, ">Prompt Injection</option> <option value=\"lakera_guard\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if g.Type == "lakera_guard" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, " selected")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, ">Lakera Guard</option> <option value=\"aporia\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, ">Lakera Guard</option> <option value=\"bedrock_guardrail\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "bedrock_guardrail" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, ">Bedrock Guardrail</option> <option value=\"azure_prompt_shield\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "azure_prompt_shield" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, ">Azure Prompt Shield</option> <option value=\"azure_text_moderation\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "azure_text_moderation" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, ">Azure Text Moderation</option> <option value=\"content_filter\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "content_filter" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, ">Content Filter</option> <option value=\"tool_permission\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "tool_permission" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, ">Tool Permission</option> <option value=\"generic\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "generic" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, ">Generic</option> <option value=\"aim\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "aim" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, ">AIM</option> <option value=\"aporia\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if g.Type == "aporia" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, " selected")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, ">Aporia</option> <option value=\"bedrock\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, ">Aporia</option> <option value=\"custom_code\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if g.Type == "bedrock" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, " selected")
+		if g.Type == "custom_code" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, ">Bedrock</option> <option value=\"aim_safety\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, ">Custom Code</option> <option value=\"dynamoai\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if g.Type == "aim_safety" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, " selected")
+		if g.Type == "dynamoai" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, ">AIM Safety</option> <option value=\"google_text_moderation\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, ">DynamoAI</option> <option value=\"enkryptai\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if g.Type == "google_text_moderation" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, " selected")
+		if g.Type == "enkryptai" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, ">Google Text Moderation</option> <option value=\"guardrails_ai\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, ">EnkryptAI</option> <option value=\"grayswan\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "grayswan" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, ">Gray Swan</option> <option value=\"guardrails_ai\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if g.Type == "guardrails_ai" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, " selected")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, ">Guardrails AI</option> <option value=\"llm_guard\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, ">Guardrails AI</option> <option value=\"hiddenlayer\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if g.Type == "llm_guard" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, " selected")
+		if g.Type == "hiddenlayer" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 140, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, ">LLM Guard</option> <option value=\"custom\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, ">HiddenLayer</option> <option value=\"ibm_guardrails\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if g.Type == "custom" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, " selected")
+		if g.Type == "ibm_guardrails" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 142, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, ">Custom</option></select></div><div class=\"space-y-2\"><label for=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, ">IBM Guardrails</option> <option value=\"javelin\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "javelin" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, ">Javelin</option> <option value=\"lakera_v2\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "lakera_v2" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, ">Lakera V2</option> <option value=\"lasso\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "lasso" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, ">Lasso</option> <option value=\"model_armor\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "model_armor" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, ">Model Armor</option> <option value=\"noma\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "noma" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, ">Noma</option> <option value=\"onyx\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "onyx" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, ">Onyx</option> <option value=\"pangea\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "pangea" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 156, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, ">Pangea</option> <option value=\"panw_prisma_airs\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "panw_prisma_airs" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, ">PANW Prisma AIRS</option> <option value=\"pillar\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "pillar" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, ">Pillar</option> <option value=\"prompt_security\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "prompt_security" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, ">Prompt Security</option> <option value=\"qualifire\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "qualifire" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, ">Qualifire</option> <option value=\"unified_guardrail\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "unified_guardrail" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, ">Unified Guardrail</option> <option value=\"zscaler_ai_guard\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if g.Type == "zscaler_ai_guard" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, ">Zscaler AI Guard</option></select></div><div class=\"space-y-2\"><label for=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var113 string
 		templ_7745c5c3_Var113, templ_7745c5c3_Err = templ.JoinStringErrs("edit_policy_" + g.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 494, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 545, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var113))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "\" class=\"text-sm font-medium\">Failure Policy</label> <select name=\"failure_policy\" id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "\" class=\"text-sm font-medium\">Failure Policy</label> <select name=\"failure_policy\" id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var114 string
 		templ_7745c5c3_Var114, templ_7745c5c3_Err = templ.JoinStringErrs("edit_policy_" + g.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 495, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 546, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var114))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "\" class=\"flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm\"><option value=\"fail_open\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, "\" class=\"flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm\"><option value=\"fail_open\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if g.FailurePolicy == "fail_open" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, " selected")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 172, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, ">Fail Open (allow on error)</option> <option value=\"fail_closed\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 173, ">Fail Open (allow on error)</option> <option value=\"fail_closed\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if g.FailurePolicy == "fail_closed" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, " selected")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 174, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, ">Fail Closed (block on error)</option></select></div><div class=\"space-y-2\"><label for=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 175, ">Fail Closed (block on error)</option></select></div><div class=\"space-y-2\"><label for=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var115 string
 		templ_7745c5c3_Var115, templ_7745c5c3_Err = templ.JoinStringErrs("edit_config_" + g.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 501, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 552, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var115))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "\" class=\"text-sm font-medium\">Config (JSON)</label> <textarea name=\"config\" id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 176, "\" class=\"text-sm font-medium\">Config (JSON)</label> <textarea name=\"config\" id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var116 string
 		templ_7745c5c3_Var116, templ_7745c5c3_Err = templ.JoinStringErrs("edit_config_" + g.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 504, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 555, Col: 31}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var116))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "\" rows=\"4\" class=\"flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 177, "\" rows=\"4\" class=\"flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var117 string
 		templ_7745c5c3_Var117, templ_7745c5c3_Err = templ.JoinStringErrs(g.ConfigJSON)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 507, Col: 19}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 558, Col: 19}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var117))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "</textarea></div><div class=\"flex items-center gap-2\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 178, "</textarea></div><div class=\"flex items-center gap-2\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if g.Enabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "<input type=\"checkbox\" name=\"enabled\" id=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 179, "<input type=\"checkbox\" name=\"enabled\" id=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var118 string
 			templ_7745c5c3_Var118, templ_7745c5c3_Err = templ.JoinStringErrs("edit_enabled_" + g.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 511, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 562, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var118))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "\" class=\"h-4 w-4 rounded border border-input\" checked> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 180, "\" class=\"h-4 w-4 rounded border border-input\" checked> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "<input type=\"checkbox\" name=\"enabled\" id=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 181, "<input type=\"checkbox\" name=\"enabled\" id=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var119 string
 			templ_7745c5c3_Var119, templ_7745c5c3_Err = templ.JoinStringErrs("edit_enabled_" + g.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 513, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 564, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var119))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "\" class=\"h-4 w-4 rounded border border-input\"> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 182, "\" class=\"h-4 w-4 rounded border border-input\"> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "<label for=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 183, "<label for=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var120 string
 		templ_7745c5c3_Var120, templ_7745c5c3_Err = templ.JoinStringErrs("edit_enabled_" + g.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 515, Col: 39}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 566, Col: 39}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var120))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, "\" class=\"text-sm font-medium\">Enabled</label></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 184, "\" class=\"text-sm font-medium\">Enabled</label></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2760,7 +2988,7 @@ func editGuardrailForm(g GuardrailRow) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 140, "Cancel")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 185, "Cancel")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -2776,7 +3004,7 @@ func editGuardrailForm(g GuardrailRow) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 186, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2792,7 +3020,7 @@ func editGuardrailForm(g GuardrailRow) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 142, "Save Changes")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 187, "Save Changes")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2808,7 +3036,7 @@ func editGuardrailForm(g GuardrailRow) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, "</form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 188, "</form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2842,7 +3070,7 @@ func GuardrailsTableWithToast(data GuardrailsPageData, toastMsg string, toastVar
 			return templ_7745c5c3_Err
 		}
 		if toastMsg != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, "<div id=\"toast-oob\" hx-swap-oob=\"afterbegin:body\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 189, "<div id=\"toast-oob\" hx-swap-oob=\"afterbegin:body\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2855,7 +3083,7 @@ func GuardrailsTableWithToast(data GuardrailsPageData, toastMsg string, toastVar
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 190, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2886,110 +3114,110 @@ func GuardrailBindingsPartial(data GuardrailBindingsData) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if data.Error != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, "<div class=\"rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 191, "<div class=\"rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var127 string
 			templ_7745c5c3_Var127, templ_7745c5c3_Err = templ.JoinStringErrs(data.Error)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 548, Col: 15}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 599, Col: 15}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var127))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 192, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, "<div class=\"space-y-4\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 193, "<div class=\"space-y-4\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(data.BoundPolicies) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, "<div><p class=\"text-sm font-medium mb-2\">Bound Policies</p><div class=\"space-y-2\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 194, "<div><p class=\"text-sm font-medium mb-2\">Bound Policies</p><div class=\"space-y-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, p := range data.BoundPolicies {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, "<div class=\"flex items-center justify-between rounded-md border p-3\"><div class=\"text-sm\"><span class=\"font-medium\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 195, "<div class=\"flex items-center justify-between rounded-md border p-3\"><div class=\"text-sm\"><span class=\"font-medium\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var128 string
 					templ_7745c5c3_Var128, templ_7745c5c3_Err = templ.JoinStringErrs(p.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 559, Col: 43}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 610, Col: 43}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var128))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, "</span> ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 196, "</span> ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if len(p.Teams) > 0 || len(p.Keys) > 0 {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, "<span class=\"text-muted-foreground ml-2\">")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 197, "<span class=\"text-muted-foreground ml-2\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var129 string
 						templ_7745c5c3_Var129, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d teams · %d keys", len(p.Teams), len(p.Keys)))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 562, Col: 74}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 613, Col: 74}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var129))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, "</span>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 198, "</span>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, "</div><form hx-post=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 199, "</div><form hx-post=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var130 string
 					templ_7745c5c3_Var130, templ_7745c5c3_Err = templ.JoinStringErrs("/ui/guardrails/" + data.GuardrailID + "/bindings/remove")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 567, Col: 76}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 618, Col: 76}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var130))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "\" hx-target=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 200, "\" hx-target=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var131 string
 					templ_7745c5c3_Var131, templ_7745c5c3_Err = templ.JoinStringErrs("#bindings-content-" + data.GuardrailID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 568, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 619, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var131))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 156, "\"><input type=\"hidden\" name=\"policy_id\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 201, "\"><input type=\"hidden\" name=\"policy_id\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var132 string
 					templ_7745c5c3_Var132, templ_7745c5c3_Err = templ.JoinStringErrs(p.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 570, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 621, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var132))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, "\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 202, "\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -3005,7 +3233,7 @@ func GuardrailBindingsPartial(data GuardrailBindingsData) templ.Component {
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "Remove")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 203, "Remove")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -3015,85 +3243,85 @@ func GuardrailBindingsPartial(data GuardrailBindingsData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, "</form></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 204, "</form></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, "</div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 205, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, "<p class=\"text-sm text-muted-foreground\">No policies are bound to this guardrail.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 206, "<p class=\"text-sm text-muted-foreground\">No policies are bound to this guardrail.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			if len(data.UnboundPolicies) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, "<div class=\"border-t pt-4\"><p class=\"text-sm font-medium mb-2\">Add to Policy</p><form class=\"flex gap-2\" hx-post=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 207, "<div class=\"border-t pt-4\"><p class=\"text-sm font-medium mb-2\">Add to Policy</p><form class=\"flex gap-2\" hx-post=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var134 string
 				templ_7745c5c3_Var134, templ_7745c5c3_Err = templ.JoinStringErrs("/ui/guardrails/" + data.GuardrailID + "/bindings/add")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 587, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 638, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var134))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, "\" hx-target=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 208, "\" hx-target=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var135 string
 				templ_7745c5c3_Var135, templ_7745c5c3_Err = templ.JoinStringErrs("#bindings-content-" + data.GuardrailID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 588, Col: 57}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 639, Col: 57}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var135))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, "\"><select name=\"policy_id\" class=\"flex h-9 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 209, "\"><select name=\"policy_id\" class=\"flex h-9 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, p := range data.UnboundPolicies {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "<option value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 210, "<option value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var136 string
 					templ_7745c5c3_Var136, templ_7745c5c3_Err = templ.JoinStringErrs(p.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 592, Col: 28}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 643, Col: 28}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var136))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, "\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 211, "\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var137 string
 					templ_7745c5c3_Var137, templ_7745c5c3_Err = templ.JoinStringErrs(p.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 592, Col: 39}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 643, Col: 39}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var137))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, "</option>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 212, "</option>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, "</select>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 213, "</select>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3109,7 +3337,7 @@ func GuardrailBindingsPartial(data GuardrailBindingsData) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, "Add")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 214, "Add")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -3119,12 +3347,12 @@ func GuardrailBindingsPartial(data GuardrailBindingsData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "</form></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 215, "</form></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 216, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3156,25 +3384,25 @@ func GuardrailTestResultPartial(done, passed bool, message, errMsg string) templ
 		ctx = templ.ClearChildren(ctx)
 		if done {
 			if errMsg != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 172, "<div class=\"rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive\"><span class=\"font-medium\">Error:</span> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 217, "<div class=\"rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive\"><span class=\"font-medium\">Error:</span> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var140 string
 				templ_7745c5c3_Var140, templ_7745c5c3_Err = templ.JoinStringErrs(" " + errMsg)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 610, Col: 18}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 661, Col: 18}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var140))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 173, "</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 218, "</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else if passed {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 174, "<div class=\"rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 219, "<div class=\"rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3182,7 +3410,7 @@ func GuardrailTestResultPartial(done, passed bool, message, errMsg string) templ
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 175, "<span class=\"font-medium\">Passed</span> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 220, "<span class=\"font-medium\">Passed</span> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3190,19 +3418,19 @@ func GuardrailTestResultPartial(done, passed bool, message, errMsg string) templ
 					var templ_7745c5c3_Var141 string
 					templ_7745c5c3_Var141, templ_7745c5c3_Err = templ.JoinStringErrs(" — " + message)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 617, Col: 24}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 668, Col: 24}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var141))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 176, "</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 221, "</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 177, "<div class=\"rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 222, "<div class=\"rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3210,7 +3438,7 @@ func GuardrailTestResultPartial(done, passed bool, message, errMsg string) templ
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 178, "<span class=\"font-medium\">Blocked</span> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 223, "<span class=\"font-medium\">Blocked</span> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3218,14 +3446,14 @@ func GuardrailTestResultPartial(done, passed bool, message, errMsg string) templ
 					var templ_7745c5c3_Var142 string
 					templ_7745c5c3_Var142, templ_7745c5c3_Err = templ.JoinStringErrs(" — " + message)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 625, Col: 24}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/guardrails.templ`, Line: 676, Col: 24}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var142))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 179, "</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 224, "</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

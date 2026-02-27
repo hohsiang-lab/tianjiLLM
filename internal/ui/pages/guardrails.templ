@@ -233,7 +233,7 @@ templ GuardrailsTablePartial(data GuardrailsPageData) {
 										No guardrails configured
 										<br/>
 										<button
-											onclick="document.querySelector('[data-dialog-id=\"create-guardrail-dialog\"] [data-dialog-trigger]').click()"
+											{ templ.Attributes{"onclick": `document.querySelector('[data-dialog-id="create-guardrail-dialog"] [data-dialog-trigger]').click()`}... }
 											class="mt-2 inline-flex items-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
 										>New Guardrail</button>
 									</div>
