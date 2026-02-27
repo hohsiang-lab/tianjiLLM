@@ -36,6 +36,21 @@ type GuardrailsPageData struct {
 	Search     string
 }
 
+type GuardrailBindingPolicy struct {
+	ID    string
+	Name  string
+	Teams []string
+	Keys  []string
+}
+
+type GuardrailBindingsData struct {
+	GuardrailID     string
+	GuardrailName   string
+	BoundPolicies   []GuardrailBindingPolicy
+	UnboundPolicies []GuardrailBindingPolicy
+	Error           string
+}
+
 func (d GuardrailsPageData) guardrailsFilterQueryString() string {
 	if d.Search != "" {
 		return "&search=" + d.Search
@@ -328,6 +343,73 @@ templ guardrailTableRow(g GuardrailRow) {
 						}
 					</form>
 				}
+				@dialog.Dialog(dialog.Props{ID: "bindings-guardrail-" + g.ID}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm}) {
+							@icon.Link(icon.Props{Size: 14, Class: "mr-1"})
+							Bindings
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Policy Bindings
+							}
+							@dialog.Description() {
+								{ "Policies using guardrail \"" + g.Name + "\"" }
+							}
+						}
+						<div
+							id={ "bindings-content-" + g.ID }
+							hx-get={ "/ui/guardrails/" + g.ID + "/bindings" }
+							hx-trigger="revealed"
+							hx-target={ "#bindings-content-" + g.ID }
+							class="min-h-[4rem]"
+						>
+							<p class="text-sm text-muted-foreground">Loading...</p>
+						</div>
+					}
+				}
+				@dialog.Dialog(dialog.Props{ID: "test-guardrail-" + g.ID}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm}) {
+							@icon.FlaskConical(icon.Props{Size: 14, Class: "mr-1"})
+							Test
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Test Guardrail
+							}
+							@dialog.Description() {
+								{ "Test guardrail \"" + g.Name + "\" with a sample prompt" }
+							}
+						}
+						<div class="space-y-4 py-2">
+							<form
+								hx-post={ "/ui/guardrails/" + g.ID + "/test" }
+								hx-target={ "#test-result-" + g.ID }
+								class="space-y-3"
+							>
+								<div class="space-y-2">
+									<label class="text-sm font-medium">Test Prompt</label>
+									<textarea
+										name="test_text"
+										rows="3"
+										placeholder="Enter a test prompt to check against this guardrail..."
+										class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+									></textarea>
+								</div>
+								@button.Button(button.Props{Type: "submit", Size: button.SizeSm}) {
+									@icon.FlaskConical(icon.Props{Size: 14, Class: "mr-1"})
+									Run Test
+								}
+							</form>
+							<div id={ "test-result-" + g.ID }></div>
+						</div>
+					}
+				}
 				@dialog.Dialog(dialog.Props{ID: "edit-guardrail-" + g.ID}) {
 					@dialog.Trigger(dialog.TriggerProps{}) {
 						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm}) {
@@ -457,5 +539,92 @@ templ GuardrailsTableWithToast(data GuardrailsPageData, toastMsg string, toastVa
 				Duration:    3000,
 			})
 		</div>
+	}
+}
+
+templ GuardrailBindingsPartial(data GuardrailBindingsData) {
+	if data.Error != "" {
+		<div class="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+			{ data.Error }
+		</div>
+	} else {
+		<div class="space-y-4">
+			if len(data.BoundPolicies) > 0 {
+				<div>
+					<p class="text-sm font-medium mb-2">Bound Policies</p>
+					<div class="space-y-2">
+						for _, p := range data.BoundPolicies {
+							<div class="flex items-center justify-between rounded-md border p-3">
+								<div class="text-sm">
+									<span class="font-medium">{ p.Name }</span>
+									if len(p.Teams) > 0 || len(p.Keys) > 0 {
+										<span class="text-muted-foreground ml-2">
+											{ fmt.Sprintf("%d teams · %d keys", len(p.Teams), len(p.Keys)) }
+										</span>
+									}
+								</div>
+								<form
+									hx-post={ "/ui/guardrails/" + data.GuardrailID + "/bindings/remove" }
+									hx-target={ "#bindings-content-" + data.GuardrailID }
+								>
+									<input type="hidden" name="policy_id" value={ p.ID }/>
+									@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Type: "submit"}) {
+										Remove
+									}
+								</form>
+							</div>
+						}
+					</div>
+				</div>
+			} else {
+				<p class="text-sm text-muted-foreground">No policies are bound to this guardrail.</p>
+			}
+			if len(data.UnboundPolicies) > 0 {
+				<div class="border-t pt-4">
+					<p class="text-sm font-medium mb-2">Add to Policy</p>
+					<form
+						class="flex gap-2"
+						hx-post={ "/ui/guardrails/" + data.GuardrailID + "/bindings/add" }
+						hx-target={ "#bindings-content-" + data.GuardrailID }
+					>
+						<select name="policy_id" class="flex h-9 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm">
+							for _, p := range data.UnboundPolicies {
+								<option value={ p.ID }>{ p.Name }</option>
+							}
+						</select>
+						@button.Button(button.Props{Size: button.SizeSm, Type: "submit"}) {
+							Add
+						}
+					</form>
+				</div>
+			}
+		</div>
+	}
+}
+
+templ GuardrailTestResultPartial(done, passed bool, message, errMsg string) {
+	if done {
+		if errMsg != "" {
+			<div class="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+				<span class="font-medium">Error:</span>
+				{ " " + errMsg }
+			</div>
+		} else if passed {
+			<div class="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400">
+				@icon.ShieldCheck(icon.Props{Size: 14, Class: "inline mr-1"})
+				<span class="font-medium">Passed</span>
+				if message != "" {
+					{ " — " + message }
+				}
+			</div>
+		} else {
+			<div class="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+				@icon.ShieldX(icon.Props{Size: 14, Class: "inline mr-1"})
+				<span class="font-medium">Blocked</span>
+				if message != "" {
+					{ " — " + message }
+				}
+			</div>
+		}
 	}
 }

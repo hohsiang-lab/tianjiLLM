@@ -3,11 +3,15 @@ package ui
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
+	"github.com/praxisllmlab/tianjiLLM/internal/guardrail"
+	"github.com/praxisllmlab/tianjiLLM/internal/model"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/toast"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/pages"
 )
@@ -266,4 +270,219 @@ func (h *UIHandler) handleGuardrailDelete(w http.ResponseWriter, r *http.Request
 
 	data := h.loadGuardrailsPageData(r)
 	render(r.Context(), w, pages.GuardrailsTableWithToast(data, "Guardrail deleted successfully", toast.VariantSuccess))
+}
+
+// --- Policy Binding handlers ---
+
+func (h *UIHandler) loadGuardrailBindingsData(r *http.Request, guardrailID string) pages.GuardrailBindingsData {
+	if h.DB == nil {
+		return pages.GuardrailBindingsData{GuardrailID: guardrailID, Error: "database not configured"}
+	}
+
+	ctx := r.Context()
+
+	g, err := h.DB.GetGuardrailConfig(ctx, guardrailID)
+	if err != nil {
+		return pages.GuardrailBindingsData{GuardrailID: guardrailID, Error: "Guardrail not found: " + err.Error()}
+	}
+
+	policies, err := h.DB.ListPolicies(ctx)
+	if err != nil {
+		return pages.GuardrailBindingsData{GuardrailID: guardrailID, GuardrailName: g.GuardrailName, Error: "Failed to load policies: " + err.Error()}
+	}
+
+	var bound, unbound []pages.GuardrailBindingPolicy
+	for _, p := range policies {
+		info := pages.GuardrailBindingPolicy{ID: p.ID, Name: p.Name}
+		attachments, _ := h.DB.ListPolicyAttachmentsByPolicy(ctx, p.Name)
+		for _, a := range attachments {
+			info.Teams = append(info.Teams, a.Teams...)
+			info.Keys = append(info.Keys, a.Keys...)
+		}
+		if slices.Contains(p.GuardrailsAdd, g.GuardrailName) {
+			bound = append(bound, info)
+		} else {
+			unbound = append(unbound, info)
+		}
+	}
+
+	return pages.GuardrailBindingsData{
+		GuardrailID:     guardrailID,
+		GuardrailName:   g.GuardrailName,
+		BoundPolicies:   bound,
+		UnboundPolicies: unbound,
+	}
+}
+
+func (h *UIHandler) handleGuardrailBindings(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	data := h.loadGuardrailBindingsData(r, id)
+	render(r.Context(), w, pages.GuardrailBindingsPartial(data))
+}
+
+func (h *UIHandler) handleGuardrailBindingAdd(w http.ResponseWriter, r *http.Request) {
+	if h.DB == nil {
+		http.Error(w, "database not configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	policyID := r.FormValue("policy_id")
+
+	g, err := h.DB.GetGuardrailConfig(r.Context(), id)
+	if err != nil {
+		data := pages.GuardrailBindingsData{GuardrailID: id, Error: "Guardrail not found"}
+		render(r.Context(), w, pages.GuardrailBindingsPartial(data))
+		return
+	}
+
+	p, err := h.DB.GetPolicy(r.Context(), policyID)
+	if err != nil {
+		data := h.loadGuardrailBindingsData(r, id)
+		data.Error = "Policy not found"
+		render(r.Context(), w, pages.GuardrailBindingsPartial(data))
+		return
+	}
+
+	if !slices.Contains(p.GuardrailsAdd, g.GuardrailName) {
+		newGuardrails := append(p.GuardrailsAdd, g.GuardrailName)
+		_, err = h.DB.UpdatePolicy(r.Context(), db.UpdatePolicyParams{
+			ID:               p.ID,
+			Name:             p.Name,
+			ParentID:         p.ParentID,
+			Conditions:       p.Conditions,
+			GuardrailsAdd:    newGuardrails,
+			GuardrailsRemove: p.GuardrailsRemove,
+			Pipeline:         p.Pipeline,
+			Description:      p.Description,
+		})
+		if err != nil {
+			data := h.loadGuardrailBindingsData(r, id)
+			data.Error = "Failed to add binding: " + err.Error()
+			render(r.Context(), w, pages.GuardrailBindingsPartial(data))
+			return
+		}
+	}
+
+	data := h.loadGuardrailBindingsData(r, id)
+	render(r.Context(), w, pages.GuardrailBindingsPartial(data))
+}
+
+func (h *UIHandler) handleGuardrailBindingRemove(w http.ResponseWriter, r *http.Request) {
+	if h.DB == nil {
+		http.Error(w, "database not configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	policyID := r.FormValue("policy_id")
+
+	g, err := h.DB.GetGuardrailConfig(r.Context(), id)
+	if err != nil {
+		data := pages.GuardrailBindingsData{GuardrailID: id, Error: "Guardrail not found"}
+		render(r.Context(), w, pages.GuardrailBindingsPartial(data))
+		return
+	}
+
+	p, err := h.DB.GetPolicy(r.Context(), policyID)
+	if err != nil {
+		data := h.loadGuardrailBindingsData(r, id)
+		data.Error = "Policy not found"
+		render(r.Context(), w, pages.GuardrailBindingsPartial(data))
+		return
+	}
+
+	newGuardrails := make([]string, 0, len(p.GuardrailsAdd))
+	for _, v := range p.GuardrailsAdd {
+		if v != g.GuardrailName {
+			newGuardrails = append(newGuardrails, v)
+		}
+	}
+
+	_, err = h.DB.UpdatePolicy(r.Context(), db.UpdatePolicyParams{
+		ID:               p.ID,
+		Name:             p.Name,
+		ParentID:         p.ParentID,
+		Conditions:       p.Conditions,
+		GuardrailsAdd:    newGuardrails,
+		GuardrailsRemove: p.GuardrailsRemove,
+		Pipeline:         p.Pipeline,
+		Description:      p.Description,
+	})
+	if err != nil {
+		data := h.loadGuardrailBindingsData(r, id)
+		data.Error = "Failed to remove binding: " + err.Error()
+		render(r.Context(), w, pages.GuardrailBindingsPartial(data))
+		return
+	}
+
+	data := h.loadGuardrailBindingsData(r, id)
+	render(r.Context(), w, pages.GuardrailBindingsPartial(data))
+}
+
+// --- Test handler ---
+
+func (h *UIHandler) handleGuardrailTest(w http.ResponseWriter, r *http.Request) {
+	if h.DB == nil {
+		render(r.Context(), w, pages.GuardrailTestResultPartial(true, false, "", "database not configured"))
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if err := r.ParseForm(); err != nil {
+		render(r.Context(), w, pages.GuardrailTestResultPartial(true, false, "", "bad request"))
+		return
+	}
+
+	testText := strings.TrimSpace(r.FormValue("test_text"))
+	if testText == "" {
+		render(r.Context(), w, pages.GuardrailTestResultPartial(true, false, "", "Test text is required"))
+		return
+	}
+
+	g, err := h.DB.GetGuardrailConfig(r.Context(), id)
+	if err != nil {
+		render(r.Context(), w, pages.GuardrailTestResultPartial(true, false, "", "Guardrail not found: "+err.Error()))
+		return
+	}
+
+	var params map[string]any
+	if jsonErr := json.Unmarshal(g.Config, &params); jsonErr != nil || params == nil {
+		params = map[string]any{}
+	}
+	params["mode"] = g.GuardrailType
+
+	gc := config.GuardrailConfig{
+		GuardrailName: g.GuardrailName,
+		TianjiParams:  params,
+		FailurePolicy: g.FailurePolicy,
+	}
+
+	guardrailInst, err := guardrail.NewFromConfig(gc)
+	if err != nil {
+		render(r.Context(), w, pages.GuardrailTestResultPartial(true, false, "", "Test not supported for this guardrail type: "+err.Error()))
+		return
+	}
+
+	req := &model.ChatCompletionRequest{
+		Messages: []model.Message{{Role: "user", Content: testText}},
+	}
+
+	result, err := guardrailInst.Run(r.Context(), guardrail.HookPreCall, req, nil)
+	if err != nil {
+		render(r.Context(), w, pages.GuardrailTestResultPartial(true, false, "", "Test error: "+err.Error()))
+		return
+	}
+
+	render(r.Context(), w, pages.GuardrailTestResultPartial(true, result.Passed, result.Message, ""))
 }

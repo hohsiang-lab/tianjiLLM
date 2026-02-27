@@ -99,6 +99,10 @@ func (h *UIHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/guardrails/{id}/update", h.handleGuardrailUpdate)
 		r.Post("/guardrails/{id}/toggle", h.handleGuardrailToggle)
 		r.Post("/guardrails/{id}/delete", h.handleGuardrailDelete)
+		r.Get("/guardrails/{id}/bindings", h.handleGuardrailBindings)
+		r.Post("/guardrails/{id}/bindings/add", h.handleGuardrailBindingAdd)
+		r.Post("/guardrails/{id}/bindings/remove", h.handleGuardrailBindingRemove)
+		r.Post("/guardrails/{id}/test", h.handleGuardrailTest)
 
 		// Users (admin only)
 		r.Group(func(r chi.Router) {
