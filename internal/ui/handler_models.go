@@ -42,7 +42,12 @@ func (h *UIHandler) handleSyncPricing(w http.ResponseWriter, r *http.Request) {
 		upstreamURL = defaultUpstreamURL
 	}
 
-	count, err := pricing.SyncFromUpstream(r.Context(), h.Pool, h.DB, h.Pricing, upstreamURL)
+	openRouterURL := os.Getenv("OPENROUTER_PRICING_URL")
+	if openRouterURL == "" {
+		openRouterURL = "https://openrouter.ai/api/v1/models"
+	}
+
+	count, err := pricing.SyncFromUpstream(r.Context(), h.Pool, h.DB, h.Pricing, upstreamURL, openRouterURL)
 	if err != nil {
 		render(r.Context(), w, syncPricingToast("Sync failed: "+err.Error(), toast.VariantError))
 		return

@@ -87,7 +87,7 @@ func TestIntegration_SyncWritesToDB(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	count, err := SyncFromUpstream(ctx, pool, queries, calc, srv.URL)
+	count, err := SyncFromUpstream(ctx, pool, queries, calc, srv.URL, "")
 	if err != nil {
 		t.Fatalf("SyncFromUpstream failed: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestIntegration_CalcLookupUsesDBAfterSync(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if _, err := SyncFromUpstream(ctx, pool, queries, calc, srv.URL); err != nil {
+	if _, err := SyncFromUpstream(ctx, pool, queries, calc, srv.URL, ""); err != nil {
 		t.Fatalf("SyncFromUpstream: %v", err)
 	}
 
@@ -143,7 +143,7 @@ func TestIntegration_RestartReloadFromDB(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if _, err := SyncFromUpstream(ctx, pool, queries, calc1, srv.URL); err != nil {
+	if _, err := SyncFromUpstream(ctx, pool, queries, calc1, srv.URL, ""); err != nil {
 		t.Fatalf("SyncFromUpstream: %v", err)
 	}
 
@@ -190,7 +190,7 @@ func TestIntegration_SyncFailureRollback(t *testing.T) {
 	}))
 	defer errSrv.Close()
 
-	_, err := SyncFromUpstream(ctx, pool, queries, calc, errSrv.URL)
+	_, err := SyncFromUpstream(ctx, pool, queries, calc, errSrv.URL, "")
 	if err == nil {
 		t.Fatal("expected error from 500 server")
 	}
@@ -217,5 +217,181 @@ func TestIntegration_EmbeddedFallbackWhenDBEmpty(t *testing.T) {
 	}
 	if info.InputCostPerToken != 0.42 {
 		t.Errorf("expected 0.42 from embedded, got %v", info.InputCostPerToken)
+	}
+}
+
+// buildOpenRouterServer returns an httptest.Server serving OpenRouter-format JSON.
+func buildOpenRouterServer(t *testing.T, models []map[string]any) *httptest.Server {
+	t.Helper()
+	body, _ := json.Marshal(map[string]any{"data": models})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(body)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// TestIntegration_OpenRouterSupplementsLiteLLM: OpenRouter-only models appear in DB;
+// LiteLLM models are not overwritten.
+func TestIntegration_OpenRouterSupplementsLiteLLM(t *testing.T) {
+	pool, queries := setupTestDB(t)
+
+	// LiteLLM upstream: 60 models, none named "google/gemini-or-only"
+	litellmSrv := buildIntegrationUpstream(t, 60)
+
+	// OpenRouter: one model that is NOT in LiteLLM
+	orSrv := buildOpenRouterServer(t, []map[string]any{
+		{
+			"id": "google/gemini-or-only",
+			"pricing": map[string]any{
+				"prompt":     "0.00000125",
+				"completion": "0.00001",
+			},
+		},
+		// Also include a model that mirrors a LiteLLM name — should NOT overwrite
+		{
+			"id": "test-model-0",
+			"pricing": map[string]any{
+				"prompt":     "0.99999",
+				"completion": "0.99999",
+			},
+		},
+	})
+
+	calc := &Calculator{
+		embedded:  make(map[string]ModelInfo),
+		models:    make(map[string]ModelInfo),
+		overrides: make(map[string]ModelInfo),
+	}
+
+	ctx := context.Background()
+	count, err := SyncFromUpstream(ctx, pool, queries, calc, litellmSrv.URL, orSrv.URL)
+	if err != nil {
+		t.Fatalf("SyncFromUpstream failed: %v", err)
+	}
+
+	// Should have 60 LiteLLM + 2 OpenRouter entries (google/gemini-or-only + bare gemini-or-only)
+	// test-model-0 is in LiteLLM so it is NOT added again from OpenRouter
+	if count != 62 {
+		t.Errorf("expected 62 total entries (60 LiteLLM + 2 OpenRouter-only), got %d", count)
+	}
+
+	// Verify OpenRouter-only model in DB with correct pricing
+	entries, err := queries.ListModelPricing(ctx)
+	if err != nil {
+		t.Fatalf("ListModelPricing: %v", err)
+	}
+
+	byName := make(map[string]interface{})
+	for _, e := range entries {
+		byName[e.ModelName] = e
+	}
+
+	if _, ok := byName["google/gemini-or-only"]; !ok {
+		t.Error("expected google/gemini-or-only in DB")
+	}
+
+	// Verify LiteLLM model NOT overwritten by OpenRouter
+	info := calc.lookup("test-model-0")
+	if info == nil {
+		t.Fatal("test-model-0 not found")
+	}
+	if info.InputCostPerToken >= 0.9 {
+		t.Errorf("LiteLLM model test-model-0 was overwritten by OpenRouter price: %v", info.InputCostPerToken)
+	}
+}
+
+// TestIntegration_OpenRouterDualKey: OpenRouter model stored under both
+// provider/model and bare model keys.
+func TestIntegration_OpenRouterDualKey(t *testing.T) {
+	pool, queries := setupTestDB(t)
+
+	litellmSrv := buildIntegrationUpstream(t, 60)
+
+	orSrv := buildOpenRouterServer(t, []map[string]any{
+		{
+			"id": "google/gemini-2.5-pro-preview",
+			"pricing": map[string]any{
+				"prompt":     "0.00000125",
+				"completion": "0.00001",
+			},
+		},
+	})
+
+	calc := &Calculator{
+		embedded:  make(map[string]ModelInfo),
+		models:    make(map[string]ModelInfo),
+		overrides: make(map[string]ModelInfo),
+	}
+
+	ctx := context.Background()
+	if _, err := SyncFromUpstream(ctx, pool, queries, calc, litellmSrv.URL, orSrv.URL); err != nil {
+		t.Fatalf("SyncFromUpstream failed: %v", err)
+	}
+
+	entries, err := queries.ListModelPricing(ctx)
+	if err != nil {
+		t.Fatalf("ListModelPricing: %v", err)
+	}
+
+	byName := make(map[string]float64)
+	for _, e := range entries {
+		if e.InputCostPerToken != nil {
+			byName[e.ModelName] = *e.InputCostPerToken
+		}
+	}
+
+	// Both full and bare keys must exist
+	fullCost, hasFullKey := byName["google/gemini-2.5-pro-preview"]
+	bareCost, hasBareKey := byName["gemini-2.5-pro-preview"]
+
+	if !hasFullKey {
+		t.Error("expected google/gemini-2.5-pro-preview in DB")
+	}
+	if !hasBareKey {
+		t.Error("expected gemini-2.5-pro-preview (bare) in DB")
+	}
+	if hasFullKey && hasBareKey && fullCost != bareCost {
+		t.Errorf("pricing mismatch: full=%v bare=%v", fullCost, bareCost)
+	}
+}
+
+// TestIntegration_OpenRouterFailureGraceful: OpenRouter returning 500 does not
+// block LiteLLM sync; a warning is logged but sync succeeds.
+func TestIntegration_OpenRouterFailureGraceful(t *testing.T) {
+	pool, queries := setupTestDB(t)
+
+	litellmSrv := buildIntegrationUpstream(t, 60)
+
+	// OpenRouter returns 500
+	errSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "server error", http.StatusInternalServerError)
+	}))
+	defer errSrv.Close()
+
+	calc := &Calculator{
+		embedded:  make(map[string]ModelInfo),
+		models:    make(map[string]ModelInfo),
+		overrides: make(map[string]ModelInfo),
+	}
+
+	ctx := context.Background()
+	count, err := SyncFromUpstream(ctx, pool, queries, calc, litellmSrv.URL, errSrv.URL)
+	if err != nil {
+		t.Fatalf("SyncFromUpstream should succeed even when OpenRouter fails, got: %v", err)
+	}
+
+	// LiteLLM models still synced
+	if count != 60 {
+		t.Errorf("expected 60 LiteLLM models synced despite OpenRouter failure, got %d", count)
+	}
+
+	entries, err := queries.ListModelPricing(ctx)
+	if err != nil {
+		t.Fatalf("ListModelPricing: %v", err)
+	}
+	if len(entries) != 60 {
+		t.Errorf("expected 60 DB rows, got %d", len(entries))
 	}
 }
