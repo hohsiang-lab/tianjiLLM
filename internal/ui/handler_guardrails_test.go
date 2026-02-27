@@ -250,6 +250,21 @@ func TestGuardrailDelete(t *testing.T) {
 	h, mock := newGuardrailTestHandler(t)
 	defer mock.Close()
 
+	// GetGuardrailConfig
+	mock.ExpectQuery(`SELECT .+ FROM "GuardrailConfigTable" WHERE id = \$1`).
+		WithArgs("g1").
+		WillReturnRows(pgxmock.NewRows(guardrailCols).
+			AddRow("g1", "my-guard", "regex", []byte(`{}`), "fail_open", true, nil, nil))
+
+	// ListPolicies → no bindings
+	mock.ExpectQuery(`SELECT .+ FROM "PolicyTable" ORDER BY`).
+		WillReturnRows(pgxmock.NewRows([]string{
+			"id", "name", "parent_id", "conditions", "guardrails_add",
+			"guardrails_remove", "pipeline", "description", "created_by",
+			"created_at", "updated_at",
+		}))
+
+	// DeleteGuardrailConfig
 	mock.ExpectExec(`DELETE FROM "GuardrailConfigTable" WHERE id`).
 		WithArgs("g1").
 		WillReturnResult(pgxmock.NewResult("DELETE", 1))
@@ -268,10 +283,40 @@ func TestGuardrailDelete(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-// TODO: TestGuardrailDelete_WithPolicyBinding — 魯班正在實作 delete binding 防護。
-// 等 handler 加入 policy binding check 後，補上此 test case：
-// 預期行為：如果有 policy 綁定此 guardrail，DELETE 應該被拒絕，
-// 回傳 "Cannot delete guardrail with active policy bindings" 之類的訊息。
+func TestGuardrailDelete_WithPolicyBinding(t *testing.T) {
+	h, mock := newGuardrailTestHandler(t)
+	defer mock.Close()
+
+	// GetGuardrailConfig
+	mock.ExpectQuery(`SELECT .+ FROM "GuardrailConfigTable" WHERE id = \$1`).
+		WithArgs("g1").
+		WillReturnRows(pgxmock.NewRows(guardrailCols).
+			AddRow("g1", "my-guard", "regex", []byte(`{}`), "fail_open", true, nil, nil))
+
+	// ListPolicies → one policy references this guardrail
+	mock.ExpectQuery(`SELECT .+ FROM "PolicyTable" ORDER BY`).
+		WillReturnRows(pgxmock.NewRows([]string{
+			"id", "name", "parent_id", "conditions", "guardrails_add",
+			"guardrails_remove", "pipeline", "description", "created_by",
+			"created_at", "updated_at",
+		}).AddRow("p1", "block-policy", nil, []byte(`{}`), []string{"my-guard"},
+			[]string{}, nil, nil, nil, nil, nil))
+
+	// loadGuardrailsPageData (for error toast render)
+	mock.ExpectQuery(`SELECT .+ FROM "GuardrailConfigTable" ORDER BY`).
+		WillReturnRows(pgxmock.NewRows(guardrailCols).
+			AddRow("g1", "my-guard", "regex", []byte(`{}`), "fail_open", true, nil, nil))
+
+	r := postForm("/ui/guardrails/g1/delete", url.Values{})
+	r = withChiParam(r, "id", "g1")
+	w := httptest.NewRecorder()
+	h.handleGuardrailDelete(w, r)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Cannot delete")
+	assert.Contains(t, w.Body.String(), "block-policy")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
 
 // ---------- Toggle ----------
 
