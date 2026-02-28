@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feat/anthropic-rate-limit-alert`
 **Created**: 2026-03-01
-**Updated**: 2026-03-01 (remove silent-skip fallbacks; missing/unparseable headers are logged as errors)
+**Updated**: 2026-03-01 (add clarifications: provider detection, goroutine ownership, zero-value threshold)
 **Status**: Draft
 **Linear Issue**: HO-69
 
@@ -72,6 +72,48 @@ Output tokens are a separate limit exhausted independently from input tokens.
 2. `ratelimit_alert_threshold: 0.1` + remaining=25% → no alert.
 
 ---
+
+## Implementation Clarifications
+
+### C-01: Provider Detection
+The rate limit header check runs only when `providerName == "anthropic"`.
+This matches the existing pattern in `native_format.go`:
+```go
+switch providerName {
+case "anthropic":
+    // existing OAuth header logic
+    // ADD: read rate limit headers here
+}
+```
+No other provider detection mechanism is needed.
+
+### C-02: Goroutine Ownership
+`CheckAndAlert` is responsible for spawning its own goroutine internally:
+```go
+func (d *DiscordRateLimitAlerter) CheckAndAlert(state AnthropicRateLimitState) {
+    go func() {
+        // threshold check + cooldown + Discord POST
+    }()
+}
+```
+The caller (`ModifyResponse`) calls `CheckAndAlert(state)` synchronously — it does not wrap it in `go`.
+This keeps async logic encapsulated inside the alerter, not leaked to the caller.
+
+### C-03: Zero Value Threshold
+Go's zero value for `float64` is `0.0`. If `RatelimitAlertThreshold` is not set in config,
+it will be `0.0`, which would cause every request to trigger an alert.
+
+Resolution: `NewDiscordRateLimitAlerter` applies the default internally:
+```go
+func NewDiscordRateLimitAlerter(webhookURL string, threshold float64, ...) *DiscordRateLimitAlerter {
+    if threshold == 0 {
+        threshold = 0.2
+    }
+    ...
+}
+```
+`ProxyConfig.Validate()` is not modified. The default is applied at construction time.
+
 
 ## Requirements *(mandatory)*
 
