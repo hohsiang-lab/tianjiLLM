@@ -306,6 +306,25 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion int, mod
 				completion = event.Usage.OutputTokens
 			}
 
+		case "openai":
+			var event struct {
+				Model string `json:"model"`
+				Usage struct {
+					PromptTokens     int `json:"prompt_tokens"`
+					CompletionTokens int `json:"completion_tokens"`
+				} `json:"usage"`
+			}
+			if json.Unmarshal(data, &event) != nil {
+				continue
+			}
+			if event.Model != "" {
+				modelName = event.Model
+			}
+			if event.Usage.PromptTokens > 0 || event.Usage.CompletionTokens > 0 {
+				prompt = event.Usage.PromptTokens
+				completion = event.Usage.CompletionTokens
+			}
+
 		case "gemini":
 			var event struct {
 				ModelVersion  string `json:"modelVersion"`
