@@ -12,18 +12,34 @@ import (
 )
 
 const countRequestLogs = `-- name: CountRequestLogs :one
-SELECT COUNT(*)
-FROM "SpendLogs" sl
-LEFT JOIN "ErrorLogs" el ON sl.request_id = el.request_id
-WHERE sl.starttime >= $1
-  AND sl.starttime < $2
-  AND ($3::text IS NULL OR sl.api_key = $3)
-  AND ($4::text IS NULL OR sl.team_id = $4)
-  AND ($5::text IS NULL OR sl.model = $5)
-  AND ($6::text IS NULL OR sl.request_id = $6)
-  AND ($7::text IS NULL
-       OR ($7 = 'success' AND el.id IS NULL)
-       OR ($7 = 'failed' AND el.id IS NOT NULL))
+SELECT COUNT(*) FROM (
+  (
+    SELECT sl.request_id
+    FROM "SpendLogs" sl
+    LEFT JOIN "ErrorLogs" el ON sl.request_id = el.request_id
+    WHERE sl.starttime >= $1
+      AND sl.starttime < $2
+      AND ($3::text IS NULL OR sl.api_key = $3)
+      AND ($4::text IS NULL OR sl.team_id = $4)
+      AND ($5::text IS NULL OR sl.model = $5)
+      AND ($6::text IS NULL OR sl.request_id = $6)
+      AND ($7::text IS NULL
+           OR ($7 = 'success' AND el.id IS NULL)
+           OR ($7 = 'failed' AND el.id IS NOT NULL))
+  )
+  UNION ALL
+  (
+    SELECT el.request_id
+    FROM "ErrorLogs" el
+    WHERE NOT EXISTS (SELECT 1 FROM "SpendLogs" WHERE request_id = el.request_id)
+      AND el.created_at >= $1
+      AND el.created_at < $2
+      AND ($5::text IS NULL OR el.model = $5)
+      AND ($6::text IS NULL OR el.request_id = $6)
+      AND ($3::text IS NULL OR el.api_key_hash = $3)
+      AND ($7::text IS NULL OR $7 = 'failed')
+  )
+) AS combined
 `
 
 type CountRequestLogsParams struct {
@@ -1012,40 +1028,67 @@ func (q *Queries) ListIPWhitelist(ctx context.Context) ([]IPWhitelistTable, erro
 
 const listRequestLogs = `-- name: ListRequestLogs :many
 
-SELECT
+(
+  SELECT
     sl.request_id,
-    sl.starttime,
+    sl.starttime        AS ts,
     sl.endtime,
-    sl.api_key,
+    sl.api_key          AS key_hash,
     sl.model,
     sl.spend,
     sl.total_tokens,
     sl.prompt_tokens,
     sl.completion_tokens,
-    sl.call_type,
     sl.cache_hit,
     sl.team_id,
-    sl."user",
     sl.end_user,
-    sl.requester_ip_address,
-    el.status_code AS error_status_code,
+    el.status_code      AS error_status_code,
     el.error_type
-FROM "SpendLogs" sl
-LEFT JOIN "ErrorLogs" el ON sl.request_id = el.request_id
-WHERE sl.starttime >= $1
-  AND sl.starttime < $2
-  AND ($3::text IS NULL OR sl.api_key = $3)
-  AND ($4::text IS NULL OR sl.team_id = $4)
-  AND ($5::text IS NULL OR sl.model = $5)
-  AND ($6::text IS NULL OR sl.request_id = $6)
-  AND ($7::text IS NULL
-       OR ($7 = 'success' AND el.id IS NULL)
-       OR ($7 = 'failed' AND el.id IS NOT NULL))
-ORDER BY sl.starttime DESC
-LIMIT $9 OFFSET $8
+  FROM "SpendLogs" sl
+  LEFT JOIN "ErrorLogs" el ON sl.request_id = el.request_id
+  WHERE sl.starttime >= $3
+    AND sl.starttime < $4
+    AND ($5::text IS NULL OR sl.api_key = $5)
+    AND ($6::text IS NULL OR sl.team_id = $6)
+    AND ($7::text IS NULL OR sl.model = $7)
+    AND ($8::text IS NULL OR sl.request_id = $8)
+    AND ($9::text IS NULL
+         OR ($9 = 'success' AND el.id IS NULL)
+         OR ($9 = 'failed' AND el.id IS NOT NULL))
+)
+UNION ALL
+(
+  SELECT
+    el.request_id,
+    el.created_at       AS ts,
+    NULL                AS endtime,
+    el.api_key_hash     AS key_hash,
+    el.model,
+    0.0::float8         AS spend,
+    0::int8             AS total_tokens,
+    0::int8             AS prompt_tokens,
+    0::int8             AS completion_tokens,
+    ''                  AS cache_hit,
+    NULL::text          AS team_id,
+    NULL::text          AS end_user,
+    el.status_code      AS error_status_code,
+    el.error_type
+  FROM "ErrorLogs" el
+  WHERE NOT EXISTS (SELECT 1 FROM "SpendLogs" WHERE request_id = el.request_id)
+    AND el.created_at >= $3
+    AND el.created_at < $4
+    AND ($7::text IS NULL OR el.model = $7)
+    AND ($8::text IS NULL OR el.request_id = $8)
+    AND ($5::text IS NULL OR el.api_key_hash = $5)
+    AND ($9::text IS NULL OR $9 = 'failed')
+)
+ORDER BY ts DESC
+LIMIT $2 OFFSET $1
 `
 
 type ListRequestLogsParams struct {
+	QueryOffset     int32              `json:"query_offset"`
+	QueryLimit      int32              `json:"query_limit"`
 	StartDate       pgtype.Timestamptz `json:"start_date"`
 	EndDate         pgtype.Timestamptz `json:"end_date"`
 	FilterApiKey    *string            `json:"filter_api_key"`
@@ -1053,33 +1096,30 @@ type ListRequestLogsParams struct {
 	FilterModel     *string            `json:"filter_model"`
 	FilterRequestID *string            `json:"filter_request_id"`
 	FilterStatus    *string            `json:"filter_status"`
-	QueryOffset     int32              `json:"query_offset"`
-	QueryLimit      int32              `json:"query_limit"`
 }
 
 type ListRequestLogsRow struct {
-	RequestID          string             `json:"request_id"`
-	Starttime          pgtype.Timestamptz `json:"starttime"`
-	Endtime            pgtype.Timestamptz `json:"endtime"`
-	ApiKey             string             `json:"api_key"`
-	Model              string             `json:"model"`
-	Spend              float64            `json:"spend"`
-	TotalTokens        int32              `json:"total_tokens"`
-	PromptTokens       int32              `json:"prompt_tokens"`
-	CompletionTokens   int32              `json:"completion_tokens"`
-	CallType           string             `json:"call_type"`
-	CacheHit           string             `json:"cache_hit"`
-	TeamID             *string            `json:"team_id"`
-	User               string             `json:"user"`
-	EndUser            *string            `json:"end_user"`
-	RequesterIpAddress *string            `json:"requester_ip_address"`
-	ErrorStatusCode    *int32             `json:"error_status_code"`
-	ErrorType          *string            `json:"error_type"`
+	RequestID        string             `json:"request_id"`
+	Ts               pgtype.Timestamptz `json:"ts"`
+	Endtime          pgtype.Timestamptz `json:"endtime"`
+	KeyHash          string             `json:"key_hash"`
+	Model            string             `json:"model"`
+	Spend            float64            `json:"spend"`
+	TotalTokens      int32              `json:"total_tokens"`
+	PromptTokens     int32              `json:"prompt_tokens"`
+	CompletionTokens int32              `json:"completion_tokens"`
+	CacheHit         string             `json:"cache_hit"`
+	TeamID           *string            `json:"team_id"`
+	EndUser          *string            `json:"end_user"`
+	ErrorStatusCode  *int32             `json:"error_status_code"`
+	ErrorType        *string            `json:"error_type"`
 }
 
 // Request Logs Dashboard queries
 func (q *Queries) ListRequestLogs(ctx context.Context, arg ListRequestLogsParams) ([]ListRequestLogsRow, error) {
 	rows, err := q.db.Query(ctx, listRequestLogs,
+		arg.QueryOffset,
+		arg.QueryLimit,
 		arg.StartDate,
 		arg.EndDate,
 		arg.FilterApiKey,
@@ -1087,8 +1127,6 @@ func (q *Queries) ListRequestLogs(ctx context.Context, arg ListRequestLogsParams
 		arg.FilterModel,
 		arg.FilterRequestID,
 		arg.FilterStatus,
-		arg.QueryOffset,
-		arg.QueryLimit,
 	)
 	if err != nil {
 		return nil, err
@@ -1099,20 +1137,17 @@ func (q *Queries) ListRequestLogs(ctx context.Context, arg ListRequestLogsParams
 		var i ListRequestLogsRow
 		if err := rows.Scan(
 			&i.RequestID,
-			&i.Starttime,
+			&i.Ts,
 			&i.Endtime,
-			&i.ApiKey,
+			&i.KeyHash,
 			&i.Model,
 			&i.Spend,
 			&i.TotalTokens,
 			&i.PromptTokens,
 			&i.CompletionTokens,
-			&i.CallType,
 			&i.CacheHit,
 			&i.TeamID,
-			&i.User,
 			&i.EndUser,
-			&i.RequesterIpAddress,
 			&i.ErrorStatusCode,
 			&i.ErrorType,
 		); err != nil {
