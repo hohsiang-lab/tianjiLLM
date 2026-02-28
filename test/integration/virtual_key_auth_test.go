@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -34,33 +33,27 @@ type memToken struct {
 	guardrails []string
 }
 
-// memValidator is an in-memory TokenValidator + GuardrailProvider for tests.
+// memValidator is an in-memory TokenValidator for tests.
 type memValidator struct {
 	tokens map[string]memToken // keyed by SHA256 hash
 	dbDown bool
 }
 
-func (m *memValidator) ValidateToken(_ context.Context, tokenHash string) (userID, teamID *string, blocked bool, err error) {
+func (m *memValidator) ValidateToken(_ context.Context, tokenHash string) (*middleware.TokenInfo, error) {
 	if m.dbDown {
-		return nil, nil, false, middleware.ErrDBUnavailable
+		return nil, middleware.ErrDBUnavailable
 	}
 	tok, ok := m.tokens[tokenHash]
 	if !ok {
-		return nil, nil, false, middleware.ErrKeyNotFound
+		return nil, middleware.ErrKeyNotFound
 	}
 	uid, tid := tok.userID, tok.teamID
-	return &uid, &tid, tok.blocked, nil
-}
-
-func (m *memValidator) GetGuardrails(_ context.Context, tokenHash string) ([]string, error) {
-	if m.dbDown {
-		return nil, errors.New("db down")
-	}
-	tok, ok := m.tokens[tokenHash]
-	if !ok {
-		return nil, nil
-	}
-	return tok.guardrails, nil
+	return &middleware.TokenInfo{
+		UserID:     &uid,
+		TeamID:     &tid,
+		Blocked:    tok.blocked,
+		Guardrails: tok.guardrails,
+	}, nil
 }
 
 // newVirtualKeyServer creates a proxy server backed by the given TokenValidator.

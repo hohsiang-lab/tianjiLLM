@@ -14,14 +14,12 @@ import (
 
 // mockValidator implements TokenValidator for auth middleware tests.
 type mockValidator struct {
-	userID  *string
-	teamID  *string
-	blocked bool
-	err     error
+	info *TokenInfo
+	err  error
 }
 
-func (m *mockValidator) ValidateToken(_ context.Context, _ string) (*string, *string, bool, error) {
-	return m.userID, m.teamID, m.blocked, m.err
+func (m *mockValidator) ValidateToken(_ context.Context, _ string) (*TokenInfo, error) {
+	return m.info, m.err
 }
 
 // countingQuerier records how many times GetVerificationToken is called.
@@ -79,8 +77,8 @@ func TestMasterKey_WrongKeyGoesToDB(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})).ServeHTTP(rr, req)
 
-	// Non-master key hits the DB at least once (ValidateToken; GetGuardrails may add a second call)
-	assert.GreaterOrEqual(t, counter.calls, 1, "DB should be queried for non-master-key requests")
+	// Non-master key hits the DB exactly once (ValidateToken returns everything in a single call)
+	assert.Equal(t, 1, counter.calls, "DB should be queried exactly once for non-master-key requests")
 }
 
 func TestMissingToken_Returns401(t *testing.T) {
@@ -99,7 +97,7 @@ func TestMissingToken_Returns401(t *testing.T) {
 func TestVirtualKey_ValidKeyAuthenticates(t *testing.T) {
 	uid := "user-42"
 	tid := "team-99"
-	validator := &mockValidator{userID: &uid, teamID: &tid}
+	validator := &mockValidator{info: &TokenInfo{UserID: &uid, TeamID: &tid}}
 
 	authMW := NewAuthMiddleware(AuthConfig{
 		MasterKey: "sk-master",
@@ -127,7 +125,7 @@ func TestVirtualKey_ValidKeyAuthenticates(t *testing.T) {
 }
 
 func TestVirtualKey_BlockedKeyReturns403(t *testing.T) {
-	validator := &mockValidator{blocked: true}
+	validator := &mockValidator{info: &TokenInfo{Blocked: true}}
 
 	authMW := NewAuthMiddleware(AuthConfig{
 		MasterKey: "sk-master",
@@ -177,4 +175,30 @@ func TestVirtualKey_DBUnavailableReturns503(t *testing.T) {
 	})).ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+}
+
+// BenchmarkAuthMiddleware_VirtualKey measures end-to-end latency of the auth
+// middleware for virtual key requests. Validates SC-004: response latency
+// does not increase compared to baseline.
+func BenchmarkAuthMiddleware_VirtualKey(b *testing.B) {
+	uid := "user-bench"
+	tid := "team-bench"
+	validator := &mockValidator{info: &TokenInfo{UserID: &uid, TeamID: &tid}}
+
+	authMW := NewAuthMiddleware(AuthConfig{
+		MasterKey: "sk-master",
+		Validator: validator,
+	})
+
+	handler := authMW(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		req.Header.Set("Authorization", "Bearer sk-virtual-key-bench")
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+	}
 }

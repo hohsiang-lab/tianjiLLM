@@ -26,15 +26,18 @@ const (
 	ContextKeyGuardrails    contextKey = "guardrails"
 )
 
-// TokenValidator looks up a virtual key by its hash.
-type TokenValidator interface {
-	ValidateToken(ctx context.Context, tokenHash string) (userID, teamID *string, blocked bool, err error)
+// TokenInfo holds the result of a virtual key lookup.
+type TokenInfo struct {
+	UserID     *string
+	TeamID     *string
+	Blocked    bool
+	Guardrails []string
 }
 
-// GuardrailProvider optionally returns guardrail names for a token.
-// If TokenValidator also implements this, guardrail names are added to context.
-type GuardrailProvider interface {
-	GetGuardrails(ctx context.Context, tokenHash string) ([]string, error)
+// TokenValidator looks up a virtual key by its hash.
+// Returns all key metadata from a single DB call.
+type TokenValidator interface {
+	ValidateToken(ctx context.Context, tokenHash string) (*TokenInfo, error)
 }
 
 // AuthConfig holds configuration for the auth middleware.
@@ -111,7 +114,7 @@ func NewAuthMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 
 			// 3. Virtual key from DB
 			if cfg.Validator != nil {
-				userID, teamID, blocked, err := cfg.Validator.ValidateToken(r.Context(), tokenHash)
+				info, err := cfg.Validator.ValidateToken(r.Context(), tokenHash)
 				if err != nil {
 					if errors.Is(err, ErrDBUnavailable) {
 						log.Printf("auth error: database unavailable: %v", err)
@@ -122,28 +125,24 @@ func NewAuthMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 					}
 					return
 				}
-				if blocked {
+				if info.Blocked {
 					log.Printf("auth failed: key is blocked (hash=%s...)", tokenHash[:8])
 					authError(w, "API key is blocked", http.StatusForbidden)
 					return
 				}
-				log.Printf("virtual key auth: user=%v team=%v", userID, teamID)
+				log.Printf("virtual key auth: user=%v team=%v", info.UserID, info.TeamID)
 
 				ctx := r.Context()
 				ctx = context.WithValue(ctx, ContextKeyIsMasterKey, false)
 				ctx = context.WithValue(ctx, ContextKeyTokenHash, tokenHash)
-				if userID != nil {
-					ctx = context.WithValue(ctx, ContextKeyUserID, *userID)
+				if info.UserID != nil {
+					ctx = context.WithValue(ctx, ContextKeyUserID, *info.UserID)
 				}
-				if teamID != nil {
-					ctx = context.WithValue(ctx, ContextKeyTeamID, *teamID)
+				if info.TeamID != nil {
+					ctx = context.WithValue(ctx, ContextKeyTeamID, *info.TeamID)
 				}
-
-				// Load guardrail names if validator supports it
-				if gp, ok := cfg.Validator.(GuardrailProvider); ok {
-					if names, err := gp.GetGuardrails(r.Context(), tokenHash); err == nil && len(names) > 0 {
-						ctx = context.WithValue(ctx, ContextKeyGuardrails, names)
-					}
+				if len(info.Guardrails) > 0 {
+					ctx = context.WithValue(ctx, ContextKeyGuardrails, info.Guardrails)
 				}
 
 				next.ServeHTTP(w, r.WithContext(ctx))

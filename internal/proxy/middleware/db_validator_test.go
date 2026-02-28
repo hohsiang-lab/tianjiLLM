@@ -24,17 +24,39 @@ func (f *fakeQuerier) GetVerificationToken(_ context.Context, _ string) (db.Veri
 
 func ptr[T any](v T) *T { return &v }
 
+// BenchmarkValidateToken measures the latency of a single ValidateToken call
+// with a fake in-memory querier. This establishes a baseline to confirm
+// the merged single-call path adds no overhead (SC-004).
+func BenchmarkValidateToken(b *testing.B) {
+	uid := "user-1"
+	tid := "team-1"
+	q := &fakeQuerier{result: db.VerificationToken{
+		UserID:   &uid,
+		TeamID:   &tid,
+		Blocked:  ptr(false),
+		Policies: []string{"guardrail-a", "guardrail-b"},
+	}}
+	v := &DBValidator{DB: q}
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		info, err := v.ValidateToken(ctx, "somehash")
+		if err != nil || info == nil {
+			b.Fatal("unexpected error")
+		}
+	}
+}
+
 func TestDBValidator_ValidateToken(t *testing.T) {
 	uid := "user-1"
 	tid := "team-1"
 
 	tests := []struct {
-		name        string
-		querier     *fakeQuerier
-		wantUserID  *string
-		wantTeamID  *string
-		wantBlocked bool
-		wantErr     error
+		name    string
+		querier *fakeQuerier
+		want    *TokenInfo
+		wantErr error
 	}{
 		{
 			name:    "key not found maps to ErrKeyNotFound",
@@ -53,84 +75,51 @@ func TestDBValidator_ValidateToken(t *testing.T) {
 				TeamID:  &tid,
 				Blocked: ptr(true),
 			}},
-			wantUserID:  &uid,
-			wantTeamID:  &tid,
-			wantBlocked: true,
+			want: &TokenInfo{UserID: &uid, TeamID: &tid, Blocked: true},
 		},
 		{
-			name: "valid key returns userID and teamID",
+			name: "valid key returns userID, teamID, and guardrails",
 			querier: &fakeQuerier{result: db.VerificationToken{
-				UserID:  &uid,
-				TeamID:  &tid,
-				Blocked: ptr(false),
+				UserID:   &uid,
+				TeamID:   &tid,
+				Blocked:  ptr(false),
+				Policies: []string{"guardrail-a", "guardrail-b"},
 			}},
-			wantUserID:  &uid,
-			wantTeamID:  &tid,
-			wantBlocked: false,
+			want: &TokenInfo{UserID: &uid, TeamID: &tid, Blocked: false, Guardrails: []string{"guardrail-a", "guardrail-b"}},
 		},
 		{
 			name: "nil Blocked field treated as not blocked",
 			querier: &fakeQuerier{result: db.VerificationToken{
 				UserID: &uid,
 			}},
-			wantUserID:  &uid,
-			wantBlocked: false,
+			want: &TokenInfo{UserID: &uid},
+		},
+		{
+			name: "nil policies returns nil guardrails",
+			querier: &fakeQuerier{result: db.VerificationToken{
+				UserID:   &uid,
+				Policies: nil,
+			}},
+			want: &TokenInfo{UserID: &uid},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			v := &DBValidator{DB: tc.querier}
-			userID, teamID, blocked, err := v.ValidateToken(context.Background(), "somehash")
+			info, err := v.ValidateToken(context.Background(), "somehash")
 
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
+				assert.Nil(t, info)
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tc.wantBlocked, blocked)
-			assert.Equal(t, tc.wantUserID, userID)
-			assert.Equal(t, tc.wantTeamID, teamID)
-		})
-	}
-}
-
-func TestDBValidator_GetGuardrails(t *testing.T) {
-	tests := []struct {
-		name       string
-		querier    *fakeQuerier
-		wantNames  []string
-		wantErrNil bool
-	}{
-		{
-			name:       "returns policies on success",
-			querier:    &fakeQuerier{result: db.VerificationToken{Policies: []string{"guardrail-a", "guardrail-b"}}},
-			wantNames:  []string{"guardrail-a", "guardrail-b"},
-			wantErrNil: true,
-		},
-		{
-			name:       "returns nil slice when no policies",
-			querier:    &fakeQuerier{result: db.VerificationToken{Policies: nil}},
-			wantNames:  nil,
-			wantErrNil: true,
-		},
-		{
-			name:       "propagates DB error",
-			querier:    &fakeQuerier{err: errors.New("db down")},
-			wantErrNil: false,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			v := &DBValidator{DB: tc.querier}
-			names, err := v.GetGuardrails(context.Background(), "somehash")
-			if tc.wantErrNil {
-				require.NoError(t, err)
-				assert.Equal(t, tc.wantNames, names)
-			} else {
-				require.Error(t, err)
-			}
+			require.NotNil(t, info)
+			assert.Equal(t, tc.want.Blocked, info.Blocked)
+			assert.Equal(t, tc.want.UserID, info.UserID)
+			assert.Equal(t, tc.want.TeamID, info.TeamID)
+			assert.Equal(t, tc.want.Guardrails, info.Guardrails)
 		})
 	}
 }
