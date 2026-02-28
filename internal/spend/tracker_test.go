@@ -1,7 +1,6 @@
 package spend
 
 import (
-	"context"
 	"testing"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/pricing"
@@ -23,25 +22,20 @@ func TestRecord_FallbackToPricingDefault(t *testing.T) {
 	expectedCost := pricing.Default().TotalCost(model, prompt, completion)
 	assert.Greater(t, expectedCost, 0.0, "expected non-zero cost from pricing.Default()")
 
-	// Record with zero Cost — should fallback to pricing.Default()
-	// Call the real Record() method; db=nil is safe (guarded inside Record).
 	rec := SpendRecord{
 		Model:            model,
 		PromptTokens:     prompt,
 		CompletionTokens: completion,
 		TotalTokens:      prompt + completion,
 	}
-	// Record() writes to DB (nil here, so no-op) but exercises the full
-	// fallback path: empty calculator → pricing.Default().
-	tracker.Record(context.Background(), rec)
 
-	// Verify the fallback independently: empty calculator returns 0,
-	// then pricing.Default() gives the expected cost.
+	// Empty calculator should return 0
 	calcCost := tracker.calculator.Calculate(model, prompt, completion)
 	assert.Equal(t, 0.0, calcCost, "empty calculator should return 0")
 
-	fallbackCost := pricing.Default().TotalCost(model, prompt, completion)
-	assert.Equal(t, expectedCost, fallbackCost, "pricing.Default() should return expected cost")
+	// calculateCost should fallback to pricing.Default() and return the expected cost
+	got := tracker.calculateCost(rec)
+	assert.Equal(t, expectedCost, got, "calculateCost should return expected cost via pricing.Default() fallback")
 }
 
 func TestRecord_StripProviderPrefix(t *testing.T) {
