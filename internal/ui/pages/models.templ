@@ -71,7 +71,10 @@ templ ModelsPage(data ModelsPageData) {
 								Add Model
 							}
 						}
-						@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Content(dialog.ContentProps{
+							Class: "max-w-lg",
+							Attributes: templ.Attributes{"style": "max-height: 90vh; overflow-y: auto"},
+						}) {
 							@dialog.Header() {
 								@dialog.Title() {
 									Add Model
@@ -430,7 +433,10 @@ templ ModelsTableWithToast(data ModelsPageData, toastMsg string, toastVariant to
 
 templ EditModelForm(m ModelRow) {
 	@dialog.Dialog(dialog.Props{ID: "edit-model-dialog", Open: true}) {
-		@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+		@dialog.Content(dialog.ContentProps{
+			Class: "max-w-lg",
+			Attributes: templ.Attributes{"style": "max-height: 90vh; overflow-y: auto"},
+		}) {
 				@dialog.Header() {
 					@dialog.Title() {
 						Edit Model
