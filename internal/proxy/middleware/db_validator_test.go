@@ -24,6 +24,30 @@ func (f *fakeQuerier) GetVerificationToken(_ context.Context, _ string) (db.Veri
 
 func ptr[T any](v T) *T { return &v }
 
+// BenchmarkValidateToken measures the latency of a single ValidateToken call
+// with a fake in-memory querier. This establishes a baseline to confirm
+// the merged single-call path adds no overhead (SC-004).
+func BenchmarkValidateToken(b *testing.B) {
+	uid := "user-1"
+	tid := "team-1"
+	q := &fakeQuerier{result: db.VerificationToken{
+		UserID:   &uid,
+		TeamID:   &tid,
+		Blocked:  ptr(false),
+		Policies: []string{"guardrail-a", "guardrail-b"},
+	}}
+	v := &DBValidator{DB: q}
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		info, err := v.ValidateToken(ctx, "somehash")
+		if err != nil || info == nil {
+			b.Fatal("unexpected error")
+		}
+	}
+}
+
 func TestDBValidator_ValidateToken(t *testing.T) {
 	uid := "user-1"
 	tid := "team-1"

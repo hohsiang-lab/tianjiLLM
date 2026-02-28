@@ -177,3 +177,29 @@ func TestVirtualKey_DBUnavailableReturns503(t *testing.T) {
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 }
+
+// BenchmarkAuthMiddleware_VirtualKey measures end-to-end latency of the auth
+// middleware for virtual key requests. Validates SC-004: response latency
+// does not increase compared to baseline.
+func BenchmarkAuthMiddleware_VirtualKey(b *testing.B) {
+	uid := "user-bench"
+	tid := "team-bench"
+	validator := &mockValidator{info: &TokenInfo{UserID: &uid, TeamID: &tid}}
+
+	authMW := NewAuthMiddleware(AuthConfig{
+		MasterKey: "sk-master",
+		Validator: validator,
+	})
+
+	handler := authMW(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		req.Header.Set("Authorization", "Bearer sk-virtual-key-bench")
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+	}
+}
