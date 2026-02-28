@@ -14,14 +14,15 @@ import (
 
 // mockValidator implements TokenValidator for auth middleware tests.
 type mockValidator struct {
-	userID  *string
-	teamID  *string
-	blocked bool
-	err     error
+	userID     *string
+	teamID     *string
+	blocked    bool
+	guardrails []string
+	err        error
 }
 
-func (m *mockValidator) ValidateToken(_ context.Context, _ string) (*string, *string, bool, error) {
-	return m.userID, m.teamID, m.blocked, m.err
+func (m *mockValidator) ValidateToken(_ context.Context, _ string) (*string, *string, bool, []string, error) {
+	return m.userID, m.teamID, m.blocked, m.guardrails, m.err
 }
 
 // countingQuerier records how many times GetVerificationToken is called.
@@ -79,8 +80,8 @@ func TestMasterKey_WrongKeyGoesToDB(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})).ServeHTTP(rr, req)
 
-	// Non-master key hits the DB at least once (ValidateToken; GetGuardrails may add a second call)
-	assert.GreaterOrEqual(t, counter.calls, 1, "DB should be queried for non-master-key requests")
+	// Non-master key hits the DB exactly once (ValidateToken returns everything in a single call)
+	assert.Equal(t, 1, counter.calls, "DB should be queried exactly once for non-master-key requests")
 }
 
 func TestMissingToken_Returns401(t *testing.T) {

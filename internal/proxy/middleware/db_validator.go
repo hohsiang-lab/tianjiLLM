@@ -21,37 +21,27 @@ type verificationTokenQuerier interface {
 	GetVerificationToken(ctx context.Context, token string) (db.VerificationToken, error)
 }
 
-// DBValidator bridges *db.Queries to TokenValidator + GuardrailProvider.
+// DBValidator bridges *db.Queries to TokenValidator.
 type DBValidator struct {
 	DB verificationTokenQuerier
 }
 
-// ValidateToken looks up a virtual key by its SHA256 hash.
-// Returns ErrKeyNotFound when the key does not exist, ErrDBUnavailable on DB failure.
-func (d *DBValidator) ValidateToken(ctx context.Context, tokenHash string) (userID, teamID *string, blocked bool, err error) {
+// ValidateToken looks up a virtual key by its SHA256 hash in a single DB call.
+// Returns user/team IDs, blocked status, guardrail policy names, and any error.
+func (d *DBValidator) ValidateToken(ctx context.Context, tokenHash string) (userID, teamID *string, blocked bool, guardrails []string, err error) {
 	vt, err := d.DB.GetVerificationToken(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil, false, ErrKeyNotFound
+			return nil, nil, false, nil, ErrKeyNotFound
 		}
-		return nil, nil, false, ErrDBUnavailable
+		return nil, nil, false, nil, ErrDBUnavailable
 	}
 	blocked = vt.Blocked != nil && *vt.Blocked
-	return vt.UserID, vt.TeamID, blocked, nil
-}
-
-// GetGuardrails returns the guardrail policy names attached to the token.
-func (d *DBValidator) GetGuardrails(ctx context.Context, tokenHash string) ([]string, error) {
-	vt, err := d.DB.GetVerificationToken(ctx, tokenHash)
-	if err != nil {
-		return nil, err
-	}
-	return vt.Policies, nil
+	return vt.UserID, vt.TeamID, blocked, vt.Policies, nil
 }
 
 // Compile-time interface satisfaction checks.
 var _ TokenValidator = (*DBValidator)(nil)
-var _ GuardrailProvider = (*DBValidator)(nil)
 
 // Verify that *db.Queries satisfies the narrow querier interface.
 var _ verificationTokenQuerier = (*db.Queries)(nil)

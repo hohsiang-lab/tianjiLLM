@@ -27,14 +27,9 @@ const (
 )
 
 // TokenValidator looks up a virtual key by its hash.
+// Returns user/team IDs, blocked status, guardrail names, and any error — all from a single DB call.
 type TokenValidator interface {
-	ValidateToken(ctx context.Context, tokenHash string) (userID, teamID *string, blocked bool, err error)
-}
-
-// GuardrailProvider optionally returns guardrail names for a token.
-// If TokenValidator also implements this, guardrail names are added to context.
-type GuardrailProvider interface {
-	GetGuardrails(ctx context.Context, tokenHash string) ([]string, error)
+	ValidateToken(ctx context.Context, tokenHash string) (userID, teamID *string, blocked bool, guardrails []string, err error)
 }
 
 // AuthConfig holds configuration for the auth middleware.
@@ -111,7 +106,7 @@ func NewAuthMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 
 			// 3. Virtual key from DB
 			if cfg.Validator != nil {
-				userID, teamID, blocked, err := cfg.Validator.ValidateToken(r.Context(), tokenHash)
+				userID, teamID, blocked, guardrails, err := cfg.Validator.ValidateToken(r.Context(), tokenHash)
 				if err != nil {
 					if errors.Is(err, ErrDBUnavailable) {
 						log.Printf("auth error: database unavailable: %v", err)
@@ -138,12 +133,8 @@ func NewAuthMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 				if teamID != nil {
 					ctx = context.WithValue(ctx, ContextKeyTeamID, *teamID)
 				}
-
-				// Load guardrail names if validator supports it
-				if gp, ok := cfg.Validator.(GuardrailProvider); ok {
-					if names, err := gp.GetGuardrails(r.Context(), tokenHash); err == nil && len(names) > 0 {
-						ctx = context.WithValue(ctx, ContextKeyGuardrails, names)
-					}
+				if len(guardrails) > 0 {
+					ctx = context.WithValue(ctx, ContextKeyGuardrails, guardrails)
 				}
 
 				next.ServeHTTP(w, r.WithContext(ctx))
