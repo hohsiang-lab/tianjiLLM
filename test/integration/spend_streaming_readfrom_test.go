@@ -95,7 +95,7 @@ func TestNativeProxyStreamingSpendLog_ReadFromBypass(t *testing.T) {
 		t.Fatal(err)
 	}
 	server := &http.Server{Handler: r}
-	go server.Serve(listener)
+	go func() { _ = server.Serve(listener) }()
 	defer server.Close()
 
 	addr := listener.Addr().String()
