@@ -259,7 +259,7 @@ func buildNativeLogData(ctx context.Context, providerName, modelName string, sta
 		PromptTokens:     prompt,
 		CompletionTokens: completion,
 		TotalTokens:      prompt + completion,
-		Cost:             pricing.Default().TotalCost(modelName, prompt, completion),
+		Cost:             pricing.Default().TotalCost(modelName, pricing.TokenUsage{PromptTokens: prompt, CompletionTokens: completion}),
 	}
 	if tokenHash, ok := ctx.Value(middleware.ContextKeyTokenHash).(string); ok {
 		data.APIKey = tokenHash

@@ -92,20 +92,34 @@ func (c *Calculator) ReloadFromDB(entries []db.ModelPricing) {
 	c.mu.Unlock()
 }
 
+// TokenUsage carries all token counts for a single LLM call.
+// PromptTokens is the total input token count (input + cache_read + cache_creation),
+// used for 200K threshold determination, matching LiteLLM Usage semantics.
+// NOTE: stub — Cost() implementation is pending (魯班).
+type TokenUsage struct {
+	PromptTokens             int // total = input + cache_read + cache_creation
+	CompletionTokens         int
+	CacheReadInputTokens     int
+	CacheCreationInputTokens int
+}
+
 // Cost calculates the cost in USD for a request given token counts.
-// Returns (promptCost, completionCost).
-func (c *Calculator) Cost(model string, promptTokens, completionTokens int) (float64, float64) {
+// Returns (inputSideCost, outputCost) where inputSideCost includes regular
+// input, cache_read, and cache_creation costs (with 200K threshold applied).
+// NOTE: stub — cache pricing + threshold logic is pending (魯班).
+func (c *Calculator) Cost(model string, usage TokenUsage) (float64, float64) {
 	info := c.lookup(model)
 	if info == nil {
 		return 0, 0
 	}
-	return float64(promptTokens) * info.InputCostPerToken,
-		float64(completionTokens) * info.OutputCostPerToken
+	// TODO (魯班): implement cache pricing + 200K threshold
+	return float64(usage.PromptTokens) * info.InputCostPerToken,
+		float64(usage.CompletionTokens) * info.OutputCostPerToken
 }
 
 // TotalCost returns the total cost for a request.
-func (c *Calculator) TotalCost(model string, promptTokens, completionTokens int) float64 {
-	prompt, completion := c.Cost(model, promptTokens, completionTokens)
+func (c *Calculator) TotalCost(model string, usage TokenUsage) float64 {
+	prompt, completion := c.Cost(model, usage)
 	return prompt + completion
 }
 

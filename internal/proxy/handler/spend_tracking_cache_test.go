@@ -107,10 +107,10 @@ func TestSpendTracking_NoCache_BackwardCompat(t *testing.T) {
 	// Backward compat: prompt should be 100, no cache tokens
 	assert.Equal(t, 100, data.PromptTokens,
 		"T15: PromptTokens should be 100 (no cache; backward compat)")
-	assert.Equal(t, 0, data.CacheReadTokens,
-		"T15: CacheReadTokens should be 0")
-	assert.Equal(t, 0, data.CacheCreationTokens,
-		"T15: CacheCreationTokens should be 0")
+	assert.Equal(t, 0, data.CacheReadInputTokens,
+		"T15: CacheReadInputTokens should be 0")
+	assert.Equal(t, 0, data.CacheCreationInputTokens,
+		"T15: CacheCreationInputTokens should be 0")
 
 	// Cost must not be negative or unreasonably large
 	assert.GreaterOrEqual(t, data.Cost, 0.0,

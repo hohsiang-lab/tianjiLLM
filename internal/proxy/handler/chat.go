@@ -431,7 +431,7 @@ func (h *Handlers) logSuccess(ctx context.Context, req *model.ChatCompletionRequ
 		data.PromptTokens = result.Usage.PromptTokens
 		data.CompletionTokens = result.Usage.CompletionTokens
 		data.TotalTokens = result.Usage.TotalTokens
-		data.Cost = pricing.Default().TotalCost(req.Model, result.Usage.PromptTokens, result.Usage.CompletionTokens)
+		data.Cost = pricing.Default().TotalCost(req.Model, pricing.TokenUsage{PromptTokens: result.Usage.PromptTokens, CompletionTokens: result.Usage.CompletionTokens})
 	}
 
 	go h.Callbacks.LogSuccess(data)
@@ -461,7 +461,7 @@ func (h *Handlers) logStreamSuccess(ctx context.Context, req *model.ChatCompleti
 		data.PromptTokens = promptTokens
 		data.CompletionTokens = completionTokens
 		data.TotalTokens = promptTokens + completionTokens
-		data.Cost = pricing.Default().TotalCost(req.Model, promptTokens, completionTokens)
+		data.Cost = pricing.Default().TotalCost(req.Model, pricing.TokenUsage{PromptTokens: promptTokens, CompletionTokens: completionTokens})
 	}
 
 	go h.Callbacks.LogSuccess(data)

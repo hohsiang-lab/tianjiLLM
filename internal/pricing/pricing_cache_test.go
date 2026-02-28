@@ -37,31 +37,35 @@ func newCacheTestCalculator() *Calculator {
 	}
 }
 
-// ─── T06: 50K cache_read → cost = 50000 × 3e-07 (NOT 3e-06) ─────────────────
+// ─── T06: 50K cache_read → inputSideCost = 50000 × 3e-07 (NOT 3e-06) ─────────
 
 // TestCacheCost_CacheReadRate verifies that cache_read tokens are billed at
 // cache_read rate (3e-07), not standard input rate (3e-06).
 func TestCacheCost_CacheReadRate(t *testing.T) {
 	c := newCacheTestCalculator()
 
-	_, cacheReadCost, _, _ := c.CostWithCache("claude-sonnet-4-20250514", 0, 50000, 0, 0)
+	inputSideCost, _ := c.Cost("claude-sonnet-4-20250514", TokenUsage{
+		CacheReadInputTokens: 50000,
+	})
 
 	const wantCacheReadCost = 50000 * 3e-07 // $0.015
-	assert.InDelta(t, wantCacheReadCost, cacheReadCost, 1e-10,
+	assert.InDelta(t, wantCacheReadCost, inputSideCost, 1e-10,
 		"T06: 50K cache_read must cost 50000 × 3e-07 = $0.015 (not 3e-06)")
 }
 
-// ─── T07: 1000 cache_creation → cost = 1000 × 3.75e-06 ──────────────────────
+// ─── T07: 1000 cache_creation → inputSideCost = 1000 × 3.75e-06 ─────────────
 
 // TestCacheCost_CacheCreationRate verifies that cache_creation tokens use the
 // write rate (3.75e-06).
 func TestCacheCost_CacheCreationRate(t *testing.T) {
 	c := newCacheTestCalculator()
 
-	_, _, cacheCreationCost, _ := c.CostWithCache("claude-sonnet-4-20250514", 0, 0, 1000, 0)
+	inputSideCost, _ := c.Cost("claude-sonnet-4-20250514", TokenUsage{
+		CacheCreationInputTokens: 1000,
+	})
 
 	const wantCreationCost = 1000 * 3.75e-06
-	assert.InDelta(t, wantCreationCost, cacheCreationCost, 1e-10,
+	assert.InDelta(t, wantCreationCost, inputSideCost, 1e-10,
 		"T07: 1000 cache_creation must cost 1000 × 3.75e-06")
 }
 
@@ -72,37 +76,45 @@ func TestCacheCost_CacheCreationRate(t *testing.T) {
 func TestCacheCost_MixedInputAndCacheRead(t *testing.T) {
 	c := newCacheTestCalculator()
 
-	inputCost, cacheReadCost, _, _ := c.CostWithCache("claude-sonnet-4-20250514", 1, 50000, 0, 0)
+	// Only cache_read cost (isolate)
+	cacheOnlyCost, _ := c.Cost("claude-sonnet-4-20250514", TokenUsage{
+		CacheReadInputTokens: 50000,
+	})
+	// Only regular input cost (isolate)
+	inputOnlyCost, _ := c.Cost("claude-sonnet-4-20250514", TokenUsage{
+		PromptTokens: 1,
+	})
+	// Combined cost
+	combinedCost, _ := c.Cost("claude-sonnet-4-20250514", TokenUsage{
+		PromptTokens:         1,
+		CacheReadInputTokens: 50000,
+	})
 
 	const wantInputCost = 1 * 3e-06
 	const wantCacheReadCost = 50000 * 3e-07
-	assert.InDelta(t, wantInputCost, inputCost, 1e-12,
-		"T08: input cost must be 1 × 3e-06")
-	assert.InDelta(t, wantCacheReadCost, cacheReadCost, 1e-10,
-		"T08: cache_read cost must be 50000 × 3e-07")
-
-	total := inputCost + cacheReadCost
-	const wantTotal = wantInputCost + wantCacheReadCost
-	assert.InDelta(t, wantTotal, total, 1e-10,
-		"T08: total must be sum of input + cache_read costs")
+	assert.InDelta(t, wantInputCost, inputOnlyCost, 1e-12,
+		"T08: pure input cost must be 1 × 3e-06")
+	assert.InDelta(t, wantCacheReadCost, cacheOnlyCost, 1e-10,
+		"T08: pure cache_read cost must be 50000 × 3e-07")
+	assert.InDelta(t, wantInputCost+wantCacheReadCost, combinedCost, 1e-10,
+		"T08: combined cost must equal sum of input + cache_read costs")
 }
 
 // ─── T09: No cache → backward-compat ─────────────────────────────────────────
 
-// TestCacheCost_NoCache_BackwardCompat verifies that CostWithCache with zero
-// cache tokens behaves identically to the original Cost() for non-cache requests.
+// TestCacheCost_NoCache_BackwardCompat verifies that Cost() with zero
+// cache tokens behaves identically to the original behavior.
 func TestCacheCost_NoCache_BackwardCompat(t *testing.T) {
 	c := newCacheTestCalculator()
 
-	inputCost, cacheReadCost, cacheCreationCost, completionCost := c.CostWithCache(
-		"claude-sonnet-4-20250514", 100, 0, 0, 50)
-
-	assert.Equal(t, 0.0, cacheReadCost, "T09: cacheReadCost must be 0 when no cache tokens")
-	assert.Equal(t, 0.0, cacheCreationCost, "T09: cacheCreationCost must be 0 when no cache tokens")
+	inputSideCost, completionCost := c.Cost("claude-sonnet-4-20250514", TokenUsage{
+		PromptTokens:     100,
+		CompletionTokens: 50,
+	})
 
 	wantInput := 100 * 3e-06
 	wantCompletion := 50 * 1.5e-05
-	assert.InDelta(t, wantInput, inputCost, 1e-10, "T09: input cost backward compat")
+	assert.InDelta(t, wantInput, inputSideCost, 1e-10, "T09: input cost backward compat")
 	assert.InDelta(t, wantCompletion, completionCost, 1e-10, "T09: completion cost backward compat")
 }
 
@@ -113,10 +125,12 @@ func TestCacheCost_NoCache_BackwardCompat(t *testing.T) {
 func TestThresholdPricing_Above200K_UsesHigherRate(t *testing.T) {
 	c := newCacheTestCalculator()
 
-	inputCost, _, _, _ := c.CostWithCache("claude-sonnet-4-20250514", 210000, 0, 0, 0)
+	inputSideCost, _ := c.Cost("claude-sonnet-4-20250514", TokenUsage{
+		PromptTokens: 210000,
+	})
 
 	const wantInputCost = 210000 * 6e-06
-	assert.InDelta(t, wantInputCost, inputCost, 1e-5,
+	assert.InDelta(t, wantInputCost, inputSideCost, 1e-5,
 		"T10: 210K prompt must use tiered rate 6e-06 (not 3e-06)")
 }
 
@@ -127,14 +141,16 @@ func TestThresholdPricing_Above200K_UsesHigherRate(t *testing.T) {
 func TestThresholdPricing_Below200K_UsesStandardRate(t *testing.T) {
 	c := newCacheTestCalculator()
 
-	inputCost, _, _, _ := c.CostWithCache("claude-sonnet-4-20250514", 190000, 0, 0, 0)
+	inputSideCost, _ := c.Cost("claude-sonnet-4-20250514", TokenUsage{
+		PromptTokens: 190000,
+	})
 
 	const wantInputCost = 190000 * 3e-06
-	assert.InDelta(t, wantInputCost, inputCost, 1e-5,
+	assert.InDelta(t, wantInputCost, inputSideCost, 1e-5,
 		"T11: 190K prompt must use standard rate 3e-06")
 }
 
-// ─── T12: 210K + 50K cache_read → cache_read_cost uses tiered rate 6e-07 ─────
+// ─── T12: 210K + 50K cache_read → cache_read uses tiered rate 6e-07 ──────────
 
 // TestThresholdPricing_Above200K_CacheReadTiered verifies that cache_read
 // tokens also use the tiered rate when total prompt exceeds 200K.
@@ -142,11 +158,15 @@ func TestThresholdPricing_Above200K_CacheReadTiered(t *testing.T) {
 	c := newCacheTestCalculator()
 
 	// promptTokens=210000, cacheReadTokens=50000
-	// total context = 210000 + 50000 = 260000 > 200K → tiered rates
-	_, cacheReadCost, _, _ := c.CostWithCache("claude-sonnet-4-20250514", 210000, 50000, 0, 0)
+	// total context > 200K → tiered rates apply
+	inputSideCost, _ := c.Cost("claude-sonnet-4-20250514", TokenUsage{
+		PromptTokens:         210000,
+		CacheReadInputTokens: 50000,
+	})
 
-	const wantCacheReadCost = 50000 * 6e-07
-	assert.InDelta(t, wantCacheReadCost, cacheReadCost, 1e-9,
+	// Expected: 210000×6e-06 + 50000×6e-07
+	const wantTotal = 210000*6e-06 + 50000*6e-07
+	assert.InDelta(t, wantTotal, inputSideCost, 1e-5,
 		"T12: 50K cache_read at 210K context must use tiered rate 6e-07 (not 3e-07)")
 }
 
@@ -168,13 +188,13 @@ func TestThresholdPricing_NoThresholdFields_NoError(t *testing.T) {
 	}
 
 	assert.NotPanics(t, func() {
-		inputCost, cacheReadCost, cacheCreationCost, completionCost := c.CostWithCache("basic-model", 300000, 0, 0, 100)
-		// Should not error; use standard rates (no threshold defined)
-		assert.Equal(t, 0.0, cacheReadCost, "T13: no cache tokens, cacheReadCost=0")
-		assert.Equal(t, 0.0, cacheCreationCost, "T13: no cache tokens, cacheCreationCost=0")
-		// When threshold fields are zero, fall back to standard rate
+		inputSideCost, completionCost := c.Cost("basic-model", TokenUsage{
+			PromptTokens:     300000,
+			CompletionTokens: 100,
+		})
+		// No threshold defined → fall back to standard rates
 		wantInput := 300000 * 1e-06
-		assert.InDelta(t, wantInput, inputCost, 1e-5, "T13: fallback to standard input rate")
+		assert.InDelta(t, wantInput, inputSideCost, 1e-5, "T13: fallback to standard input rate")
 		_ = completionCost
 	}, "T13: model without threshold fields must not panic")
 }

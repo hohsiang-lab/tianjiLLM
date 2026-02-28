@@ -24,7 +24,7 @@ func nativeHandlersWithSpy(upstreamURL, providerName string, spy *spyLogger) *Ha
 	return h
 }
 
-// ─── T01: SSE 50K cache_read → prompt=50001, CacheReadTokens=50000 ──────────
+// ─── T01: SSE 50K cache_read → prompt=50001, CacheReadInputTokens=50000 ──────────
 
 func TestCacheSSE_CacheRead_PromptIncludesAllTokens(t *testing.T) {
 	t.Parallel()
@@ -57,8 +57,8 @@ func TestCacheSSE_CacheRead_PromptIncludesAllTokens(t *testing.T) {
 
 	assert.Equal(t, 50001, data.PromptTokens,
 		"T01: PromptTokens must equal input_tokens + cache_read_input_tokens (1 + 50000)")
-	assert.Equal(t, 50000, data.CacheReadTokens,
-		"T01: CacheReadTokens must be 50000")
+	assert.Equal(t, 50000, data.CacheReadInputTokens,
+		"T01: CacheReadInputTokens must be 50000")
 }
 
 // ─── T02: SSE no cache → backward-compat ────────────────────────────────────
@@ -91,8 +91,8 @@ func TestCacheSSE_NoCache_BackwardCompat(t *testing.T) {
 	spy.mu.Unlock()
 
 	assert.Equal(t, 100, data.PromptTokens, "T02: PromptTokens should be 100 (no cache; backward compat)")
-	assert.Equal(t, 0, data.CacheReadTokens, "T02: CacheReadTokens should be 0 when no cache")
-	assert.Equal(t, 0, data.CacheCreationTokens, "T02: CacheCreationTokens should be 0 when no cache")
+	assert.Equal(t, 0, data.CacheReadInputTokens, "T02: CacheReadInputTokens should be 0 when no cache")
+	assert.Equal(t, 0, data.CacheCreationInputTokens, "T02: CacheCreationInputTokens should be 0 when no cache")
 }
 
 // ─── T03: SSE cache_creation → prompt=input+creation ────────────────────────
@@ -126,8 +126,8 @@ func TestCacheSSE_CacheCreation_PromptIncludesCreation(t *testing.T) {
 
 	assert.Equal(t, 2005, data.PromptTokens,
 		"T03: PromptTokens must equal input_tokens + cache_creation_input_tokens (5 + 2000)")
-	assert.Equal(t, 2000, data.CacheCreationTokens,
-		"T03: CacheCreationTokens must be 2000")
+	assert.Equal(t, 2000, data.CacheCreationInputTokens,
+		"T03: CacheCreationInputTokens must be 2000")
 }
 
 // ─── T04: Non-streaming with cache_read ─────────────────────────────────────
@@ -159,8 +159,8 @@ func TestCacheNonStreaming_CacheRead_PromptIncludesAll(t *testing.T) {
 
 	assert.Equal(t, 50001, data.PromptTokens,
 		"T04: PromptTokens must equal input_tokens + cache_read_input_tokens (1 + 50000)")
-	assert.Equal(t, 50000, data.CacheReadTokens,
-		"T04: CacheReadTokens must be 50000")
+	assert.Equal(t, 50000, data.CacheReadInputTokens,
+		"T04: CacheReadInputTokens must be 50000")
 }
 
 // ─── T05: Non-streaming no cache → backward-compat ──────────────────────────
@@ -192,8 +192,8 @@ func TestCacheNonStreaming_NoCache_BackwardCompat(t *testing.T) {
 
 	assert.Equal(t, 200, data.PromptTokens,
 		"T05: PromptTokens should be 200 (no cache; backward compat)")
-	assert.Equal(t, 0, data.CacheReadTokens,
-		"T05: CacheReadTokens should be 0 when cache fields absent")
-	assert.Equal(t, 0, data.CacheCreationTokens,
-		"T05: CacheCreationTokens should be 0 when cache fields absent")
+	assert.Equal(t, 0, data.CacheReadInputTokens,
+		"T05: CacheReadInputTokens should be 0 when cache fields absent")
+	assert.Equal(t, 0, data.CacheCreationInputTokens,
+		"T05: CacheCreationInputTokens should be 0 when cache fields absent")
 }

@@ -45,8 +45,8 @@ type SpendRecord struct {
 	Tags             []string
 	Metadata         map[string]any
 	Cost                 float64
-	CacheReadTokens      int
-	CacheCreationTokens  int
+	CacheReadInputTokens      int
+	CacheCreationInputTokens  int
 }
 
 // LogSuccess implements callback.CustomLogger — writes spend to DB.
@@ -77,7 +77,7 @@ func (t *Tracker) calculateCost(rec SpendRecord) float64 {
 		cost = t.calculator.Calculate(rec.Model, rec.PromptTokens, rec.CompletionTokens)
 	}
 	if cost == 0 && (rec.PromptTokens > 0 || rec.CompletionTokens > 0) {
-		cost = pricing.Default().TotalCost(rec.Model, rec.PromptTokens, rec.CompletionTokens)
+		cost = pricing.Default().TotalCost(rec.Model, pricing.TokenUsage{PromptTokens: rec.PromptTokens, CompletionTokens: rec.CompletionTokens})
 	}
 	return cost
 }
