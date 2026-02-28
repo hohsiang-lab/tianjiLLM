@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -14,6 +15,12 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 	"github.com/praxisllmlab/tianjiLLM/internal/wildcard"
 )
+
+// ErrNoDeployments is returned when no deployments exist for a requested model.
+var ErrNoDeployments = errors.New("no deployments")
+
+// ErrAccessDenied is returned when deployments exist but none are accessible to the caller.
+var ErrAccessDenied = errors.New("access denied")
 
 // Strategy selects a deployment from a list of healthy deployments.
 type Strategy interface {
@@ -164,13 +171,13 @@ func (r *Router) Route(ctx context.Context, modelName string, req *model.ChatCom
 		allDeployments = r.wildcardMatch(modelName)
 	}
 	if len(allDeployments) == 0 {
-		return nil, nil, fmt.Errorf("no deployments for model %q", modelName)
+		return nil, nil, fmt.Errorf("%w for model %q", ErrNoDeployments, modelName)
 	}
 
 	// Filter by access control before health check.
 	allDeployments = r.filterByAccessControl(ctx, allDeployments)
 	if len(allDeployments) == 0 {
-		return nil, nil, fmt.Errorf("no deployments for model %q", modelName)
+		return nil, nil, fmt.Errorf("%w for model %q", ErrAccessDenied, modelName)
 	}
 
 	healthy := r.healthyDeployments(allDeployments)

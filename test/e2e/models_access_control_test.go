@@ -5,7 +5,6 @@ package e2e
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/playwright-community/playwright-go"
@@ -229,6 +228,3 @@ func toStringSliceFromAny(v any) []string {
 	}
 	return result
 }
-
-// Unused import guard
-var _ = strings.Join

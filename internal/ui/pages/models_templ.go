@@ -2200,7 +2200,6 @@ func apiKeyPlaceholder(maskedKey string) string {
 	return "sk-..."
 }
 
-// accessControlTitle builds a tooltip string describing the access restrictions.
 // AllowedTeams and AllowedKeys show counts only to avoid leaking internal IDs/hashes.
 // AllowedOrgs are shown in full as org names are not sensitive.
 func accessControlTitle(m ModelRow) string {

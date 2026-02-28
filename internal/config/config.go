@@ -31,15 +31,11 @@ type AccessControl struct {
 	AllowedKeys  []string `yaml:"allowed_keys,omitempty" json:"allowed_keys,omitempty"`
 }
 
-// IsPublic returns true if no restrictions are configured.
 func (ac *AccessControl) IsPublic() bool {
 	return ac == nil || (len(ac.AllowedOrgs) == 0 && len(ac.AllowedTeams) == 0 && len(ac.AllowedKeys) == 0)
 }
 
-// IsAllowed checks if the given caller identity passes access control.
-// It uses OR semantics: the caller is allowed if ANY of the provided identifiers
-// (orgID, teamID, tokenHash) matches any entry in the corresponding allow-list.
-// A nil or empty AccessControl (IsPublic) always returns true.
+// IsAllowed uses OR semantics: matches ANY org, team, or key hash.
 func (ac *AccessControl) IsAllowed(orgID, teamID, tokenHash string) bool {
 	if ac.IsPublic() {
 		return true

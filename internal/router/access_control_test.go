@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
@@ -66,8 +67,7 @@ func TestRouter_AccessControl_AllRestricted_NoAccess(t *testing.T) {
 	ctx := context.WithValue(context.Background(), middleware.ContextKeyOrgID, "org_other")
 	ctx = context.WithValue(ctx, middleware.ContextKeyIsMasterKey, false)
 	_, _, err := r.Route(ctx, "gpt-4o", req)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no deployments")
+	assert.True(t, errors.Is(err, ErrAccessDenied))
 }
 
 func TestRouter_AccessControl_TeamOnly(t *testing.T) {

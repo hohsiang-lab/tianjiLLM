@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// AC-5 — API: /model/new, /model/update, /config expose access_control field.
+// AC-5 — API: /model/new and /model/update persist access_control in model_info.
 
 func TestAPI_ModelNew_WithAccessControl(t *testing.T) {
 	setup(t)
@@ -31,7 +31,7 @@ func TestAPI_ModelNew_WithAccessControl(t *testing.T) {
 	body := map[string]any{
 		"model_id":      "api-ac-test-1",
 		"model_name":    "api-restricted-model",
-		"tianji_params":  json.RawMessage(tianjiJSON),
+		"tianji_params": json.RawMessage(tianjiJSON),
 		"model_info":    json.RawMessage(modelInfoJSON),
 		"created_by":    "e2e",
 	}
@@ -90,7 +90,7 @@ func TestAPI_ModelNew_WithoutAccessControl(t *testing.T) {
 	body := map[string]any{
 		"model_id":      "api-public-test-1",
 		"model_name":    "api-public-model",
-		"tianji_params":  json.RawMessage(tianjiJSON),
+		"tianji_params": json.RawMessage(tianjiJSON),
 		"model_info":    json.RawMessage([]byte("{}")),
 		"created_by":    "e2e",
 	}
@@ -133,11 +133,11 @@ func TestAPI_ModelUpdate_AccessControl(t *testing.T) {
 	// Create a model first
 	tianjiJSON, _ := json.Marshal(map[string]any{"model": "openai/gpt-4o"})
 	createBody, _ := json.Marshal(map[string]any{
-		"model_id":   "api-update-ac-1",
-		"model_name": "update-ac-model",
+		"model_id":      "api-update-ac-1",
+		"model_name":    "update-ac-model",
 		"tianji_params": json.RawMessage(tianjiJSON),
-		"model_info":   json.RawMessage([]byte("{}")),
-		"created_by":   "e2e",
+		"model_info":    json.RawMessage([]byte("{}")),
+		"created_by":    "e2e",
 	})
 
 	createReq, _ := http.NewRequest("POST", testServer.URL+"/model/new", bytes.NewReader(createBody))
@@ -154,11 +154,11 @@ func TestAPI_ModelUpdate_AccessControl(t *testing.T) {
 	}
 	newInfoJSON, _ := json.Marshal(newInfo)
 	updateBody, _ := json.Marshal(map[string]any{
-		"model_id":    "api-update-ac-1",
-		"model_name":  "update-ac-model",
+		"model_id":      "api-update-ac-1",
+		"model_name":    "update-ac-model",
 		"tianji_params": json.RawMessage(tianjiJSON),
-		"model_info":   json.RawMessage(newInfoJSON),
-		"updated_by":   "e2e",
+		"model_info":    json.RawMessage(newInfoJSON),
+		"updated_by":    "e2e",
 	})
 
 	updateReq, _ := http.NewRequest("POST", testServer.URL+"/model/update", bytes.NewReader(updateBody))
@@ -192,10 +192,9 @@ func TestAPI_ModelUpdate_AccessControl(t *testing.T) {
 	assert.Equal(t, []string{"sk-hash-special"}, toStringSliceFromAny(ac["allowed_keys"]))
 }
 
-func TestAPI_Config_ExposesAccessControl(t *testing.T) {
-	// This test verifies GET /config returns model_list with access_control fields.
-	// The config endpoint returns the in-memory config, not DB models.
-	// We just verify the endpoint is accessible and returns model_list.
+func TestAPI_Config_ReturnsModelListAndSettings(t *testing.T) {
+	// GET /config returns the in-memory config (not DB models).
+	// Verifies the endpoint is accessible and returns the expected top-level keys.
 	_ = setup(t) // clean slate
 
 	req, _ := http.NewRequest("GET", testServer.URL+"/config/", nil)
@@ -218,5 +217,3 @@ func TestAPI_Config_ExposesAccessControl(t *testing.T) {
 	_, ok = result["general_settings"]
 	assert.True(t, ok, "/config should return general_settings")
 }
-
-

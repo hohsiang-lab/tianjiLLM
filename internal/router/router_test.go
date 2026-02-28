@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -52,8 +53,7 @@ func TestRouter_Route_Success(t *testing.T) {
 func TestRouter_Route_NoDeployments(t *testing.T) {
 	r := New(nil, &roundRobinStrategy{}, RouterSettings{})
 	_, _, err := r.Route(context.Background(), "nonexistent", nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no deployments")
+	assert.True(t, errors.Is(err, ErrNoDeployments))
 }
 
 func TestRouter_Fallback_OnProviderFailure(t *testing.T) {

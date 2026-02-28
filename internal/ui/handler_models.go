@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -21,6 +22,8 @@ import (
 const modelsPerPage = 20
 
 const defaultUpstreamURL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+
+const createdByUI = "ui"
 
 // handleSyncPricing handles POST /ui/models/sync-pricing.
 // Uses TryLock to prevent concurrent syncs; reads PRICING_UPSTREAM_URL env var.
@@ -198,21 +201,31 @@ func (h *UIHandler) handleModelCreate(w http.ResponseWriter, r *http.Request) {
 		tp["rpm"] = rpm
 	}
 
-	tianjiJSON, _ := json.Marshal(tp)
+	tianjiJSON, err := json.Marshal(tp)
+	if err != nil {
+		data := h.loadModelsPageData(r)
+		render(r.Context(), w, pages.ModelsTableWithToast(data, "Internal error: failed to encode params", toast.VariantError))
+		return
+	}
 
 	// Build model_info with optional access_control.
 	modelInfo := map[string]any{}
-	if ac := buildAccessControlJSON(r); ac != nil {
+	if ac := buildAccessControlJSON(r, nil); ac != nil {
 		modelInfo["access_control"] = ac
 	}
-	modelInfoJSON, _ := json.Marshal(modelInfo)
+	modelInfoJSON, err := json.Marshal(modelInfo)
+	if err != nil {
+		data := h.loadModelsPageData(r)
+		render(r.Context(), w, pages.ModelsTableWithToast(data, "Internal error: failed to encode model info", toast.VariantError))
+		return
+	}
 
-	_, err := h.DB.CreateProxyModel(r.Context(), db.CreateProxyModelParams{
+	_, err = h.DB.CreateProxyModel(r.Context(), db.CreateProxyModelParams{
 		ModelID:      uuid.New().String(),
 		ModelName:    modelName,
 		TianjiParams: tianjiJSON,
 		ModelInfo:    modelInfoJSON,
-		CreatedBy:    "ui",
+		CreatedBy:    createdByUI,
 	})
 	if err != nil {
 		data := h.loadModelsPageData(r)
@@ -304,29 +317,41 @@ func (h *UIHandler) handleModelUpdate(w http.ResponseWriter, r *http.Request) {
 		existingTP["rpm"] = rpm
 	}
 
-	tianjiJSON, _ := json.Marshal(existingTP)
+	tianjiJSON, err := json.Marshal(existingTP)
+	if err != nil {
+		data := h.loadModelsPageData(r)
+		render(r.Context(), w, pages.ModelsTableWithToast(data, "Internal error: failed to encode params", toast.VariantError))
+		return
+	}
 
 	// Merge model_info, updating access_control.
 	var existingInfo map[string]any
 	if len(existing.ModelInfo) > 0 {
-		_ = json.Unmarshal(existing.ModelInfo, &existingInfo)
+		if unmarshalErr := json.Unmarshal(existing.ModelInfo, &existingInfo); unmarshalErr != nil {
+			slog.Warn("failed to unmarshal existing model_info, treating as empty", "model_id", modelID, "err", unmarshalErr)
+		}
 	}
 	if existingInfo == nil {
 		existingInfo = map[string]any{}
 	}
-	if ac := buildAccessControlJSONForUpdate(r, existingInfo); ac != nil {
+	if ac := buildAccessControlJSON(r, existingInfo); ac != nil {
 		existingInfo["access_control"] = ac
 	} else {
 		delete(existingInfo, "access_control")
 	}
-	modelInfoJSON, _ := json.Marshal(existingInfo)
+	modelInfoJSON, err := json.Marshal(existingInfo)
+	if err != nil {
+		data := h.loadModelsPageData(r)
+		render(r.Context(), w, pages.ModelsTableWithToast(data, "Internal error: failed to encode model info", toast.VariantError))
+		return
+	}
 
 	_, err = h.DB.UpdateProxyModel(r.Context(), db.UpdateProxyModelParams{
 		ModelID:      modelID,
 		ModelName:    modelName,
 		TianjiParams: tianjiJSON,
 		ModelInfo:    modelInfoJSON,
-		UpdatedBy:    "ui",
+		UpdatedBy:    createdByUI,
 	})
 	if err != nil {
 		data := h.loadModelsPageData(r)
@@ -495,9 +520,7 @@ func int64Val(m map[string]any, key string) int64 {
 	return 0
 }
 
-// parseLines splits a textarea value into non-empty trimmed strings.
-// Normalizes Windows (\r\n) and old-Mac (\r) line endings before splitting.
-// Lines containing whitespace in the middle are skipped (IDs/hashes should not have spaces).
+// parseLines splits textarea input by newlines, trims blanks, and skips lines with embedded whitespace.
 func parseLines(s string) []string {
 	s = strings.ReplaceAll(s, "\r\n", "\n")
 	s = strings.ReplaceAll(s, "\r", "\n")
@@ -517,35 +540,14 @@ func parseLines(s string) []string {
 }
 
 // buildAccessControlJSON returns the access_control map for model_info, or nil if all empty.
-func buildAccessControlJSON(r *http.Request) map[string]any {
-	orgs := parseLines(r.FormValue("allowed_orgs"))
-	teams := parseLines(r.FormValue("allowed_teams"))
-	keys := parseLines(r.FormValue("allowed_keys"))
-	if len(orgs) == 0 && len(teams) == 0 && len(keys) == 0 {
-		return nil
-	}
-	ac := map[string]any{}
-	if len(orgs) > 0 {
-		ac["allowed_orgs"] = orgs
-	}
-	if len(teams) > 0 {
-		ac["allowed_teams"] = teams
-	}
-	if len(keys) > 0 {
-		ac["allowed_keys"] = keys
-	}
-	return ac
-}
-
-// buildAccessControlJSONForUpdate is like buildAccessControlJSON but preserves existing
-// allowed_keys when the form field is empty (since keys are masked in the edit form).
-func buildAccessControlJSONForUpdate(r *http.Request, existingInfo map[string]any) map[string]any {
+// If existingInfo is non-nil and allowed_keys is empty in the form, existing keys are preserved
+// (keys are masked in the edit form so an empty field means "keep unchanged").
+func buildAccessControlJSON(r *http.Request, existingInfo map[string]any) map[string]any {
 	orgs := parseLines(r.FormValue("allowed_orgs"))
 	teams := parseLines(r.FormValue("allowed_teams"))
 	keys := parseLines(r.FormValue("allowed_keys"))
 
-	// If keys field is empty, preserve existing keys from model_info.
-	if len(keys) == 0 {
+	if len(keys) == 0 && existingInfo != nil {
 		if existingAC, ok := existingInfo["access_control"].(map[string]any); ok {
 			keys = toStringSlice(existingAC["allowed_keys"])
 		}
@@ -571,7 +573,9 @@ func buildAccessControlJSONForUpdate(r *http.Request, existingInfo map[string]an
 func extractAccessControl(modelInfo []byte, row *pages.ModelRow) {
 	var info map[string]any
 	if len(modelInfo) > 0 {
-		_ = json.Unmarshal(modelInfo, &info)
+		if err := json.Unmarshal(modelInfo, &info); err != nil {
+			slog.Warn("failed to unmarshal model_info for access control", "err", err)
+		}
 	}
 	if ac, ok := info["access_control"].(map[string]any); ok {
 		row.AllowedOrgs = toStringSlice(ac["allowed_orgs"])
