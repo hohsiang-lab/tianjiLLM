@@ -161,7 +161,6 @@ func TestVirtualKey_NilValidator_NonMasterKeyReturns401(t *testing.T) {
 func TestVirtualKey_DBUnavailableReturns503(t *testing.T) {
 	validator := &mockValidator{err: ErrDBUnavailable}
 
-
 	authMW := NewAuthMiddleware(AuthConfig{
 		MasterKey: "sk-master",
 		Validator: validator,
