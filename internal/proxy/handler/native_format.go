@@ -315,7 +315,7 @@ type readCloserOnly struct{ io.ReadCloser }
 func (r *sseSpendReader) Close() error {
 	err := r.src.Close()
 
-prompt, completion, modelName := parseSSEUsage(r.providerName, r.buf.Bytes())
+	prompt, completion, modelName := parseSSEUsage(r.providerName, r.buf.Bytes())
 	if modelName == "" {
 		modelName = r.requestModel
 	}
@@ -484,4 +484,3 @@ func (h *Handlers) ImagesEdit(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) ImageVariation(w http.ResponseWriter, r *http.Request) {
 	h.assistantsProxy(w, r)
 }
-

@@ -169,13 +169,13 @@ func TestNativeProxyStreamingSpendLog_GzipResponse(t *testing.T) {
 
 		var buf bytes.Buffer
 		gz := gzip.NewWriter(&buf)
-		gz.Write([]byte(events))
+		_, _ = gz.Write([]byte(events))
 		gz.Close()
 
 		w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 		w.Header().Set("Content-Encoding", "gzip")
 		w.WriteHeader(200)
-		w.Write(buf.Bytes())
+		_, _ = w.Write(buf.Bytes())
 	}))
 	defer upstream.Close()
 
@@ -246,7 +246,7 @@ func TestNativeProxyStreamingSpendLog_GzipResponse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	io.ReadAll(resp.Body)
+	_, _ = io.ReadAll(resp.Body)
 	resp.Body.Close()
 
 	// 5. Wait for callback
