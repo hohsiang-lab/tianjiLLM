@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feat/anthropic-rate-limit-alert`
 **Created**: 2026-03-01
-**Updated**: 2026-03-01 (add clarifications: provider detection, goroutine ownership, zero-value threshold)
+**Updated**: 2026-03-01 (C-04: sentinel -1 for missing/unparseable headers; C-03: threshold default 0.2)
 **Status**: Draft
 **Linear Issue**: HO-69
 
@@ -115,6 +115,41 @@ func NewDiscordRateLimitAlerter(webhookURL string, threshold float64, ...) *Disc
 `ProxyConfig.Validate()` is not modified. The default is applied at construction time.
 
 
+
+### C-04: Sentinel Value for Missing / Unparseable Headers
+
+`AnthropicRateLimitState` uses `-1` as sentinel value to indicate a header was absent or could not be parsed.
+
+```go
+type AnthropicRateLimitState struct {
+    InputTokensLimit      int64  // -1 if missing or unparseable
+    InputTokensRemaining  int64  // -1 if missing or unparseable
+    InputTokensReset      string // "" if missing
+    OutputTokensLimit     int64  // -1 if missing or unparseable
+    OutputTokensRemaining int64  // -1 if missing or unparseable
+    OutputTokensReset     string // "" if missing
+    RequestsLimit         int64  // -1 if missing or unparseable
+    RequestsRemaining     int64  // -1 if missing or unparseable
+    RequestsReset         string // "" if missing
+}
+```
+
+**Why -1**: `0` is a theoretically valid header value. `-1` is never a valid token count, making it unambiguous.
+This pattern is used by `liushuangls/go-anthropic` (the most widely-used Anthropic Go SDK community library).
+
+**Guard in CheckAndAlert**:
+```go
+// Only check input tokens if both limit and remaining are valid (not -1)
+if state.InputTokensLimit > 0 && state.InputTokensRemaining >= 0 {
+    ratio := float64(state.InputTokensRemaining) / float64(state.InputTokensLimit)
+    if ratio < d.threshold {
+        // trigger input alert
+    }
+}
+```
+
+**No `InputParsed` / `OutputParsed` bool fields.** Sentinel value replaces them.
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
@@ -188,17 +223,18 @@ func NewDiscordRateLimitAlerter(webhookURL string, threshold float64, ...) *Disc
 
 ```go
 // AnthropicRateLimitState holds raw parsed header values.
-// No derived or computed fields. Values exactly as received from Anthropic response headers.
+// Uses -1 as sentinel for missing or unparseable integer headers (never a valid token count).
+// No derived or computed fields. No bool flags.
 type AnthropicRateLimitState struct {
-    InputTokensLimit      int64
-    InputTokensRemaining  int64
-    InputTokensReset      string // raw RFC3339 string from header
-    OutputTokensLimit     int64
-    OutputTokensRemaining int64
-    OutputTokensReset     string
-    RequestsLimit         int64
-    RequestsRemaining     int64
-    RequestsReset         string
+    InputTokensLimit      int64  // -1 if header missing or unparseable
+    InputTokensRemaining  int64  // -1 if header missing or unparseable
+    InputTokensReset      string // "" if header missing
+    OutputTokensLimit     int64  // -1 if header missing or unparseable
+    OutputTokensRemaining int64  // -1 if header missing or unparseable
+    OutputTokensReset     string // "" if header missing
+    RequestsLimit         int64  // -1 if header missing or unparseable
+    RequestsRemaining     int64  // -1 if header missing or unparseable
+    RequestsReset         string // "" if header missing
 }
 ```
 
