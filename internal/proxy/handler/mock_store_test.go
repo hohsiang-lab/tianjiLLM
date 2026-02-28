@@ -415,7 +415,7 @@ func (m *mockStore) CreateTag(ctx context.Context, arg db.CreateTagParams) (db.T
 }
 func (m *mockStore) DeleteAccessGroup(ctx context.Context, groupID string) error { m.ni(); return nil }
 func (m *mockStore) DeleteAgent(ctx context.Context, agentID string) error       { m.ni(); return nil }
-func (m *mockStore) DeleteBudget(ctx context.Context, budgetID string) error     {
+func (m *mockStore) DeleteBudget(ctx context.Context, budgetID string) error {
 	if m.deleteBudgetFn != nil {
 		return m.deleteBudgetFn(ctx, budgetID)
 	}
@@ -427,7 +427,7 @@ func (m *mockStore) DeleteCredential(ctx context.Context, credentialID string) e
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeleteEndUser(ctx context.Context, id string) error         { m.ni(); return nil }
+func (m *mockStore) DeleteEndUser(ctx context.Context, id string) error { m.ni(); return nil }
 func (m *mockStore) DeleteGuardrailConfig(ctx context.Context, id string) error {
 	if m.deleteGuardrailConfigFn != nil {
 		return m.deleteGuardrailConfigFn(ctx, id)
@@ -438,14 +438,14 @@ func (m *mockStore) DeleteIPWhitelistByAddress(ctx context.Context, ipAddress st
 	m.ni()
 	return nil
 }
-func (m *mockStore) DeleteMCPServer(ctx context.Context, id string) error        {
+func (m *mockStore) DeleteMCPServer(ctx context.Context, id string) error {
 	if m.deleteMCPServerFn != nil {
 		return m.deleteMCPServerFn(ctx, id)
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeletePlugin(ctx context.Context, name string) error         { m.ni(); return nil }
-func (m *mockStore) DeletePolicy(ctx context.Context, id string) error           {
+func (m *mockStore) DeletePlugin(ctx context.Context, name string) error { m.ni(); return nil }
+func (m *mockStore) DeletePolicy(ctx context.Context, id string) error {
 	if m.deletePolicyFn != nil {
 		return m.deletePolicyFn(ctx, id)
 	}
@@ -457,22 +457,22 @@ func (m *mockStore) DeletePolicyAttachment(ctx context.Context, id string) error
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeletePromptTemplate(ctx context.Context, id string) error   { m.ni(); return nil }
-func (m *mockStore) DeleteProxyModel(ctx context.Context, modelID string) error  {
+func (m *mockStore) DeletePromptTemplate(ctx context.Context, id string) error { m.ni(); return nil }
+func (m *mockStore) DeleteProxyModel(ctx context.Context, modelID string) error {
 	if m.deleteProxyModelFn != nil {
 		return m.deleteProxyModelFn(ctx, modelID)
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeleteSkill(ctx context.Context, skillID string) error       { m.ni(); return nil }
-func (m *mockStore) DeleteTag(ctx context.Context, id string) error              {
+func (m *mockStore) DeleteSkill(ctx context.Context, skillID string) error { m.ni(); return nil }
+func (m *mockStore) DeleteTag(ctx context.Context, id string) error {
 	if m.deleteTagFn != nil {
 		return m.deleteTagFn(ctx, id)
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DisablePlugin(ctx context.Context, name string) error        { m.ni(); return nil }
-func (m *mockStore) EnablePlugin(ctx context.Context, name string) error         { m.ni(); return nil }
+func (m *mockStore) DisablePlugin(ctx context.Context, name string) error { m.ni(); return nil }
+func (m *mockStore) EnablePlugin(ctx context.Context, name string) error  { m.ni(); return nil }
 func (m *mockStore) GetAccessGroup(ctx context.Context, groupID string) (db.ModelAccessGroup, error) {
 	m.ni()
 	return db.ModelAccessGroup{}, nil
@@ -801,13 +801,13 @@ func (m *mockStore) RemoveTeamModel(ctx context.Context, arg db.RemoveTeamModelP
 	m.ni()
 	return nil
 }
-func (m *mockStore) ResetAllKeySpend(ctx context.Context) error              {
+func (m *mockStore) ResetAllKeySpend(ctx context.Context) error {
 	if m.resetAllKeySpendFn != nil {
 		return m.resetAllKeySpendFn(ctx)
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) ResetAllTeamSpend(ctx context.Context) error             {
+func (m *mockStore) ResetAllTeamSpend(ctx context.Context) error {
 	if m.resetAllTeamSpendFn != nil {
 		return m.resetAllTeamSpendFn(ctx)
 	}
