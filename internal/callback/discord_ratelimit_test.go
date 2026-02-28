@@ -82,7 +82,7 @@ func itoa(n int64) string {
 
 func TestParseAnthropicHeaders_MissingInputHeader_LogsErrorAndSkipsInputCheck(t *testing.T) {
 	// FR-003 / SC-007: When a required input-token header is absent,
-	// ParseAnthropicRateLimitHeaders logs an error and sets InputParsed=false.
+	// ParseAnthropicRateLimitHeaders logs an error and sets input fields to -1 (C-04).
 	logBuf, restore := captureLog(t)
 	defer restore()
 
@@ -97,8 +97,8 @@ func TestParseAnthropicHeaders_MissingInputHeader_LogsErrorAndSkipsInputCheck(t 
 
 	state := ParseAnthropicRateLimitHeaders(h)
 
-	// Input check must be skipped (InputParsed=false)
-	assert.False(t, state.InputParsed, "InputParsed should be false when input headers are missing")
+	// Input check must be skipped (sentinel -1)
+	assert.Equal(t, int64(-1), state.InputTokensLimit, "InputTokensLimit should be -1 when input headers are missing")
 
 	// Error must be logged for missing header
 	logged := logBuf.String()
@@ -120,7 +120,7 @@ func TestParseAnthropicHeaders_UnparseableInputHeader_LogsErrorWithRawValue(t *t
 
 	state := ParseAnthropicRateLimitHeaders(h)
 
-	assert.False(t, state.InputParsed, "InputParsed must be false for unparseable header")
+	assert.Equal(t, int64(-1), state.InputTokensRemaining, "InputTokensRemaining must be -1 for unparseable header")
 
 	logged := logBuf.String()
 	assert.Contains(t, logged, "not-a-number", "error log must include the raw invalid value")
@@ -138,7 +138,7 @@ func TestParseAnthropicHeaders_UnparseableOutputHeader_LogsErrorWithRawValue(t *
 
 	state := ParseAnthropicRateLimitHeaders(h)
 
-	assert.False(t, state.OutputParsed, "OutputParsed must be false for unparseable header")
+	assert.Equal(t, int64(-1), state.OutputTokensLimit, "OutputTokensLimit must be -1 for unparseable header")
 
 	logged := logBuf.String()
 	assert.Contains(t, logged, "bad_value", "error log must include raw invalid value")
@@ -159,11 +159,9 @@ func TestCheckAndAlert_InputAboveOutputBelow_OnlyOutputAlertFires(t *testing.T) 
 		InputTokensLimit:      10000,
 		InputTokensRemaining:  4000, // 40% – above threshold
 		InputTokensReset:      "2026-03-01T02:00:00Z",
-		InputParsed:           true,
 		OutputTokensLimit:     8000,
 		OutputTokensRemaining: 1500, // 18.75% – below threshold
 		OutputTokensReset:     "2026-03-01T02:00:00Z",
-		OutputParsed:          true,
 	}
 
 	a.CheckAndAlert(state)
@@ -195,11 +193,9 @@ func TestCheckAndAlert_InputBelowThreshold_PostsDiscordWithExactValues(t *testin
 		InputTokensLimit:      inputLimit,
 		InputTokensRemaining:  inputRemaining,
 		InputTokensReset:      inputReset,
-		InputParsed:           true,
 		OutputTokensLimit:     8000,
 		OutputTokensRemaining: 4000, // 50% – above threshold
 		OutputTokensReset:     "2026-03-01T03:00:00Z",
-		OutputParsed:          true,
 	}
 
 	a.CheckAndAlert(state)
@@ -235,11 +231,9 @@ func TestCheckAndAlert_OutputBelowThreshold_PostsDiscordWithExactValues(t *testi
 		InputTokensLimit:      10000,
 		InputTokensRemaining:  4000, // above threshold
 		InputTokensReset:      "2026-03-01T02:00:00Z",
-		InputParsed:           true,
 		OutputTokensLimit:     outputLimit,
 		OutputTokensRemaining: outputRemaining,
 		OutputTokensReset:     outputReset,
-		OutputParsed:          true,
 	}
 
 	a.CheckAndAlert(state)
@@ -274,12 +268,10 @@ func TestCheckAndAlert_Cooldown_SameKeyFiredOnlyOnce(t *testing.T) {
 		InputTokensLimit:     10000,
 		InputTokensRemaining: 500, // 5% – below threshold
 		InputTokensReset:     "2026-03-01T02:00:00Z",
-		InputParsed:          true,
 		// Output above threshold – won't trigger
 		OutputTokensLimit:     8000,
 		OutputTokensRemaining: 6000,
 		OutputTokensReset:     "2026-03-01T02:00:00Z",
-		OutputParsed:          true,
 	}
 
 	// Fire 10 triggering responses (simulating 100; keeping test fast)
@@ -321,11 +313,9 @@ func TestCheckAndAlert_Cooldown_InputOutputIndependentKeys(t *testing.T) {
 		InputTokensLimit:      10000,
 		InputTokensRemaining:  500, // 5% – below
 		InputTokensReset:      "2026-03-01T02:00:00Z",
-		InputParsed:           true,
 		OutputTokensLimit:     8000,
 		OutputTokensRemaining: 400, // 5% – below
 		OutputTokensReset:     "2026-03-01T02:00:00Z",
-		OutputParsed:          true,
 	}
 
 	// First call: both input and output alert should fire.
@@ -370,11 +360,9 @@ func TestCheckAndAlert_Cooldown_InputCoolingOutputFires(t *testing.T) {
 		InputTokensLimit:      10000,
 		InputTokensRemaining:  500, // below
 		InputTokensReset:      "2026-03-01T02:00:00Z",
-		InputParsed:           true,
 		OutputTokensLimit:     8000,
 		OutputTokensRemaining: 6000, // above
 		OutputTokensReset:     "2026-03-01T02:00:00Z",
-		OutputParsed:          true,
 	}
 	a.CheckAndAlert(inputOnly)
 	time.Sleep(100 * time.Millisecond)
@@ -385,11 +373,9 @@ func TestCheckAndAlert_Cooldown_InputCoolingOutputFires(t *testing.T) {
 		InputTokensLimit:      10000,
 		InputTokensRemaining:  500, // still below – but on cooldown
 		InputTokensReset:      "2026-03-01T02:00:00Z",
-		InputParsed:           true,
 		OutputTokensLimit:     8000,
 		OutputTokensRemaining: 400, // now below
 		OutputTokensReset:     "2026-03-01T02:00:00Z",
-		OutputParsed:          true,
 	}
 	a.CheckAndAlert(both)
 	time.Sleep(100 * time.Millisecond)
@@ -426,11 +412,9 @@ func TestCheckAndAlert_DiscordNon2xx_LogsErrorDoesNotPanic(t *testing.T) {
 		InputTokensLimit:      10000,
 		InputTokensRemaining:  500, // below threshold
 		InputTokensReset:      "2026-03-01T02:00:00Z",
-		InputParsed:           true,
 		OutputTokensLimit:     8000,
 		OutputTokensRemaining: 6000,
 		OutputTokensReset:     "2026-03-01T02:00:00Z",
-		OutputParsed:          true,
 	}
 
 	// CheckAndAlert must not panic even when Discord returns non-2xx
@@ -467,7 +451,7 @@ func TestNewDiscordRateLimitAlerter_EmptyWebhookURL_NoHTTPCall(t *testing.T) {
 
 	// Callers must check nil before calling CheckAndAlert. No crash, no HTTP call.
 	if a != nil {
-		state := AnthropicRateLimitState{InputParsed: true, InputTokensLimit: 10000, InputTokensRemaining: 100}
+		state := AnthropicRateLimitState{InputTokensLimit: 10000, InputTokensRemaining: 100}
 		a.CheckAndAlert(state)
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -489,11 +473,9 @@ func TestCheckAndAlert_InputAboveThreshold_NoAlert(t *testing.T) {
 		InputTokensLimit:      10000,
 		InputTokensRemaining:  4000, // 40% – above 20% threshold
 		InputTokensReset:      "2026-03-01T02:00:00Z",
-		InputParsed:           true,
 		OutputTokensLimit:     8000,
 		OutputTokensRemaining: 5000, // 62.5% – above threshold
 		OutputTokensReset:     "2026-03-01T02:00:00Z",
-		OutputParsed:          true,
 	}
 
 	a.CheckAndAlert(state)
@@ -512,12 +494,36 @@ func TestParseAnthropicHeaders_AllPresent_ReturnsParsedState(t *testing.T) {
 
 	state := ParseAnthropicRateLimitHeaders(h)
 
-	assert.True(t, state.InputParsed)
-	assert.True(t, state.OutputParsed)
 	assert.Equal(t, int64(10000), state.InputTokensLimit)
 	assert.Equal(t, int64(1000), state.InputTokensRemaining)
 	assert.Equal(t, "2026-03-01T02:00:00Z", state.InputTokensReset)
 	assert.Equal(t, int64(8000), state.OutputTokensLimit)
 	assert.Equal(t, int64(1500), state.OutputTokensRemaining)
 	assert.Equal(t, "2026-03-01T03:00:00Z", state.OutputTokensReset)
+}
+
+// --- Additional: threshold default 0.2 when 0 is passed ---
+
+func TestNewDiscordRateLimitAlerter_ZeroThreshold_DefaultsTo02(t *testing.T) {
+	srv, getMsgs := newMockDiscordServer(t, 200)
+	defer srv.Close()
+
+	a := NewDiscordRateLimitAlerter(srv.URL, 0)
+	require.NotNil(t, a)
+	a.cooldown = 0
+
+	// 15% remaining – below default 20% threshold
+	state := AnthropicRateLimitState{
+		InputTokensLimit:      10000,
+		InputTokensRemaining:  1500,
+		InputTokensReset:      "2026-03-01T02:00:00Z",
+		OutputTokensLimit:     8000,
+		OutputTokensRemaining: 5000,
+		OutputTokensReset:     "2026-03-01T02:00:00Z",
+	}
+
+	a.CheckAndAlert(state)
+	time.Sleep(100 * time.Millisecond)
+
+	assert.Len(t, getMsgs(), 1, "alert should fire with default threshold 0.2")
 }

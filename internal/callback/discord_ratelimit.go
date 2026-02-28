@@ -13,77 +13,57 @@ import (
 
 // AnthropicRateLimitState holds raw parsed header values.
 // No derived or computed fields. Values exactly as received from Anthropic response headers.
+// Missing or unparseable integer fields are set to -1 as sentinel (C-04).
 type AnthropicRateLimitState struct {
 	InputTokensLimit      int64
 	InputTokensRemaining  int64
-	InputTokensReset      string // raw RFC3339 string from header
+	InputTokensReset      string // raw RFC3339 string from header; "" if missing
 	OutputTokensLimit     int64
 	OutputTokensRemaining int64
 	OutputTokensReset     string
 	RequestsLimit         int64
 	RequestsRemaining     int64
 	RequestsReset         string
-
-	// Booleans track which token types were successfully parsed.
-	// If false, the corresponding threshold check is skipped.
-	InputParsed  bool
-	OutputParsed bool
 }
 
 // ParseAnthropicRateLimitHeaders reads Anthropic rate limit headers from an HTTP response.
-// Missing or unparseable headers are logged as errors (FR-003, FR-004).
-// Returns a state struct with InputParsed / OutputParsed indicating which fields are valid.
+// Missing or unparseable integer headers are logged as errors and set to -1 (C-04, FR-003, FR-004).
+// Missing reset string headers are set to "".
 func ParseAnthropicRateLimitHeaders(h http.Header) AnthropicRateLimitState {
 	var s AnthropicRateLimitState
 
-	parseInt := func(name string) (int64, bool) {
+	parseInt64OrNeg1 := func(name string) int64 {
 		raw := h.Get(name)
 		if raw == "" {
 			log.Printf("ERROR ratelimit: Anthropic response missing header %q", name)
-			return 0, false
+			return -1
 		}
 		v, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil {
 			log.Printf("ERROR ratelimit: cannot parse header %q value %q: %v", name, raw, err)
-			return 0, false
+			return -1
 		}
-		return v, true
+		return v
 	}
-	getReset := func(name string) (string, bool) {
+	getResetOrEmpty := func(name string) string {
 		raw := h.Get(name)
 		if raw == "" {
 			log.Printf("ERROR ratelimit: Anthropic response missing header %q", name)
-			return "", false
 		}
-		return raw, true
+		return raw
 	}
 
-	inputLimit, ok1 := parseInt("anthropic-ratelimit-input-tokens-limit")
-	inputRemaining, ok2 := parseInt("anthropic-ratelimit-input-tokens-remaining")
-	inputReset, ok3 := getReset("anthropic-ratelimit-input-tokens-reset")
-	if ok1 && ok2 && ok3 {
-		s.InputTokensLimit = inputLimit
-		s.InputTokensRemaining = inputRemaining
-		s.InputTokensReset = inputReset
-		s.InputParsed = true
-	}
+	s.InputTokensLimit = parseInt64OrNeg1("anthropic-ratelimit-input-tokens-limit")
+	s.InputTokensRemaining = parseInt64OrNeg1("anthropic-ratelimit-input-tokens-remaining")
+	s.InputTokensReset = getResetOrEmpty("anthropic-ratelimit-input-tokens-reset")
 
-	outputLimit, ok4 := parseInt("anthropic-ratelimit-output-tokens-limit")
-	outputRemaining, ok5 := parseInt("anthropic-ratelimit-output-tokens-remaining")
-	outputReset, ok6 := getReset("anthropic-ratelimit-output-tokens-reset")
-	if ok4 && ok5 && ok6 {
-		s.OutputTokensLimit = outputLimit
-		s.OutputTokensRemaining = outputRemaining
-		s.OutputTokensReset = outputReset
-		s.OutputParsed = true
-	}
+	s.OutputTokensLimit = parseInt64OrNeg1("anthropic-ratelimit-output-tokens-limit")
+	s.OutputTokensRemaining = parseInt64OrNeg1("anthropic-ratelimit-output-tokens-remaining")
+	s.OutputTokensReset = getResetOrEmpty("anthropic-ratelimit-output-tokens-reset")
 
-	reqLimit, _ := parseInt("anthropic-ratelimit-requests-limit")
-	reqRemaining, _ := parseInt("anthropic-ratelimit-requests-remaining")
-	reqReset, _ := getReset("anthropic-ratelimit-requests-reset")
-	s.RequestsLimit = reqLimit
-	s.RequestsRemaining = reqRemaining
-	s.RequestsReset = reqReset
+	s.RequestsLimit = parseInt64OrNeg1("anthropic-ratelimit-requests-limit")
+	s.RequestsRemaining = parseInt64OrNeg1("anthropic-ratelimit-requests-remaining")
+	s.RequestsReset = getResetOrEmpty("anthropic-ratelimit-requests-reset")
 
 	return s
 }
@@ -100,9 +80,13 @@ type DiscordRateLimitAlerter struct {
 }
 
 // NewDiscordRateLimitAlerter creates a new alerter. Returns nil if webhookURL is empty (SC-005).
+// If threshold is 0, defaults to 0.2 (20%).
 func NewDiscordRateLimitAlerter(webhookURL string, threshold float64) *DiscordRateLimitAlerter {
 	if webhookURL == "" {
 		return nil
+	}
+	if threshold == 0 {
+		threshold = 0.2
 	}
 	return &DiscordRateLimitAlerter{
 		webhookURL: webhookURL,
@@ -115,14 +99,17 @@ func NewDiscordRateLimitAlerter(webhookURL string, threshold float64) *DiscordRa
 
 // CheckAndAlert evaluates the rate limit state against the threshold and sends Discord alerts
 // if appropriate. Alert sending is non-blocking (goroutine). FR-005, FR-006, FR-007, FR-008.
+// Fields set to -1 (sentinel) are skipped (C-04).
 func (a *DiscordRateLimitAlerter) CheckAndAlert(state AnthropicRateLimitState) {
-	if state.InputParsed && state.InputTokensLimit > 0 {
+	// input check
+	if state.InputTokensLimit > 0 && state.InputTokensRemaining >= 0 {
 		ratio := float64(state.InputTokensRemaining) / float64(state.InputTokensLimit)
 		if ratio < a.threshold {
 			go a.sendIfNotCooling("ratelimit:anthropic:input", "input", state)
 		}
 	}
-	if state.OutputParsed && state.OutputTokensLimit > 0 {
+	// output check
+	if state.OutputTokensLimit > 0 && state.OutputTokensRemaining >= 0 {
 		ratio := float64(state.OutputTokensRemaining) / float64(state.OutputTokensLimit)
 		if ratio < a.threshold {
 			go a.sendIfNotCooling("ratelimit:anthropic:output", "output", state)
