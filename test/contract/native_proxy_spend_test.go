@@ -143,7 +143,7 @@ func TestNativeProxy_StreamingSpendLog(t *testing.T) {
 	// Simulate a real Anthropic streaming response with usage in message_delta.
 	ssePayload := strings.Join([]string{
 		"event: message_start",
-		`data: {"type":"message_start","message":{"id":"msg_stream1","model":"claude-sonnet-4-20250514","role":"assistant"}}`,
+		`data: {"type":"message_start","message":{"id":"msg_stream1","model":"claude-sonnet-4-20250514","role":"assistant","usage":{"input_tokens":25,"output_tokens":0}}}`,
 		"",
 		"event: content_block_start",
 		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
@@ -155,7 +155,7 @@ func TestNativeProxy_StreamingSpendLog(t *testing.T) {
 		`data: {"type":"content_block_stop","index":0}`,
 		"",
 		"event: message_delta",
-		`data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":25,"output_tokens":8}}`,
+		`data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":8}}`,
 		"",
 		"event: message_stop",
 		`data: {"type":"message_stop"}`,
@@ -230,8 +230,8 @@ func TestNativeProxy_StreamingSpendLog(t *testing.T) {
 	assert.True(t, data.Latency > 0)
 }
 
-func TestNativeProxy_StreamingNoUsageSkipsCallback(t *testing.T) {
-	// Stream with no usage in any event — callback should not fire.
+func TestNativeProxy_StreamingNoUsage_StillLogsZeroTokens(t *testing.T) {
+	// Stream with no usage in any event — callback should still fire with zero tokens.
 	ssePayload := "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_x\",\"model\":\"claude-sonnet-4-20250514\"}}\n\n"
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -285,12 +285,14 @@ func TestNativeProxy_StreamingNoUsageSkipsCallback(t *testing.T) {
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 
-	time.Sleep(200 * time.Millisecond)
+	// Wait for async callback — even zero tokens should trigger a log
+	data := spy.wait(t, 2*time.Second)
 
-	spy.mu.Lock()
-	count := len(spy.logs)
-	spy.mu.Unlock()
-	assert.Equal(t, 0, count, "streaming without usage should not trigger callback")
+	assert.Equal(t, "anthropic", data.Provider)
+	assert.Equal(t, "claude-sonnet-4-20250514", data.Model)
+	assert.Equal(t, 0, data.PromptTokens)
+	assert.Equal(t, 0, data.CompletionTokens)
+	assert.Equal(t, 0, data.TotalTokens)
 }
 
 func TestNativeProxy_ErrorResponseSkipsCallback(t *testing.T) {

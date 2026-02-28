@@ -13,6 +13,7 @@ import (
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
@@ -261,4 +262,137 @@ func TestRecordErrorLog_NoRequestID_EmptyString(t *testing.T) {
 	require.Len(t, args, 8)
 	assert.Equal(t, "", args[0],
 		"RequestID must be empty string when chi request ID is absent from context")
+}
+
+// spyLogger implements callback.CustomLogger, recording LogSuccess calls.
+type spyLogger struct {
+	mu      sync.Mutex
+	calls   []callback.LogData
+	calledC chan struct{}
+}
+
+func newSpyLogger() *spyLogger {
+	return &spyLogger{calledC: make(chan struct{}, 8)}
+}
+
+func (s *spyLogger) LogSuccess(data callback.LogData) {
+	s.mu.Lock()
+	s.calls = append(s.calls, data)
+	s.mu.Unlock()
+	select {
+	case s.calledC <- struct{}{}:
+	default:
+	}
+}
+
+func (s *spyLogger) LogFailure(data callback.LogData) {}
+
+func (s *spyLogger) waitCalled(t *testing.T, timeout time.Duration) {
+	t.Helper()
+	select {
+	case <-s.calledC:
+	case <-time.After(timeout):
+		t.Fatal("timed out waiting for LogSuccess call")
+	}
+}
+
+func (s *spyLogger) logCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.calls)
+}
+
+// TestNativeProxy_ZeroTokens_LogSuccessStillCalled verifies that LogSuccess is
+// called even when prompt and completion tokens are both 0.
+func TestNativeProxy_ZeroTokens_LogSuccessStillCalled(t *testing.T) {
+	t.Parallel()
+
+	// Upstream returns 200 with a body that yields 0 prompt and 0 completion tokens.
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"msg_ok","type":"message"}`))
+	}))
+	defer upstream.Close()
+
+	spy := newSpyLogger()
+	reg := callback.NewRegistry()
+	reg.Register(spy)
+
+	h := nativeTestHandlers(upstream.URL, "anthropic", nil)
+	h.Callbacks = reg
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{}`))
+	w := httptest.NewRecorder()
+	h.nativeProxy(w, req, "anthropic")
+
+	spy.waitCalled(t, 2*time.Second)
+	assert.Equal(t, 1, spy.logCount(), "LogSuccess must be called even with 0 tokens")
+}
+
+// TestNativeProxy_ZeroTokens_Streaming_LogSuccessStillCalled verifies that
+// LogSuccess is called for streaming responses even when tokens are 0.
+func TestNativeProxy_ZeroTokens_Streaming_LogSuccessStillCalled(t *testing.T) {
+	t.Parallel()
+
+	// Upstream returns SSE with no usage data → tokens parse as 0.
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"hi\"}}\n\n"))
+	}))
+	defer upstream.Close()
+
+	spy := newSpyLogger()
+	reg := callback.NewRegistry()
+	reg.Register(spy)
+
+	h := nativeTestHandlers(upstream.URL, "anthropic", nil)
+	h.Callbacks = reg
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{}`))
+	w := httptest.NewRecorder()
+	h.nativeProxy(w, req, "anthropic")
+
+	// The streaming path calls LogSuccess in sseSpendReader.Close(),
+	// which happens when the client reads the body to completion.
+	// httptest.ResponseRecorder reads it all, so Close is triggered by the proxy.
+	spy.waitCalled(t, 2*time.Second)
+	assert.Equal(t, 1, spy.logCount(), "LogSuccess must be called even with 0 tokens in streaming")
+}
+
+func TestParseSSEUsage_Anthropic_InputTokens(t *testing.T) {
+	// Anthropic message_start carries input_tokens inside message.usage,
+	// and message_delta carries output_tokens in root usage.
+	raw := []byte(
+		`data: {"type":"message_start","message":{"model":"claude-sonnet-4-20250514","usage":{"input_tokens":42,"output_tokens":0}}}` + "\n" +
+			`data: {"type":"content_block_delta","delta":{"text":"hi"}}` + "\n" +
+			`data: {"type":"message_delta","usage":{"input_tokens":0,"output_tokens":15}}` + "\n",
+	)
+	prompt, completion, model := parseSSEUsage("anthropic", raw)
+	assert.Equal(t, 42, prompt, "input_tokens should be parsed from message_start.message.usage")
+	assert.Equal(t, 15, completion, "output_tokens should be parsed from message_delta.usage")
+	assert.Equal(t, "claude-sonnet-4-20250514", model)
+}
+
+func TestParseSSEUsage_Gemini(t *testing.T) {
+	// Gemini streaming: each chunk may have usageMetadata; last one wins.
+	raw := []byte(
+		`data: {"candidates":[{"content":{"parts":[{"text":"hello"}]}}],"modelVersion":"gemini-2.0-flash","usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5}}` + "\n" +
+			`data: {"candidates":[{"content":{"parts":[{"text":" world"}]}}],"modelVersion":"gemini-2.0-flash","usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":20}}` + "\n",
+	)
+	prompt, completion, model := parseSSEUsage("gemini", raw)
+	assert.Equal(t, 10, prompt, "promptTokenCount from last chunk")
+	assert.Equal(t, 20, completion, "candidatesTokenCount from last chunk")
+	assert.Equal(t, "gemini-2.0-flash", model)
+}
+
+func TestParseSSEUsage_Anthropic_ZeroInputTokens_BeforeFix(t *testing.T) {
+	// Ensures that even when root-level usage has 0 input_tokens,
+	// we still get the value from message.usage in message_start.
+	raw := []byte(
+		`data: {"type":"message_start","message":{"model":"claude-sonnet-4-20250514","usage":{"input_tokens":100,"output_tokens":0}}}` + "\n",
+	)
+	prompt, _, _ := parseSSEUsage("anthropic", raw)
+	assert.Equal(t, 100, prompt, "input_tokens must come from nested message.usage")
 }

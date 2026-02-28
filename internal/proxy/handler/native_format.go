@@ -132,10 +132,6 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 			resp.Body = io.NopCloser(bytes.NewReader(body))
 
 			prompt, completion, modelName := parseUsage(providerName, body)
-			if prompt == 0 && completion == 0 {
-				return nil
-			}
-
 			go h.Callbacks.LogSuccess(buildNativeLogData(
 				ctx, providerName, modelName, startTime,
 				prompt, completion,
@@ -229,10 +225,6 @@ func (r *sseSpendReader) Close() error {
 	err := r.src.Close()
 
 	prompt, completion, modelName := parseSSEUsage(r.providerName, r.buf.Bytes())
-	if prompt == 0 && completion == 0 {
-		return err
-	}
-
 	go r.callbacks.LogSuccess(buildNativeLogData(
 		r.ctx, r.providerName, modelName, r.startTime,
 		prompt, completion,
@@ -257,6 +249,10 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion int, mod
 				Type    string `json:"type"`
 				Message struct {
 					Model string `json:"model"`
+					Usage struct {
+						InputTokens  int `json:"input_tokens"`
+						OutputTokens int `json:"output_tokens"`
+					} `json:"usage"`
 				} `json:"message"`
 				Usage struct {
 					InputTokens  int `json:"input_tokens"`
@@ -269,9 +265,33 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion int, mod
 			if event.Type == "message_start" && event.Message.Model != "" {
 				modelName = event.Message.Model
 			}
-			if event.Type == "message_delta" && (event.Usage.InputTokens > 0 || event.Usage.OutputTokens > 0) {
-				prompt = event.Usage.InputTokens
+			// message_start carries input_tokens in message.usage
+			if event.Type == "message_start" && event.Message.Usage.InputTokens > 0 {
+				prompt = event.Message.Usage.InputTokens
+			}
+			// message_delta carries output_tokens in root usage
+			if event.Type == "message_delta" && event.Usage.OutputTokens > 0 {
 				completion = event.Usage.OutputTokens
+			}
+
+		case "gemini":
+			var event struct {
+				ModelVersion  string `json:"modelVersion"`
+				UsageMetadata struct {
+					PromptTokenCount     int `json:"promptTokenCount"`
+					CandidatesTokenCount int `json:"candidatesTokenCount"`
+				} `json:"usageMetadata"`
+			}
+			if json.Unmarshal(data, &event) != nil {
+				continue
+			}
+			if event.ModelVersion != "" {
+				modelName = event.ModelVersion
+			}
+			// Each chunk may have usageMetadata; take the last one.
+			if event.UsageMetadata.PromptTokenCount > 0 || event.UsageMetadata.CandidatesTokenCount > 0 {
+				prompt = event.UsageMetadata.PromptTokenCount
+				completion = event.UsageMetadata.CandidatesTokenCount
 			}
 		}
 	}
