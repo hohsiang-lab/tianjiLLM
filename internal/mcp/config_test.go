@@ -21,6 +21,8 @@ func TestMCPServerEntry_Fields(t *testing.T) {
 	assert.Equal(t, "test-server", entry.ServerID)
 	assert.Equal(t, "test", entry.Alias)
 	assert.Equal(t, "stdio", entry.Transport)
+	assert.Equal(t, "/usr/bin/test", entry.Command)
+	assert.Equal(t, []string{"--flag"}, entry.Args)
 }
 
 func TestMCPTool_Fields(t *testing.T) {
@@ -32,6 +34,8 @@ func TestMCPTool_Fields(t *testing.T) {
 	}
 	assert.Equal(t, "read_file", tool.Name)
 	assert.Equal(t, "fs-read_file", tool.PrefixedName)
+	assert.Equal(t, "Read a file", tool.Description)
+	assert.Equal(t, "fs", tool.ServerID)
 }
 
 func TestNewManager(t *testing.T) {
