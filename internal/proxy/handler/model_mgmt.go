@@ -1,13 +1,42 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
 )
+
+// proxyModelResponse wraps ProxyModelTable for JSON responses, ensuring
+// JSONB fields (tianji_params, model_info) are serialized as JSON objects
+// rather than base64-encoded byte arrays.
+type proxyModelResponse struct {
+	ModelID      string             `json:"model_id"`
+	ModelName    string             `json:"model_name"`
+	TianjiParams json.RawMessage    `json:"tianji_params"`
+	ModelInfo    json.RawMessage    `json:"model_info"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	CreatedBy    string             `json:"created_by"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy    string             `json:"updated_by"`
+}
+
+func toProxyModelResponse(m db.ProxyModelTable) proxyModelResponse {
+	return proxyModelResponse{
+		ModelID:      m.ModelID,
+		ModelName:    m.ModelName,
+		TianjiParams: json.RawMessage(m.TianjiParams),
+		ModelInfo:    json.RawMessage(m.ModelInfo),
+		CreatedAt:    m.CreatedAt,
+		CreatedBy:    m.CreatedBy,
+		UpdatedAt:    m.UpdatedAt,
+		UpdatedBy:    m.UpdatedBy,
+	}
+}
 
 // ModelNew handles POST /model/new.
 func (h *Handlers) ModelNew(w http.ResponseWriter, r *http.Request) {
@@ -19,11 +48,11 @@ func (h *Handlers) ModelNew(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		ModelID      string `json:"model_id"`
-		ModelName    string `json:"model_name"`
-		TianjiParams []byte `json:"tianji_params"`
-		ModelInfo    []byte `json:"model_info"`
-		CreatedBy    string `json:"created_by"`
+		ModelID      string          `json:"model_id"`
+		ModelName    string          `json:"model_name"`
+		TianjiParams json.RawMessage `json:"tianji_params"`
+		ModelInfo    json.RawMessage `json:"model_info"`
+		CreatedBy    string          `json:"created_by"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeJSON(w, http.StatusBadRequest, model.ErrorResponse{
@@ -35,8 +64,8 @@ func (h *Handlers) ModelNew(w http.ResponseWriter, r *http.Request) {
 	result, err := h.DB.CreateProxyModel(r.Context(), db.CreateProxyModelParams{
 		ModelID:      req.ModelID,
 		ModelName:    req.ModelName,
-		TianjiParams: req.TianjiParams,
-		ModelInfo:    req.ModelInfo,
+		TianjiParams: []byte(req.TianjiParams),
+		ModelInfo:    []byte(req.ModelInfo),
 		CreatedBy:    req.CreatedBy,
 	})
 	if err != nil {
@@ -46,7 +75,7 @@ func (h *Handlers) ModelNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, result)
+	writeJSON(w, http.StatusCreated, toProxyModelResponse(result))
 }
 
 // ModelInfo handles GET /model/info.
@@ -67,7 +96,7 @@ func (h *Handlers) ModelInfo(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		writeJSON(w, http.StatusOK, result)
+		writeJSON(w, http.StatusOK, toProxyModelResponse(result))
 		return
 	}
 
@@ -78,7 +107,11 @@ func (h *Handlers) ModelInfo(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	resp := make([]proxyModelResponse, len(result))
+	for i, m := range result {
+		resp[i] = toProxyModelResponse(m)
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // ModelUpdate handles POST /model/update.
@@ -91,11 +124,11 @@ func (h *Handlers) ModelUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		ModelID      string `json:"model_id"`
-		ModelName    string `json:"model_name"`
-		TianjiParams []byte `json:"tianji_params"`
-		ModelInfo    []byte `json:"model_info"`
-		UpdatedBy    string `json:"updated_by"`
+		ModelID      string          `json:"model_id"`
+		ModelName    string          `json:"model_name"`
+		TianjiParams json.RawMessage `json:"tianji_params"`
+		ModelInfo    json.RawMessage `json:"model_info"`
+		UpdatedBy    string          `json:"updated_by"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeJSON(w, http.StatusBadRequest, model.ErrorResponse{
@@ -107,8 +140,8 @@ func (h *Handlers) ModelUpdate(w http.ResponseWriter, r *http.Request) {
 	result, err := h.DB.UpdateProxyModel(r.Context(), db.UpdateProxyModelParams{
 		ModelID:      req.ModelID,
 		ModelName:    req.ModelName,
-		TianjiParams: req.TianjiParams,
-		ModelInfo:    req.ModelInfo,
+		TianjiParams: []byte(req.TianjiParams),
+		ModelInfo:    []byte(req.ModelInfo),
 		UpdatedBy:    req.UpdatedBy,
 	})
 	if err != nil {
@@ -118,7 +151,7 @@ func (h *Handlers) ModelUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(w, http.StatusOK, toProxyModelResponse(result))
 }
 
 // ModelDelete handles POST /model/delete.

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -53,11 +54,17 @@ func (h *Handlers) ChatCompletion(w http.ResponseWriter, r *http.Request) {
 
 	p, apiKey, modelName, err := h.resolveProvider(r.Context(), &req)
 	if err != nil {
-		status := http.StatusNotFound
-		code := "model_not_found"
-		if !strings.Contains(err.Error(), "not found") {
+		var status int
+		var code string
+		switch {
+		case errors.Is(err, router.ErrAccessDenied):
+			status = http.StatusForbidden
+			code = "access_denied"
+		case strings.Contains(err.Error(), "not found"):
+			status = http.StatusNotFound
+			code = "model_not_found"
+		default:
 			status = http.StatusBadRequest
-			code = ""
 		}
 		writeJSON(w, status, model.ErrorResponse{
 			Error: model.ErrorDetail{

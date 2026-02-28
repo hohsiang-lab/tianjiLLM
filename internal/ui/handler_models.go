@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -21,6 +22,8 @@ import (
 const modelsPerPage = 20
 
 const defaultUpstreamURL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+
+const createdByUI = "ui"
 
 // handleSyncPricing handles POST /ui/models/sync-pricing.
 // Uses TryLock to prevent concurrent syncs; reads PRICING_UPSTREAM_URL env var.
@@ -198,14 +201,31 @@ func (h *UIHandler) handleModelCreate(w http.ResponseWriter, r *http.Request) {
 		tp["rpm"] = rpm
 	}
 
-	tianjiJSON, _ := json.Marshal(tp)
+	tianjiJSON, err := json.Marshal(tp)
+	if err != nil {
+		data := h.loadModelsPageData(r)
+		render(r.Context(), w, pages.ModelsTableWithToast(data, "Internal error: failed to encode params", toast.VariantError))
+		return
+	}
 
-	_, err := h.DB.CreateProxyModel(r.Context(), db.CreateProxyModelParams{
+	// Build model_info with optional access_control.
+	modelInfo := map[string]any{}
+	if ac := buildAccessControlJSON(r, nil); ac != nil {
+		modelInfo["access_control"] = ac
+	}
+	modelInfoJSON, err := json.Marshal(modelInfo)
+	if err != nil {
+		data := h.loadModelsPageData(r)
+		render(r.Context(), w, pages.ModelsTableWithToast(data, "Internal error: failed to encode model info", toast.VariantError))
+		return
+	}
+
+	_, err = h.DB.CreateProxyModel(r.Context(), db.CreateProxyModelParams{
 		ModelID:      uuid.New().String(),
 		ModelName:    modelName,
 		TianjiParams: tianjiJSON,
-		ModelInfo:    []byte("{}"),
-		CreatedBy:    "ui",
+		ModelInfo:    modelInfoJSON,
+		CreatedBy:    createdByUI,
 	})
 	if err != nil {
 		data := h.loadModelsPageData(r)
@@ -297,14 +317,41 @@ func (h *UIHandler) handleModelUpdate(w http.ResponseWriter, r *http.Request) {
 		existingTP["rpm"] = rpm
 	}
 
-	tianjiJSON, _ := json.Marshal(existingTP)
+	tianjiJSON, err := json.Marshal(existingTP)
+	if err != nil {
+		data := h.loadModelsPageData(r)
+		render(r.Context(), w, pages.ModelsTableWithToast(data, "Internal error: failed to encode params", toast.VariantError))
+		return
+	}
+
+	// Merge model_info, updating access_control.
+	var existingInfo map[string]any
+	if len(existing.ModelInfo) > 0 {
+		if unmarshalErr := json.Unmarshal(existing.ModelInfo, &existingInfo); unmarshalErr != nil {
+			slog.Warn("failed to unmarshal existing model_info, treating as empty", "model_id", modelID, "err", unmarshalErr)
+		}
+	}
+	if existingInfo == nil {
+		existingInfo = map[string]any{}
+	}
+	if ac := buildAccessControlJSON(r, existingInfo); ac != nil {
+		existingInfo["access_control"] = ac
+	} else {
+		delete(existingInfo, "access_control")
+	}
+	modelInfoJSON, err := json.Marshal(existingInfo)
+	if err != nil {
+		data := h.loadModelsPageData(r)
+		render(r.Context(), w, pages.ModelsTableWithToast(data, "Internal error: failed to encode model info", toast.VariantError))
+		return
+	}
 
 	_, err = h.DB.UpdateProxyModel(r.Context(), db.UpdateProxyModelParams{
 		ModelID:      modelID,
 		ModelName:    modelName,
 		TianjiParams: tianjiJSON,
-		ModelInfo:    existing.ModelInfo,
-		UpdatedBy:    "ui",
+		ModelInfo:    modelInfoJSON,
+		UpdatedBy:    createdByUI,
 	})
 	if err != nil {
 		data := h.loadModelsPageData(r)
@@ -366,38 +413,38 @@ func parseTianjiParams(raw []byte) map[string]any {
 
 // buildModelRow converts a DB row into the view model with masked API key.
 func buildModelRow(m db.ProxyModelTable) pages.ModelRow {
-	tp := parseTianjiParams(m.TianjiParams)
-
-	provider, providerModel := splitProviderModel(str(tp, "model"))
-
-	return pages.ModelRow{
-		ID:            m.ModelID,
-		ModelName:     m.ModelName,
-		Provider:      provider,
-		ProviderModel: providerModel,
-		APIBase:       str(tp, "api_base"),
-		APIKey:        maskAPIKey(str(tp, "api_key")),
-		TPM:           int64Val(tp, "tpm"),
-		RPM:           int64Val(tp, "rpm"),
-	}
+	return buildModelRowFromDB(m, true)
 }
 
 // buildModelRowUnmasked is like buildModelRow but exposes the raw API key for edit forms.
 func buildModelRowUnmasked(m db.ProxyModelTable) pages.ModelRow {
+	return buildModelRowFromDB(m, false)
+}
+
+// buildModelRowFromDB is the shared implementation for building a ModelRow from a DB row.
+// When maskKey is true, the API key is masked for display; when false, the raw key is exposed.
+func buildModelRowFromDB(m db.ProxyModelTable, maskKey bool) pages.ModelRow {
 	tp := parseTianjiParams(m.TianjiParams)
 
 	provider, providerModel := splitProviderModel(str(tp, "model"))
 
-	return pages.ModelRow{
+	apiKey := str(tp, "api_key")
+	if maskKey {
+		apiKey = maskAPIKey(apiKey)
+	}
+
+	row := pages.ModelRow{
 		ID:            m.ModelID,
 		ModelName:     m.ModelName,
 		Provider:      provider,
 		ProviderModel: providerModel,
 		APIBase:       str(tp, "api_base"),
-		APIKey:        str(tp, "api_key"),
+		APIKey:        apiKey,
 		TPM:           int64Val(tp, "tpm"),
 		RPM:           int64Val(tp, "rpm"),
 	}
+	extractAccessControl(m.ModelInfo, &row)
+	return row
 }
 
 // buildModelRowFromConfig converts a YAML config model entry into the view model.
@@ -420,7 +467,7 @@ func buildModelRowFromConfig(m config.ModelConfig) pages.ModelRow {
 		rpm = *m.TianjiParams.RPM
 	}
 
-	return pages.ModelRow{
+	row := pages.ModelRow{
 		ModelName:     m.ModelName,
 		Provider:      provider,
 		ProviderModel: providerModel,
@@ -429,6 +476,13 @@ func buildModelRowFromConfig(m config.ModelConfig) pages.ModelRow {
 		TPM:           tpm,
 		RPM:           rpm,
 	}
+	if ac := m.AccessControl; ac != nil && !ac.IsPublic() {
+		row.AllowedOrgs = ac.AllowedOrgs
+		row.AllowedTeams = ac.AllowedTeams
+		row.AllowedKeys = ac.AllowedKeys
+		row.IsRestricted = true
+	}
+	return row
 }
 
 // splitProviderModel splits "provider/model" into its parts.
@@ -464,6 +518,86 @@ func int64Val(m map[string]any, key string) int64 {
 		return v
 	}
 	return 0
+}
+
+// parseLines splits textarea input by newlines, trims blanks, and skips lines with embedded whitespace.
+func parseLines(s string) []string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	var result []string
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Skip lines with embedded whitespace — IDs and key hashes should be single tokens.
+		if strings.ContainsAny(line, " \t") {
+			continue
+		}
+		result = append(result, line)
+	}
+	return result
+}
+
+// buildAccessControlJSON returns the access_control map for model_info, or nil if all empty.
+// If existingInfo is non-nil and allowed_keys is empty in the form, existing keys are preserved
+// (keys are masked in the edit form so an empty field means "keep unchanged").
+func buildAccessControlJSON(r *http.Request, existingInfo map[string]any) map[string]any {
+	orgs := parseLines(r.FormValue("allowed_orgs"))
+	teams := parseLines(r.FormValue("allowed_teams"))
+	keys := parseLines(r.FormValue("allowed_keys"))
+
+	if len(keys) == 0 && existingInfo != nil {
+		if existingAC, ok := existingInfo["access_control"].(map[string]any); ok {
+			keys = toStringSlice(existingAC["allowed_keys"])
+		}
+	}
+
+	if len(orgs) == 0 && len(teams) == 0 && len(keys) == 0 {
+		return nil
+	}
+	ac := map[string]any{}
+	if len(orgs) > 0 {
+		ac["allowed_orgs"] = orgs
+	}
+	if len(teams) > 0 {
+		ac["allowed_teams"] = teams
+	}
+	if len(keys) > 0 {
+		ac["allowed_keys"] = keys
+	}
+	return ac
+}
+
+// extractAccessControl reads access control fields from model_info JSON into ModelRow fields.
+func extractAccessControl(modelInfo []byte, row *pages.ModelRow) {
+	var info map[string]any
+	if len(modelInfo) > 0 {
+		if err := json.Unmarshal(modelInfo, &info); err != nil {
+			slog.Warn("failed to unmarshal model_info for access control", "err", err)
+		}
+	}
+	if ac, ok := info["access_control"].(map[string]any); ok {
+		row.AllowedOrgs = toStringSlice(ac["allowed_orgs"])
+		row.AllowedTeams = toStringSlice(ac["allowed_teams"])
+		row.AllowedKeys = toStringSlice(ac["allowed_keys"])
+		row.IsRestricted = len(row.AllowedOrgs) > 0 || len(row.AllowedTeams) > 0 || len(row.AllowedKeys) > 0
+	}
+}
+
+// toStringSlice converts an any (expected []any of strings) to []string.
+func toStringSlice(v any) []string {
+	arr, ok := v.([]any)
+	if !ok {
+		return nil
+	}
+	result := make([]string, 0, len(arr))
+	for _, item := range arr {
+		if s, ok := item.(string); ok {
+			result = append(result, s)
+		}
+	}
+	return result
 }
 
 // syncPricingToast returns a templ component that renders a toast notification.

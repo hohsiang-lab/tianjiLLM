@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -11,8 +12,15 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 	"github.com/praxisllmlab/tianjiLLM/internal/wildcard"
 )
+
+// ErrNoDeployments is returned when no deployments exist for a requested model.
+var ErrNoDeployments = errors.New("no deployments")
+
+// ErrAccessDenied is returned when deployments exist but none are accessible to the caller.
+var ErrAccessDenied = errors.New("access denied")
 
 // Strategy selects a deployment from a list of healthy deployments.
 type Strategy interface {
@@ -163,7 +171,13 @@ func (r *Router) Route(ctx context.Context, modelName string, req *model.ChatCom
 		allDeployments = r.wildcardMatch(modelName)
 	}
 	if len(allDeployments) == 0 {
-		return nil, nil, fmt.Errorf("no deployments for model %q", modelName)
+		return nil, nil, fmt.Errorf("%w for model %q", ErrNoDeployments, modelName)
+	}
+
+	// Filter by access control before health check.
+	allDeployments = r.filterByAccessControl(ctx, allDeployments)
+	if len(allDeployments) == 0 {
+		return nil, nil, fmt.Errorf("%w for model %q", ErrAccessDenied, modelName)
 	}
 
 	healthy := r.healthyDeployments(allDeployments)
@@ -262,15 +276,40 @@ func (r *Router) GetDeployments(modelName string) []*Deployment {
 	return r.deployments[modelName]
 }
 
-// ListModelGroups returns all model group names and their deployments.
-func (r *Router) ListModelGroups() map[string][]*Deployment {
+// ListModelGroups returns model group names and their deployments, filtered by access control.
+// The caller's identity is extracted from ctx (same as Route). Master key callers see all.
+func (r *Router) ListModelGroups(ctx context.Context) map[string][]*Deployment {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	result := make(map[string][]*Deployment, len(r.deployments))
 	for k, v := range r.deployments {
-		result[k] = v
+		filtered := r.filterByAccessControl(ctx, v)
+		if len(filtered) > 0 {
+			result[k] = filtered
+		}
 	}
 	return result
+}
+
+// filterByAccessControl removes deployments the caller is not authorized to use.
+// Master key callers bypass all access control checks.
+func (r *Router) filterByAccessControl(ctx context.Context, deployments []*Deployment) []*Deployment {
+	isMaster, _ := ctx.Value(middleware.ContextKeyIsMasterKey).(bool)
+	if isMaster {
+		return deployments
+	}
+
+	orgID, _ := ctx.Value(middleware.ContextKeyOrgID).(string)
+	teamID, _ := ctx.Value(middleware.ContextKeyTeamID).(string)
+	tokenHash, _ := ctx.Value(middleware.ContextKeyTokenHash).(string)
+
+	filtered := make([]*Deployment, 0, len(deployments))
+	for _, d := range deployments {
+		if d.Config.AccessControl.IsAllowed(orgID, teamID, tokenHash) {
+			filtered = append(filtered, d)
+		}
+	}
+	return filtered
 }
 
 func (r *Router) healthyDeployments(all []*Deployment) []*Deployment {
