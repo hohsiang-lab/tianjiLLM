@@ -61,8 +61,8 @@ func TestMapRole(t *testing.T) {
 		{[]string{"admins"}, RoleProxyAdmin},
 		{[]string{"developers"}, RoleTeam},
 		{[]string{"users", "admins"}, RoleProxyAdmin}, // highest wins
-		{[]string{"unknown"}, RoleInternalUser},        // default
-		{nil, RoleInternalUser},                         // no groups
+		{[]string{"unknown"}, RoleInternalUser},       // default
+		{nil, RoleInternalUser},                       // no groups
 	}
 
 	for _, tt := range tests {
@@ -78,7 +78,7 @@ func TestExchangeCode(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Fatalf("expected POST, got %s", r.Method)
 		}
-		json.NewEncoder(w).Encode(TokenResponse{
+		_ = json.NewEncoder(w).Encode(TokenResponse{
 			AccessToken: "tok123",
 			TokenType:   "Bearer",
 			ExpiresIn:   3600,
@@ -105,7 +105,7 @@ func TestExchangeCode(t *testing.T) {
 func TestExchangeCodeError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
-		w.Write([]byte("bad request"))
+		_, _ = w.Write([]byte("bad request"))
 	}))
 	defer srv.Close()
 
@@ -122,7 +122,7 @@ func TestGetUserInfo(t *testing.T) {
 			w.WriteHeader(401)
 			return
 		}
-		json.NewEncoder(w).Encode(UserInfo{
+		_ = json.NewEncoder(w).Encode(UserInfo{
 			Sub:   "user1",
 			Email: "user@example.com",
 			Name:  "Test User",

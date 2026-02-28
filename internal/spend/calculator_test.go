@@ -25,7 +25,9 @@ func TestNewCalculatorWithFile(t *testing.T) {
 	}
 	data, _ := json.Marshal(prices)
 	path := filepath.Join(t.TempDir(), "prices.json")
-	os.WriteFile(path, data, 0644)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	c, err := NewCalculator(path)
 	if err != nil {
@@ -59,7 +61,9 @@ func TestNewCalculatorMissingFile(t *testing.T) {
 
 func TestNewCalculatorInvalidJSON(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bad.json")
-	os.WriteFile(path, []byte("not json"), 0644)
+	if err := os.WriteFile(path, []byte("not json"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 	c, err := NewCalculator(path)
 	if err != nil {
 		t.Fatalf("should not error: %v", err)
