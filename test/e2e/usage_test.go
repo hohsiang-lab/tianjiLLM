@@ -94,11 +94,11 @@ func TestUsage_MetricCards_Values(t *testing.T) {
 
 	body := f.Text("#usage-content")
 	assert.Contains(t, body, "Total Requests")
-	assert.Contains(t, body, "4")          // total requests
-	assert.Contains(t, body, "3")          // successful
-	assert.Contains(t, body, "1")          // failed
-	assert.Contains(t, body, "650")        // total tokens
-	assert.Contains(t, body, "Avg Cost")   // avg cost card present
+	assert.Contains(t, body, "4")        // total requests
+	assert.Contains(t, body, "3")        // successful
+	assert.Contains(t, body, "1")        // failed
+	assert.Contains(t, body, "650")      // total tokens
+	assert.Contains(t, body, "Avg Cost") // avg cost card present
 }
 
 // --- US3: Tab Navigation ---
