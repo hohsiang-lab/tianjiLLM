@@ -390,6 +390,8 @@ func main() {
 
 	eventDispatcher := hook.NewManagementEventDispatcher(cfg.GeneralSettings.ManagementWebhookURL)
 
+	discordAlerter := callback.NewDiscordRateLimitAlerter(cfg.DiscordWebhookURL, cfg.RatelimitAlertThreshold)
+
 	handlers := &handler.Handlers{
 		Config:          cfg,
 		DB:              queries,
@@ -401,6 +403,7 @@ func main() {
 		SSOHandler:      ssoHandler,
 		AgentRegistry:   agentRegistry,
 		EventDispatcher: eventDispatcher,
+		DiscordAlerter:  discordAlerter,
 	}
 
 	// Init scheduler

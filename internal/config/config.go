@@ -17,6 +17,10 @@ type ProxyConfig struct {
 	// Search tool configurations.
 	SearchTools []SearchToolConfig `yaml:"search_tools,omitempty"`
 
+	// Discord rate limit alerting.
+	DiscordWebhookURL       string  `yaml:"discord_webhook_url,omitempty"`
+	RatelimitAlertThreshold float64 `yaml:"ratelimit_alert_threshold,omitempty"`
+
 	// Overflow captures any unknown top-level YAML fields.
 	// Enables loading any Python proxy_config.yaml without parse errors (FR-029).
 	Overflow map[string]any `yaml:",inline"`
