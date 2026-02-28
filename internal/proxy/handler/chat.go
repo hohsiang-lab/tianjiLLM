@@ -591,12 +591,9 @@ func last4(s string) string {
 }
 
 // isAnthropicProvider returns true if the provider is an Anthropic provider.
+// Uses fmt.Sprintf to check the concrete type name so that tests with mock upstream
+// URLs (which don't contain "anthropic.com") still work correctly.
 func isAnthropicProvider(p provider.Provider) bool {
-	_, ok := p.(interface{ GetRequestURL(string) string })
-	// Use URL-based detection: anthropic endpoints contain "anthropic.com"
-	if ok {
-		url := p.GetRequestURL("claude-3-5-sonnet-20241022")
-		return strings.Contains(url, "anthropic.com")
-	}
-	return false
+	typeName := fmt.Sprintf("%T", p)
+	return strings.Contains(typeName, "anthropic")
 }
