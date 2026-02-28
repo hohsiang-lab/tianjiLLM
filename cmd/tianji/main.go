@@ -28,6 +28,7 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/mcp"
 	"github.com/praxisllmlab/tianjiLLM/internal/policy"
 	"github.com/praxisllmlab/tianjiLLM/internal/pricing"
+	"github.com/praxisllmlab/tianjiLLM/internal/ratelimit"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider/openaicompat"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/handler"
@@ -391,17 +392,34 @@ func main() {
 
 	eventDispatcher := hook.NewManagementEventDispatcher(cfg.GeneralSettings.ManagementWebhookURL)
 
+	// Init rate limit store and alerter
+	rlStore := ratelimit.NewStore()
+	var rlAlerter *ratelimit.DiscordAlerter
+	if rlCfg := cfg.RateLimitMonitor; rlCfg != nil && rlCfg.Enabled && rlCfg.DiscordWebhookURL != "" {
+		threshold := rlCfg.AlertThreshold
+		if threshold == 0 {
+			threshold = 0.20
+		}
+		cooldownMin := rlCfg.CooldownMinutes
+		if cooldownMin == 0 {
+			cooldownMin = 60
+		}
+		rlAlerter = ratelimit.NewDiscordAlerter(rlCfg.DiscordWebhookURL, threshold, time.Duration(cooldownMin)*time.Minute)
+	}
+
 	handlers := &handler.Handlers{
-		Config:          cfg,
-		DB:              queries,
-		Cache:           cacheBackend,
-		Router:          rtr,
-		Callbacks:       callbackRegistry,
-		Guardrails:      guardrailRegistry,
-		PolicyEng:       policyEng,
-		SSOHandler:      ssoHandler,
-		AgentRegistry:   agentRegistry,
-		EventDispatcher: eventDispatcher,
+		Config:           cfg,
+		DB:               queries,
+		Cache:            cacheBackend,
+		Router:           rtr,
+		Callbacks:        callbackRegistry,
+		Guardrails:       guardrailRegistry,
+		PolicyEng:        policyEng,
+		SSOHandler:       ssoHandler,
+		AgentRegistry:    agentRegistry,
+		EventDispatcher:  eventDispatcher,
+		RateLimitStore:   rlStore,
+		RateLimitAlerter: rlAlerter,
 	}
 
 	// Init scheduler

@@ -18,6 +18,7 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/policy"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/hook"
+	"github.com/praxisllmlab/tianjiLLM/internal/ratelimit"
 	"github.com/praxisllmlab/tianjiLLM/internal/router"
 	"github.com/praxisllmlab/tianjiLLM/internal/token"
 	"github.com/praxisllmlab/tianjiLLM/internal/wildcard"
@@ -44,6 +45,8 @@ type Handlers struct {
 	AgentRegistry    *a2a.AgentRegistry
 	CompletionBridge *a2a.CompletionBridge
 	EventDispatcher  *hook.ManagementEventDispatcher
+	RateLimitStore   *ratelimit.Store
+	RateLimitAlerter *ratelimit.DiscordAlerter
 }
 
 func (h *Handlers) ListModels(w http.ResponseWriter, r *http.Request) {

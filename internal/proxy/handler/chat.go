@@ -214,6 +214,15 @@ func (h *Handlers) handleNonStreamingCompletion(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Rate limit monitoring for Anthropic
+	if isAnthropicProvider(p) && h.RateLimitStore != nil {
+		providerKey := "anthropic/" + last4(apiKey)
+		h.RateLimitStore.ParseAndUpdate(providerKey, resp.Header)
+		if h.RateLimitAlerter != nil {
+			go h.RateLimitAlerter.Check(providerKey, h.RateLimitStore)
+		}
+	}
+
 	result, err := p.TransformResponse(r.Context(), resp)
 	if err != nil {
 		h.logFailure(r.Context(), req, p, startTime, fmt.Errorf("transform response: %w", err))
@@ -281,6 +290,15 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	defer resp.Body.Close()
+
+	// Rate limit monitoring for Anthropic (streaming)
+	if isAnthropicProvider(p) && h.RateLimitStore != nil {
+		providerKey := "anthropic/" + last4(apiKey)
+		h.RateLimitStore.ParseAndUpdate(providerKey, resp.Header)
+		if h.RateLimitAlerter != nil {
+			go h.RateLimitAlerter.Check(providerKey, h.RateLimitStore)
+		}
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -562,4 +580,23 @@ func (h *Handlers) recordErrorLog(ctx context.Context, req *model.ChatCompletion
 			ErrorMessage: err.Error(),
 		})
 	}()
+}
+
+// last4 returns the last 4 characters of s, or the full string if shorter.
+func last4(s string) string {
+	if len(s) <= 4 {
+		return s
+	}
+	return s[len(s)-4:]
+}
+
+// isAnthropicProvider returns true if the provider is an Anthropic provider.
+func isAnthropicProvider(p provider.Provider) bool {
+	_, ok := p.(interface{ GetRequestURL(string) string })
+	// Use URL-based detection: anthropic endpoints contain "anthropic.com"
+	if ok {
+		url := p.GetRequestURL("claude-3-5-sonnet-20241022")
+		return strings.Contains(url, "anthropic.com")
+	}
+	return false
 }

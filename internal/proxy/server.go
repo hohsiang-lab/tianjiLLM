@@ -640,6 +640,12 @@ func (s *Server) setupRoutes() {
 		r.Post("/token_counter", s.Handlers.TokenCount)
 	})
 
+	// Internal management endpoints
+	r.Route("/internal", func(r chi.Router) {
+		r.Use(s.AuthMiddleware)
+		r.Get("/ratelimit", s.Handlers.RateLimitStatus)
+	})
+
 	// SSO (no auth — these are the login entry points)
 	r.Route("/sso", func(r chi.Router) {
 		r.Get("/login", s.Handlers.SSOLogin)

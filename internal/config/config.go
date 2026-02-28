@@ -17,6 +17,9 @@ type ProxyConfig struct {
 	// Search tool configurations.
 	SearchTools []SearchToolConfig `yaml:"search_tools,omitempty"`
 
+	// Rate limit monitor config (optional, omitting disables the feature).
+	RateLimitMonitor *RateLimitMonitorConfig `yaml:"ratelimit_monitor,omitempty"`
+
 	// Overflow captures any unknown top-level YAML fields.
 	// Enables loading any Python proxy_config.yaml without parse errors (FR-029).
 	Overflow map[string]any `yaml:",inline"`
@@ -397,4 +400,12 @@ type SearchToolTianjiParams struct {
 // SearchToolInfo holds metadata about a search tool.
 type SearchToolInfo struct {
 	Description string `yaml:"description,omitempty"`
+}
+
+// RateLimitMonitorConfig holds Anthropic rate-limit monitoring settings.
+type RateLimitMonitorConfig struct {
+	Enabled           bool    `yaml:"enabled"`
+	AlertThreshold    float64 `yaml:"alert_threshold"`    // 0.0–1.0, default 0.20
+	DiscordWebhookURL string  `yaml:"discord_webhook_url"`
+	CooldownMinutes   int     `yaml:"cooldown_minutes"` // default 60
 }
