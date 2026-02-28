@@ -156,13 +156,13 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 			}
 			resp.Body = io.NopCloser(bytes.NewReader(body))
 
-			prompt, completion, modelName := parseUsage(providerName, body)
+			prompt, completion, cacheRead, cacheCreation, modelName := parseUsage(providerName, body)
 			if modelName == "" {
 				modelName = requestModel
 			}
 			go h.Callbacks.LogSuccess(buildNativeLogData(
 				ctx, providerName, modelName, startTime,
-				prompt, completion,
+				prompt, completion, cacheRead, cacheCreation,
 			))
 			return nil
 		},
@@ -197,18 +197,22 @@ func extractRequestModel(r *http.Request) string {
 }
 
 // parseUsage extracts prompt/completion tokens and model name from a non-streaming response body.
-func parseUsage(providerName string, body []byte) (prompt, completion int, modelName string) {
+func parseUsage(providerName string, body []byte) (prompt, completion, cacheRead, cacheCreation int, modelName string) {
 	switch providerName {
 	case "anthropic":
 		var parsed struct {
 			Model string `json:"model"`
 			Usage struct {
-				InputTokens  int `json:"input_tokens"`
-				OutputTokens int `json:"output_tokens"`
+				InputTokens              int `json:"input_tokens"`
+				OutputTokens             int `json:"output_tokens"`
+				CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+				CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 			} `json:"usage"`
 		}
 		if json.Unmarshal(body, &parsed) == nil {
-			return parsed.Usage.InputTokens, parsed.Usage.OutputTokens, parsed.Model
+			cr := parsed.Usage.CacheReadInputTokens
+			cc := parsed.Usage.CacheCreationInputTokens
+			return parsed.Usage.InputTokens + cr + cc, parsed.Usage.OutputTokens, cr, cc, parsed.Model
 		}
 	case "gemini":
 		var parsed struct {
@@ -218,7 +222,7 @@ func parseUsage(providerName string, body []byte) (prompt, completion int, model
 			} `json:"usageMetadata"`
 		}
 		if json.Unmarshal(body, &parsed) == nil {
-			return parsed.UsageMetadata.PromptTokenCount, parsed.UsageMetadata.CandidatesTokenCount, ""
+			return parsed.UsageMetadata.PromptTokenCount, parsed.UsageMetadata.CandidatesTokenCount, 0, 0, ""
 		}
 	case "openai", "openrouter", "deepseek", "groq", "together":
 		var parsed struct {
@@ -229,7 +233,7 @@ func parseUsage(providerName string, body []byte) (prompt, completion int, model
 			} `json:"usage"`
 		}
 		if json.Unmarshal(body, &parsed) == nil {
-			return parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens, parsed.Model
+			return parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens, 0, 0, parsed.Model
 		}
 	default:
 		// Fallback: try OpenAI-compatible format for unknown providers
@@ -241,25 +245,40 @@ func parseUsage(providerName string, body []byte) (prompt, completion int, model
 			} `json:"usage"`
 		}
 		if json.Unmarshal(body, &parsed) == nil && (parsed.Usage.PromptTokens > 0 || parsed.Usage.CompletionTokens > 0) {
-			return parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens, parsed.Model
+			return parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens, 0, 0, parsed.Model
 		}
 	}
-	return 0, 0, ""
+	return 0, 0, 0, 0, ""
 }
 
 // buildNativeLogData constructs a LogData from native proxy usage info.
-func buildNativeLogData(ctx context.Context, providerName, modelName string, startTime time.Time, prompt, completion int) callback.LogData {
+func buildNativeLogData(ctx context.Context, providerName, modelName string, startTime time.Time, prompt, completion, cacheRead, cacheCreation int) callback.LogData {
 	endTime := time.Now()
+	// For cost calc: PromptTokens in TokenUsage = regular input (not total)
+	// prompt here is already total (input + cache_read + cache_creation)
+	regularInput := prompt - cacheRead - cacheCreation
+	if regularInput < 0 {
+		regularInput = 0
+	}
+	tokenUsage := pricing.TokenUsage{
+		PromptTokens:             regularInput,
+		CompletionTokens:         completion,
+		CacheReadInputTokens:     cacheRead,
+		CacheCreationInputTokens: cacheCreation,
+	}
+	promptCost, completionCost := pricing.Default().Cost(modelName, tokenUsage)
 	data := callback.LogData{
-		Model:            modelName,
-		Provider:         providerName,
-		StartTime:        startTime,
-		EndTime:          endTime,
-		Latency:          endTime.Sub(startTime),
-		PromptTokens:     prompt,
-		CompletionTokens: completion,
-		TotalTokens:      prompt + completion,
-		Cost:             pricing.Default().TotalCost(modelName, prompt, completion),
+		Model:                    modelName,
+		Provider:                 providerName,
+		StartTime:                startTime,
+		EndTime:                  endTime,
+		Latency:                  endTime.Sub(startTime),
+		PromptTokens:             prompt,
+		CompletionTokens:         completion,
+		TotalTokens:              prompt + completion,
+		CacheReadInputTokens:     cacheRead,
+		CacheCreationInputTokens: cacheCreation,
+		Cost:                     promptCost + completionCost,
 	}
 	if tokenHash, ok := ctx.Value(middleware.ContextKeyTokenHash).(string); ok {
 		data.APIKey = tokenHash
@@ -315,20 +334,20 @@ type readCloserOnly struct{ io.ReadCloser }
 func (r *sseSpendReader) Close() error {
 	err := r.src.Close()
 
-	prompt, completion, modelName := parseSSEUsage(r.providerName, r.buf.Bytes())
+	prompt, completion, cacheRead, cacheCreation, modelName := parseSSEUsage(r.providerName, r.buf.Bytes())
 	if modelName == "" {
 		modelName = r.requestModel
 	}
 	go r.callbacks.LogSuccess(buildNativeLogData(
 		r.ctx, r.providerName, modelName, r.startTime,
-		prompt, completion,
+		prompt, completion, cacheRead, cacheCreation,
 	))
 	return err
 }
 
 // parseSSEUsage scans SSE events for usage data.
 // Anthropic: model in message_start, usage in message_delta.
-func parseSSEUsage(providerName string, raw []byte) (prompt, completion int, modelName string) {
+func parseSSEUsage(providerName string, raw []byte) (prompt, completion, cacheRead, cacheCreation int, modelName string) {
 	// Split into lines and process "data: " prefixed lines.
 	for _, line := range bytes.Split(raw, []byte("\n")) {
 		line = bytes.TrimSpace(line)
@@ -344,24 +363,26 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion int, mod
 				Message struct {
 					Model string `json:"model"`
 					Usage struct {
-						InputTokens  int `json:"input_tokens"`
-						OutputTokens int `json:"output_tokens"`
+						InputTokens              int `json:"input_tokens"`
+						CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+						CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 					} `json:"usage"`
 				} `json:"message"`
 				Usage struct {
-					InputTokens  int `json:"input_tokens"`
 					OutputTokens int `json:"output_tokens"`
 				} `json:"usage"`
 			}
 			if json.Unmarshal(data, &event) != nil {
 				continue
 			}
-			if event.Type == "message_start" && event.Message.Model != "" {
-				modelName = event.Message.Model
-			}
-			// message_start carries input_tokens in message.usage
-			if event.Type == "message_start" && event.Message.Usage.InputTokens > 0 {
-				prompt = event.Message.Usage.InputTokens
+			if event.Type == "message_start" {
+				if event.Message.Model != "" {
+					modelName = event.Message.Model
+				}
+				cacheRead = event.Message.Usage.CacheReadInputTokens
+				cacheCreation = event.Message.Usage.CacheCreationInputTokens
+				// PromptTokens = total (input + cache_read + cache_creation)
+				prompt = event.Message.Usage.InputTokens + cacheRead + cacheCreation
 			}
 			// message_delta carries output_tokens in root usage
 			if event.Type == "message_delta" && event.Usage.OutputTokens > 0 {

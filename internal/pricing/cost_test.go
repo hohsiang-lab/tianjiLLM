@@ -7,7 +7,7 @@ import (
 func TestCostKnownModel(t *testing.T) {
 	c := Default()
 	// gpt-4o should exist in embedded pricing
-	p, comp := c.Cost("gpt-4o", 1000, 500)
+	p, comp := c.Cost("gpt-4o", TokenUsage{PromptTokens: 1000, CompletionTokens: 500})
 	if p == 0 && comp == 0 {
 		t.Skip("gpt-4o not in embedded pricing")
 	}
@@ -18,7 +18,7 @@ func TestCostKnownModel(t *testing.T) {
 
 func TestCostUnknownModel(t *testing.T) {
 	c := Default()
-	p, comp := c.Cost("nonexistent-model-xyz", 1000, 500)
+	p, comp := c.Cost("nonexistent-model-xyz", TokenUsage{PromptTokens: 1000, CompletionTokens: 500})
 	if p != 0 || comp != 0 {
 		t.Fatalf("unknown model should return 0 cost, got %f %f", p, comp)
 	}
@@ -26,8 +26,9 @@ func TestCostUnknownModel(t *testing.T) {
 
 func TestTotalCost(t *testing.T) {
 	c := Default()
-	total := c.TotalCost("gpt-4o", 1000, 500)
-	p, comp := c.Cost("gpt-4o", 1000, 500)
+	usage := TokenUsage{PromptTokens: 1000, CompletionTokens: 500}
+	total := c.TotalCost("gpt-4o", usage)
+	p, comp := c.Cost("gpt-4o", usage)
 	if total != p+comp {
 		t.Fatalf("TotalCost=%f != prompt(%f)+completion(%f)", total, p, comp)
 	}
@@ -58,7 +59,7 @@ func TestCostWithCustomPricing(t *testing.T) {
 		InputCostPerToken:  0.001,
 		OutputCostPerToken: 0.002,
 	})
-	p, comp := c.Cost("my-custom-model", 100, 200)
+	p, comp := c.Cost("my-custom-model", TokenUsage{PromptTokens: 100, CompletionTokens: 200})
 	if p != 0.1 {
 		t.Fatalf("prompt cost = %f, want 0.1", p)
 	}

@@ -9,12 +9,12 @@ import (
 )
 
 // ──────────────────────────────────────────────────────────────
-// calculateCost — three-layer fallback
+// calculateCost — fallback logic
 // ──────────────────────────────────────────────────────────────
 
 func TestCalculateCost_RecCostDirectly(t *testing.T) {
 	t.Parallel()
-	tracker := NewTracker(nil, nil, nil)
+	tracker := NewTracker(nil, nil)
 	rec := SpendRecord{
 		Model:            "whatever-model",
 		PromptTokens:     100,
@@ -25,32 +25,9 @@ func TestCalculateCost_RecCostDirectly(t *testing.T) {
 	assert.Equal(t, 0.42, got, "should use rec.Cost directly when > 0")
 }
 
-func TestCalculateCost_RecCostZero_CalculatorHit(t *testing.T) {
-	t.Parallel()
-	calc, _ := NewCalculator("")
-	// Load a custom price into the calculator
-	calc.mu.Lock()
-	calc.prices["test-model"] = ModelPricing{
-		InputCostPerToken:  0.001,
-		OutputCostPerToken: 0.002,
-	}
-	calc.mu.Unlock()
-
-	tracker := NewTracker(nil, calc, nil)
-	rec := SpendRecord{
-		Model:            "test-model",
-		PromptTokens:     1000,
-		CompletionTokens: 500,
-	}
-	got := tracker.calculateCost(rec)
-	expected := 1000*0.001 + 500*0.002
-	assert.InDelta(t, expected, got, 1e-9, "should use calculator when rec.Cost is 0")
-}
-
 func TestCalculateCost_FallbackToPricingDefault(t *testing.T) {
 	t.Parallel()
-	calc, _ := NewCalculator("") // empty calculator
-	tracker := NewTracker(nil, calc, nil)
+	tracker := NewTracker(nil, nil)
 
 	model := "gpt-4o"
 	info := pricing.Default().GetModelInfo(model)
@@ -63,15 +40,14 @@ func TestCalculateCost_FallbackToPricingDefault(t *testing.T) {
 	}
 
 	got := tracker.calculateCost(rec)
-	expected := pricing.Default().TotalCost(model, 100, 50)
+	expected := pricing.Default().TotalCost(model, pricing.TokenUsage{PromptTokens: 100, CompletionTokens: 50})
 	assert.Equal(t, expected, got)
 	assert.Greater(t, got, 0.0)
 }
 
 func TestCalculateCost_AllFallbackMiss_ZeroTokens(t *testing.T) {
 	t.Parallel()
-	calc, _ := NewCalculator("")
-	tracker := NewTracker(nil, calc, nil)
+	tracker := NewTracker(nil, nil)
 
 	rec := SpendRecord{
 		Model:            "nonexistent-model-xyz",
@@ -79,13 +55,12 @@ func TestCalculateCost_AllFallbackMiss_ZeroTokens(t *testing.T) {
 		CompletionTokens: 0,
 	}
 	got := tracker.calculateCost(rec)
-	assert.Equal(t, 0.0, got, "zero tokens should not trigger pricing.Default fallback")
+	assert.Equal(t, 0.0, got)
 }
 
 func TestCalculateCost_AllFallbackMiss_UnknownModel(t *testing.T) {
 	t.Parallel()
-	calc, _ := NewCalculator("")
-	tracker := NewTracker(nil, calc, nil)
+	tracker := NewTracker(nil, nil)
 
 	rec := SpendRecord{
 		Model:            "nonexistent-model-xyz",
@@ -93,31 +68,13 @@ func TestCalculateCost_AllFallbackMiss_UnknownModel(t *testing.T) {
 		CompletionTokens: 50,
 	}
 	got := tracker.calculateCost(rec)
-	// pricing.Default() won't have this model either, so cost should be 0
 	assert.Equal(t, 0.0, got, "unknown model with no pricing data should return 0")
-}
-
-func TestCalculateCost_NilCalculator(t *testing.T) {
-	t.Parallel()
-	tracker := NewTracker(nil, nil, nil)
-
-	model := "gpt-4o"
-	rec := SpendRecord{
-		Model:            model,
-		PromptTokens:     100,
-		CompletionTokens: 50,
-	}
-	got := tracker.calculateCost(rec)
-	expected := pricing.Default().TotalCost(model, 100, 50)
-	assert.Equal(t, expected, got, "nil calculator should skip to pricing.Default()")
-	assert.Greater(t, got, 0.0)
 }
 
 func TestCalculateCost_ProviderPrefixModel(t *testing.T) {
 	t.Parallel()
-	tracker := NewTracker(nil, nil, nil)
+	tracker := NewTracker(nil, nil)
 
-	// Provider-prefixed model should be handled by pricing.Default() which strips prefix
 	model := "anthropic/claude-sonnet-4-20250514"
 	rec := SpendRecord{
 		Model:            model,
@@ -128,17 +85,26 @@ func TestCalculateCost_ProviderPrefixModel(t *testing.T) {
 	assert.Greater(t, got, 0.0, "provider-prefixed model should resolve via pricing.Default()")
 }
 
-func TestCalculateCost_RecCostTakesPrecedenceOverCalculator(t *testing.T) {
+func TestCalculateCost_CacheTokens_IncludedInCost(t *testing.T) {
 	t.Parallel()
-	calc, _ := NewCalculator("")
-	calc.mu.Lock()
-	calc.prices["test-model"] = ModelPricing{
-		InputCostPerToken:  0.001,
-		OutputCostPerToken: 0.002,
-	}
-	calc.mu.Unlock()
+	tracker := NewTracker(nil, nil)
 
-	tracker := NewTracker(nil, calc, nil)
+	// claude-sonnet-4-20250514 has cache pricing
+	rec := SpendRecord{
+		Model:                    "claude-sonnet-4-20250514",
+		PromptTokens:             50001, // total (1 regular + 50000 cache_read)
+		CompletionTokens:         500,
+		CacheReadInputTokens:     50000,
+		CacheCreationInputTokens: 0,
+	}
+	got := tracker.calculateCost(rec)
+	// cache_read fee alone: 50000 × 3e-07 = $0.015
+	assert.Greater(t, got, 0.01, "cost must include cache_read fee")
+}
+
+func TestCalculateCost_RecCostTakesPrecedence(t *testing.T) {
+	t.Parallel()
+	tracker := NewTracker(nil, nil)
 	rec := SpendRecord{
 		Model:            "test-model",
 		PromptTokens:     1000,
@@ -146,5 +112,5 @@ func TestCalculateCost_RecCostTakesPrecedenceOverCalculator(t *testing.T) {
 		Cost:             99.99,
 	}
 	got := tracker.calculateCost(rec)
-	assert.Equal(t, 99.99, got, "rec.Cost > 0 should take precedence over calculator")
+	assert.Equal(t, 99.99, got, "rec.Cost > 0 should take precedence")
 }

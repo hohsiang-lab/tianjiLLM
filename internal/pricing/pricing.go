@@ -21,6 +21,16 @@ type ModelInfo struct {
 	MaxTokens          int     `json:"max_tokens"`
 	Mode               string  `json:"mode"`
 	Provider           string  `json:"litellm_provider"`
+
+	// Cache token pricing (Anthropic prompt cache)
+	CacheReadCostPerToken     float64 `json:"cache_read_input_token_cost"`
+	CacheCreationCostPerToken float64 `json:"cache_creation_input_token_cost"`
+
+	// Threshold pricing (Anthropic 200K+ context)
+	InputCostPerTokenAbove200k         float64 `json:"input_cost_per_token_above_200k_tokens"`
+	OutputCostPerTokenAbove200k        float64 `json:"output_cost_per_token_above_200k_tokens"`
+	CacheReadCostPerTokenAbove200k     float64 `json:"cache_read_input_token_cost_above_200k_tokens"`
+	CacheCreationCostPerTokenAbove200k float64 `json:"cache_creation_input_token_cost_above_200k_tokens"`
 }
 
 // Calculator calculates LLM request costs from token counts.
@@ -82,20 +92,58 @@ func (c *Calculator) ReloadFromDB(entries []db.ModelPricing) {
 	c.mu.Unlock()
 }
 
+// TokenUsage carries all token counts for a single LLM call.
+// PromptTokens is the regular (non-cache) input token count only.
+// CacheReadInputTokens and CacheCreationInputTokens are tracked separately.
+// The 200K threshold is evaluated against the sum of all three.
+type TokenUsage struct {
+	PromptTokens             int // regular input tokens only (excludes cache_read and cache_creation)
+	CompletionTokens         int
+	CacheReadInputTokens     int
+	CacheCreationInputTokens int
+}
+
 // Cost calculates the cost in USD for a request given token counts.
-// Returns (promptCost, completionCost).
-func (c *Calculator) Cost(model string, promptTokens, completionTokens int) (float64, float64) {
+// Returns (inputSideCost, outputCost) where inputSideCost includes regular
+// input, cache_read, and cache_creation costs (with 200K threshold applied).
+func (c *Calculator) Cost(model string, usage TokenUsage) (float64, float64) {
 	info := c.lookup(model)
 	if info == nil {
 		return 0, 0
 	}
-	return float64(promptTokens) * info.InputCostPerToken,
-		float64(completionTokens) * info.OutputCostPerToken
+
+	inputRate := info.InputCostPerToken
+	outputRate := info.OutputCostPerToken
+	cacheReadRate := info.CacheReadCostPerToken
+	cacheCreationRate := info.CacheCreationCostPerToken
+
+	totalTokens := usage.PromptTokens + usage.CacheReadInputTokens + usage.CacheCreationInputTokens
+	if totalTokens > 200000 {
+		if info.InputCostPerTokenAbove200k > 0 {
+			inputRate = info.InputCostPerTokenAbove200k
+		}
+		if info.OutputCostPerTokenAbove200k > 0 {
+			outputRate = info.OutputCostPerTokenAbove200k
+		}
+		if info.CacheReadCostPerTokenAbove200k > 0 {
+			cacheReadRate = info.CacheReadCostPerTokenAbove200k
+		}
+		if info.CacheCreationCostPerTokenAbove200k > 0 {
+			cacheCreationRate = info.CacheCreationCostPerTokenAbove200k
+		}
+	}
+
+	promptCost := float64(usage.PromptTokens)*inputRate +
+		float64(usage.CacheReadInputTokens)*cacheReadRate +
+		float64(usage.CacheCreationInputTokens)*cacheCreationRate
+	completionCost := float64(usage.CompletionTokens) * outputRate
+
+	return promptCost, completionCost
 }
 
 // TotalCost returns the total cost for a request.
-func (c *Calculator) TotalCost(model string, promptTokens, completionTokens int) float64 {
-	prompt, completion := c.Cost(model, promptTokens, completionTokens)
+func (c *Calculator) TotalCost(model string, usage TokenUsage) float64 {
+	prompt, completion := c.Cost(model, usage)
 	return prompt + completion
 }
 
