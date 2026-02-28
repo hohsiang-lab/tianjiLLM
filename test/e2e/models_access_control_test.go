@@ -186,7 +186,11 @@ func TestModelAccessControl_EditPreservesAccessControl(t *testing.T) {
 	assert.Contains(t, orgsVal, "org_a")
 	assert.Contains(t, orgsVal, "org_b")
 	assert.Contains(t, teamsVal, "team_x")
-	assert.Contains(t, keysVal, "sk-hash-123")
+	// Keys are masked in the edit form (P1 security fix) — textarea should be empty
+	assert.Empty(t, keysVal, "allowed_keys textarea should be empty (masked)")
+	// Placeholder should indicate keys are configured
+	keysPlaceholder, _ := f.Page.Locator("#edit_allowed_keys").GetAttribute("placeholder")
+	assert.Contains(t, keysPlaceholder, "1 key(s) configured")
 
 	// Edit only the model name, leave AC unchanged
 	require.NoError(t, f.Page.Locator("#edit_model_name").Clear())
