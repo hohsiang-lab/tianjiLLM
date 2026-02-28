@@ -239,3 +239,78 @@ Total:                              $0.022503
 ### Integration（spend_tracking_cache_test.go）
 - T14：mock SSE with cache → SpendLog.spend 正確
 - T15：mock SSE 無 cache → backward-compat
+
+---
+
+## Clarifications
+
+### Session 2026-03-01
+
+- Q: `pricing.Calculator.Cost()` 改簽名策略 → A: **Option C** — 改用 struct 傳參數，跟 LiteLLM `Usage` struct 設計一致
+
+- Q: `parseSSEUsage` / `parseUsage` return 簽名 → A: **Option C** — 回傳單一 struct `NativeUsage`（含 ModelName），跟 LiteLLM `Usage` struct 對齊
+
+- Q: 200K threshold 的 token 計算基準 → A: **Option A** — 用 total prompt tokens（input + cache_read + cache_creation），跟 LiteLLM 一致
+
+- Q: `spend.Calculator` 和 `pricing.Calculator` 的關係 → A: **Option C** — 合併，刪掉 `spend.Calculator`，統一用 `pricing.Calculator`
+
+- Q: `callback.LogData` cache token 欄位命名 → A: **Option A** — `CacheReadInputTokens` / `CacheCreationInputTokens`，跟 LiteLLM 欄位名一致
+
+---
+
+## Updated Design Decisions（基於 Clarifications）
+
+### NativeUsage Struct（新增）
+
+```go
+// internal/proxy/handler/native_format.go
+type NativeUsage struct {
+    ModelName               string
+    PromptTokens            int  // = input + cache_read + cache_creation
+    CompletionTokens        int
+    CacheReadInputTokens    int
+    CacheCreationInputTokens int
+}
+
+func parseSSEUsage(providerName string, raw []byte) NativeUsage
+func parseUsage(providerName string, body []byte) NativeUsage
+```
+
+### TokenUsage Struct（新增，pricing layer）
+
+```go
+// internal/pricing/pricing.go
+type TokenUsage struct {
+    PromptTokens            int  // total（含 cache），用於 threshold 判斷
+    CompletionTokens        int
+    CacheReadInputTokens    int
+    CacheCreationInputTokens int
+}
+
+func (c *Calculator) Cost(model string, usage TokenUsage) (float64, float64)
+```
+
+### spend.Calculator 刪除
+
+- `internal/spend/calculator.go` 整個移除
+- `spend.Tracker.calculateCost()` 改直接呼叫 `pricing.Default().Cost()`
+- `spend.SpendRecord` 加 `CacheReadInputTokens` + `CacheCreationInputTokens`
+
+### callback.LogData 欄位
+
+```go
+type LogData struct {
+    // 現有欄位...
+    CacheReadInputTokens    int  // 新增，跟 LiteLLM 欄位名對齊
+    CacheCreationInputTokens int  // 新增
+}
+```
+
+### Threshold 判斷邏輯
+
+```go
+// 使用 total prompt tokens（含 cache），跟 LiteLLM 一致
+if usage.PromptTokens > 200000 && info.InputCostAbove200K > 0 {
+    // 切換所有費率為 tiered 版本
+}
+```
