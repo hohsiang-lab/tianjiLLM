@@ -117,7 +117,14 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 			if streaming {
 				// Wrap body: tee all bytes while streaming to client,
 				// parse usage on Close after stream ends.
-				resp.Body = &sseSpendReader{
+				//
+				// IMPORTANT: We wrap in readCloserOnly to prevent io.Copy
+				// from using the dst's ReadFrom optimization (e.g. chi's
+				// WrapResponseWriter implements io.ReaderFrom). Without
+				// this wrapper, io.Copy calls dst.ReadFrom(src) which
+				// reads directly from the underlying body via splice/sendfile,
+				// bypassing our Read() method and leaving buf empty.
+				ssr := &sseSpendReader{
 					src:          resp.Body,
 					providerName: providerName,
 					startTime:    startTime,
@@ -125,6 +132,7 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 					callbacks:    h.Callbacks,
 					requestModel: requestModel,
 				}
+				resp.Body = readCloserOnly{ssr}
 				return nil
 			}
 
@@ -272,6 +280,11 @@ func (r *sseSpendReader) Read(p []byte) (int, error) {
 	}
 	return n, err
 }
+
+// readCloserOnly wraps an io.ReadCloser to hide any additional interfaces
+// (like io.WriterTo). This prevents io.Copy from using the destination's
+// ReadFrom optimization, which would bypass our tee buffer.
+type readCloserOnly struct{ io.ReadCloser }
 
 func (r *sseSpendReader) Close() error {
 	err := r.src.Close()
