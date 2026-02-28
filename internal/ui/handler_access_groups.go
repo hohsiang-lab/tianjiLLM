@@ -242,11 +242,17 @@ func (h *UIHandler) handleAccessGroupUpdate(w http.ResponseWriter, r *http.Reque
 		models = []string{}
 	}
 
+	updatedBy := "admin"
+	if session, ok := getSessionFromRequest(r, h.sessionKey()); ok && session.UserID != "" {
+		updatedBy = session.UserID
+	}
+
 	params := db.UpdateAccessGroupParams{
 		GroupID:        id,
 		GroupAlias:     &groupAlias,
 		Models:         models,
 		OrganizationID: orgIDPtr,
+		UpdatedBy:      updatedBy,
 	}
 
 	if err := h.DB.UpdateAccessGroup(r.Context(), params); err != nil {

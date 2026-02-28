@@ -96,8 +96,9 @@ func (h *Handlers) AccessGroupUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.DB.UpdateAccessGroup(r.Context(), db.UpdateAccessGroupParams{
-		GroupID: req.GroupID,
-		Models:  req.Models,
+		GroupID:   req.GroupID,
+		Models:    req.Models,
+		UpdatedBy: "api",
 	}); err != nil {
 		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
 			Error: model.ErrorDetail{Message: "update access group: " + err.Error(), Type: "internal_error"},

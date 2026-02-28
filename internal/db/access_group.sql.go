@@ -269,7 +269,7 @@ func (q *Queries) RemoveKeyFromAccessGroup(ctx context.Context, arg RemoveKeyFro
 
 const updateAccessGroup = `-- name: UpdateAccessGroup :exec
 UPDATE "ModelAccessGroup"
-SET group_alias = $2, models = $3, organization_id = $4, updated_at = NOW()
+SET group_alias = $2, models = $3, organization_id = $4, updated_at = NOW(), updated_by = $5
 WHERE group_id = $1
 `
 
@@ -278,6 +278,7 @@ type UpdateAccessGroupParams struct {
 	GroupAlias     *string  `json:"group_alias"`
 	Models         []string `json:"models"`
 	OrganizationID *string  `json:"organization_id"`
+	UpdatedBy      string   `json:"updated_by"`
 }
 
 func (q *Queries) UpdateAccessGroup(ctx context.Context, arg UpdateAccessGroupParams) error {
@@ -286,6 +287,7 @@ func (q *Queries) UpdateAccessGroup(ctx context.Context, arg UpdateAccessGroupPa
 		arg.GroupAlias,
 		arg.Models,
 		arg.OrganizationID,
+		arg.UpdatedBy,
 	)
 	return err
 }
