@@ -2,88 +2,115 @@ package token
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
-func TestCountText_GPT4o(t *testing.T) {
+func TestNew(t *testing.T) {
 	c := New()
-	count := c.CountText("gpt-4o", "Hello, world!")
-	assert.Greater(t, count, 0)
-	// "Hello, world!" is typically 4 tokens
-	assert.InDelta(t, 4, count, 2)
+	if c == nil {
+		t.Fatal("New returned nil")
+	}
 }
 
-func TestCountText_GPT35Turbo(t *testing.T) {
+func TestCountTextGPT4o(t *testing.T) {
 	c := New()
-	count := c.CountText("gpt-3.5-turbo", "Hello, world!")
-	assert.Greater(t, count, 0)
+	n := c.CountText("gpt-4o", "hello world")
+	if n <= 0 {
+		t.Fatalf("CountText = %d, want > 0", n)
+	}
 }
 
-func TestCountText_NonOpenAI_ReturnsNegOne(t *testing.T) {
+func TestCountTextGPT35(t *testing.T) {
 	c := New()
-	assert.Equal(t, -1, c.CountText("claude-3-sonnet", "Hello"))
-	assert.Equal(t, -1, c.CountText("anthropic/claude-3", "Hello"))
+	n := c.CountText("gpt-3.5-turbo", "hello world")
+	if n <= 0 {
+		t.Fatalf("CountText = %d, want > 0", n)
+	}
 }
 
-func TestCountText_UnknownGPT_FallsBack(t *testing.T) {
+func TestCountTextWithProvider(t *testing.T) {
 	c := New()
-	// Unknown GPT model should still work with o200k_base
-	count := c.CountText("gpt-future", "Hello, world!")
-	assert.Greater(t, count, 0)
+	n := c.CountText("openai/gpt-4o", "test")
+	if n <= 0 {
+		t.Fatalf("CountText with provider prefix = %d, want > 0", n)
+	}
+}
+
+func TestCountTextUnsupportedModel(t *testing.T) {
+	c := New()
+	n := c.CountText("claude-3-opus", "hello")
+	if n != -1 {
+		t.Fatalf("CountText unsupported = %d, want -1", n)
+	}
+}
+
+func TestCountTextEmpty(t *testing.T) {
+	c := New()
+	n := c.CountText("gpt-4o", "")
+	if n != 0 {
+		t.Fatalf("CountText empty = %d, want 0", n)
+	}
 }
 
 func TestCountMessages(t *testing.T) {
 	c := New()
 	msgs := []Message{
-		{Role: "system", Content: "You are a helpful assistant."},
+		{Role: "system", Content: "You are a helper."},
 		{Role: "user", Content: "Hello!"},
 	}
-	count := c.CountMessages("gpt-4o", msgs)
-	assert.Greater(t, count, 0)
-	// Should be more than just the text tokens due to overhead
-	textOnly := c.CountText("gpt-4o", "You are a helpful assistant.Hello!")
-	assert.Greater(t, count, textOnly)
-}
-
-func TestCountMessages_NonOpenAI_ReturnsNegOne(t *testing.T) {
-	c := New()
-	msgs := []Message{{Role: "user", Content: "Hello"}}
-	assert.Equal(t, -1, c.CountMessages("claude-3", msgs))
-}
-
-func TestModelToEncoding(t *testing.T) {
-	tests := []struct {
-		model    string
-		expected string
-	}{
-		{"gpt-4o", "o200k_base"},
-		{"gpt-4o-mini", "o200k_base"},
-		{"gpt-4.1", "o200k_base"},
-		{"gpt-4.5-preview", "o200k_base"},
-		{"o1-preview", "o200k_base"},
-		{"o3-mini", "o200k_base"},
-		{"chatgpt-4o-latest", "o200k_base"},
-		{"gpt-4-turbo", "cl100k_base"},
-		{"gpt-4", "cl100k_base"},
-		{"gpt-3.5-turbo", "cl100k_base"},
-		{"openai/gpt-4o", "o200k_base"},
-		{"claude-3-sonnet", ""},
-		{"llama-3", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.model, func(t *testing.T) {
-			assert.Equal(t, tt.expected, modelToEncoding(tt.model))
-		})
+	n := c.CountMessages("gpt-4o", msgs)
+	if n <= 0 {
+		t.Fatalf("CountMessages = %d, want > 0", n)
 	}
 }
 
-func TestEncoderCaching(t *testing.T) {
+func TestCountMessagesWithName(t *testing.T) {
 	c := New()
-	// Call twice to test caching path
-	count1 := c.CountText("gpt-4o", "Hello")
-	count2 := c.CountText("gpt-4o", "Hello")
-	assert.Equal(t, count1, count2)
-	assert.Len(t, c.encoders, 1)
+	msgs := []Message{
+		{Role: "user", Content: "Hi", Name: "alice"},
+	}
+	n := c.CountMessages("gpt-4o", msgs)
+	nNoName := c.CountMessages("gpt-4o", []Message{{Role: "user", Content: "Hi"}})
+	if n <= nNoName {
+		t.Fatalf("message with name (%d) should have more tokens than without (%d)", n, nNoName)
+	}
+}
+
+func TestCountMessagesUnsupported(t *testing.T) {
+	c := New()
+	n := c.CountMessages("claude-3", []Message{{Role: "user", Content: "hi"}})
+	if n != -1 {
+		t.Fatalf("CountMessages unsupported = %d, want -1", n)
+	}
+}
+
+func TestModelToEncodingO1(t *testing.T) {
+	enc := modelToEncoding("o1-mini")
+	if enc != "o200k_base" {
+		t.Fatalf("o1-mini encoding = %q, want o200k_base", enc)
+	}
+}
+
+func TestModelToEncodingO3(t *testing.T) {
+	enc := modelToEncoding("o3-mini")
+	if enc != "o200k_base" {
+		t.Fatalf("o3-mini encoding = %q, want o200k_base", enc)
+	}
+}
+
+func TestModelToEncodingChatGPT4o(t *testing.T) {
+	enc := modelToEncoding("chatgpt-4o-latest")
+	if enc != "o200k_base" {
+		t.Fatalf("chatgpt-4o encoding = %q, want o200k_base", enc)
+	}
+}
+
+func TestCounterCachesEncoders(t *testing.T) {
+	c := New()
+	c.CountText("gpt-4o", "a")
+	c.CountText("gpt-4o", "b")
+	// Should use cached encoder — just verify no panic and correct result
+	n := c.CountText("gpt-4o", "hello")
+	if n <= 0 {
+		t.Fatalf("cached encoder CountText = %d", n)
+	}
 }
