@@ -40,7 +40,7 @@ func TestNativeProxyStreamingSpendLog(t *testing.T) {
 	// 2. Capture what LogSuccess receives
 	var gotLogData callback.LogData
 	done := make(chan struct{})
-	
+
 	registry := callback.NewRegistry()
 	registry.Register(&captureLogger{
 		onSuccess: func(data callback.LogData) {
@@ -56,8 +56,8 @@ func TestNativeProxyStreamingSpendLog(t *testing.T) {
 			{
 				ModelName: "claude-*",
 				TianjiParams: config.TianjiParams{
-					Model:  "anthropic/claude-*",
-					APIKey: &apiKey,
+					Model:   "anthropic/claude-*",
+					APIKey:  &apiKey,
 					APIBase: strPtr(upstream.URL),
 				},
 			},
@@ -121,7 +121,6 @@ type captureLogger struct {
 	onSuccess func(callback.LogData)
 }
 
-func (c *captureLogger) Name() string                      { return "capture" }
-func (c *captureLogger) LogSuccess(data callback.LogData)  { c.onSuccess(data) }
-func (c *captureLogger) LogFailure(data callback.LogData)  {}
-
+func (c *captureLogger) Name() string                     { return "capture" }
+func (c *captureLogger) LogSuccess(data callback.LogData) { c.onSuccess(data) }
+func (c *captureLogger) LogFailure(data callback.LogData) {}
