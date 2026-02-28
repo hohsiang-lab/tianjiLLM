@@ -199,6 +199,29 @@ func parseUsage(providerName string, body []byte) (prompt, completion int, model
 		if json.Unmarshal(body, &parsed) == nil {
 			return parsed.UsageMetadata.PromptTokenCount, parsed.UsageMetadata.CandidatesTokenCount, ""
 		}
+	case "openai", "openrouter", "deepseek", "groq", "together":
+		var parsed struct {
+			Model string `json:"model"`
+			Usage struct {
+				PromptTokens     int `json:"prompt_tokens"`
+				CompletionTokens int `json:"completion_tokens"`
+			} `json:"usage"`
+		}
+		if json.Unmarshal(body, &parsed) == nil {
+			return parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens, parsed.Model
+		}
+	default:
+		// Fallback: try OpenAI-compatible format for unknown providers
+		var parsed struct {
+			Model string `json:"model"`
+			Usage struct {
+				PromptTokens     int `json:"prompt_tokens"`
+				CompletionTokens int `json:"completion_tokens"`
+			} `json:"usage"`
+		}
+		if json.Unmarshal(body, &parsed) == nil && (parsed.Usage.PromptTokens > 0 || parsed.Usage.CompletionTokens > 0) {
+			return parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens, parsed.Model
+		}
 	}
 	return 0, 0, ""
 }

@@ -420,3 +420,60 @@ func TestParseSSEUsage_OpenAI_NoUsage(t *testing.T) {
 	assert.Equal(t, 0, completion)
 	assert.Equal(t, "gpt-4o", model)
 }
+
+func TestParseUsage_OpenAI(t *testing.T) {
+	body := []byte(`{"id":"chatcmpl-abc","model":"gpt-4o","usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`)
+	prompt, completion, model := parseUsage("openai", body)
+	assert.Equal(t, 100, prompt)
+	assert.Equal(t, 50, completion)
+	assert.Equal(t, "gpt-4o", model)
+}
+
+func TestParseUsage_OpenRouter(t *testing.T) {
+	body := []byte(`{"model":"meta-llama/llama-3-70b","usage":{"prompt_tokens":200,"completion_tokens":80}}`)
+	prompt, completion, model := parseUsage("openrouter", body)
+	assert.Equal(t, 200, prompt)
+	assert.Equal(t, 80, completion)
+	assert.Equal(t, "meta-llama/llama-3-70b", model)
+}
+
+func TestParseUsage_DeepSeek(t *testing.T) {
+	body := []byte(`{"model":"deepseek-chat","usage":{"prompt_tokens":50,"completion_tokens":30}}`)
+	prompt, completion, model := parseUsage("deepseek", body)
+	assert.Equal(t, 50, prompt)
+	assert.Equal(t, 30, completion)
+	assert.Equal(t, "deepseek-chat", model)
+}
+
+func TestParseUsage_DefaultFallback(t *testing.T) {
+	body := []byte(`{"model":"some-model","usage":{"prompt_tokens":10,"completion_tokens":5}}`)
+	prompt, completion, model := parseUsage("unknown-provider", body)
+	assert.Equal(t, 10, prompt)
+	assert.Equal(t, 5, completion)
+	assert.Equal(t, "some-model", model)
+}
+
+func TestParseUsage_DefaultFallback_ZeroTokens(t *testing.T) {
+	// Default fallback requires at least one non-zero token count
+	body := []byte(`{"model":"some-model","usage":{"prompt_tokens":0,"completion_tokens":0}}`)
+	prompt, completion, model := parseUsage("unknown-provider", body)
+	assert.Equal(t, 0, prompt)
+	assert.Equal(t, 0, completion)
+	assert.Equal(t, "", model)
+}
+
+func TestParseUsage_Anthropic(t *testing.T) {
+	body := []byte(`{"model":"claude-sonnet-4-20250514","usage":{"input_tokens":42,"output_tokens":15}}`)
+	prompt, completion, model := parseUsage("anthropic", body)
+	assert.Equal(t, 42, prompt)
+	assert.Equal(t, 15, completion)
+	assert.Equal(t, "claude-sonnet-4-20250514", model)
+}
+
+func TestParseUsage_InvalidJSON(t *testing.T) {
+	body := []byte(`not json`)
+	prompt, completion, model := parseUsage("openai", body)
+	assert.Equal(t, 0, prompt)
+	assert.Equal(t, 0, completion)
+	assert.Equal(t, "", model)
+}
