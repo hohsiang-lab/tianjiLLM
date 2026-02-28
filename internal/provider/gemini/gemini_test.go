@@ -377,3 +377,61 @@ func TestStreamRequest_URL(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, httpReq.URL.String(), "streamGenerateContent")
 }
+
+func TestNewVertex(t *testing.T) {
+	p := NewVertex("my-project", "us-central1")
+	assert.NotNil(t, p)
+	url := p.GetRequestURL("gemini-1.5-pro")
+	assert.Contains(t, url, "aiplatform.googleapis.com")
+	assert.Contains(t, url, "my-project")
+}
+
+func TestGetSupportedParams(t *testing.T) {
+	p := New()
+	params := p.GetSupportedParams()
+	assert.Contains(t, params, "temperature")
+	assert.Contains(t, params, "max_tokens")
+}
+
+func TestMapParams(t *testing.T) {
+	p := New()
+	result := p.MapParams(map[string]any{
+		"max_completion_tokens": 100,
+		"temperature":           0.5,
+		"top_p":                 0.9,
+		"top_k":                 40,
+		"stop":                  []string{"END"},
+		"stream":                true,
+	})
+	assert.Equal(t, 100, result["maxOutputTokens"])
+	assert.Equal(t, 0.5, result["temperature"])
+	assert.Equal(t, 0.9, result["topP"])
+	assert.Equal(t, 40, result["topK"])
+	assert.Equal(t, []string{"END"}, result["stopSequences"])
+	assert.Equal(t, true, result["stream"])
+}
+
+func TestGetRequestURL_NonVertex(t *testing.T) {
+	p := New()
+	url := p.GetRequestURL("gemini-1.5-pro")
+	assert.Contains(t, url, "googleapis.com")
+	assert.Contains(t, url, "gemini-1.5-pro")
+}
+
+func TestTransformStreamChunk_Passthrough(t *testing.T) {
+	p := New()
+	data := []byte(`{"candidates":[{"content":{"parts":[{"text":"hello"}],"role":"model"},"finishReason":null}]}`)
+	_, _, err := p.TransformStreamChunk(context.Background(), data)
+	// should not panic
+	_ = err
+}
+
+func TestTransformResponse_Error(t *testing.T) {
+	p := New()
+	resp := &http.Response{
+		StatusCode: http.StatusForbidden,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":{"code":403,"message":"forbidden"}}`))),
+	}
+	_, err := p.TransformResponse(context.Background(), resp)
+	assert.Error(t, err)
+}

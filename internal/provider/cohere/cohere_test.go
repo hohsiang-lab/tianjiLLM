@@ -139,3 +139,10 @@ func TestTransformResponse_Error(t *testing.T) {
 	assert.Equal(t, "cohere", tianjiErr.Provider)
 	assert.Equal(t, "invalid api key", tianjiErr.Message)
 }
+
+func TestTransformStreamChunk(t *testing.T) {
+	p := &Provider{}
+	data := []byte(`data: {"id":"1","choices":[{"delta":{"content":"hi"}}]}`)
+	_, _, err := p.TransformStreamChunk(context.Background(), data)
+	_ = err // just ensure no panic
+}
