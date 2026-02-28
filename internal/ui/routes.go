@@ -92,6 +92,13 @@ func (h *UIHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/logs", h.handleLogs)
 		r.Get("/logs/table", h.handleLogsTable)
 
+		// Access Groups
+		r.Get("/access-groups", h.handleAccessGroups)
+		r.Get("/access-groups/table", h.handleAccessGroupsTable)
+		r.Post("/access-groups/create", h.handleAccessGroupCreate)
+		r.Post("/access-groups/{id}/update", h.handleAccessGroupUpdate)
+		r.Post("/access-groups/{id}/delete", h.handleAccessGroupDelete)
+
 		// Guardrails
 		r.Get("/guardrails", h.handleGuardrails)
 		r.Get("/guardrails/table", h.handleGuardrailsTable)
