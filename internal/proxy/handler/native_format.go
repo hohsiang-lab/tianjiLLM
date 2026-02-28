@@ -109,6 +109,13 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 				return nil
 			}
 
+			if providerName == "anthropic" {
+				state := callback.ParseAnthropicRateLimitHeaders(resp.Header)
+				if h.DiscordAlerter != nil {
+					h.DiscordAlerter.CheckAndAlert(state)
+				}
+			}
+
 			if h.Callbacks == nil {
 				return nil
 			}

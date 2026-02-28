@@ -44,6 +44,7 @@ type Handlers struct {
 	AgentRegistry    *a2a.AgentRegistry
 	CompletionBridge *a2a.CompletionBridge
 	EventDispatcher  *hook.ManagementEventDispatcher
+	DiscordAlerter   *callback.DiscordRateLimitAlerter
 }
 
 func (h *Handlers) ListModels(w http.ResponseWriter, r *http.Request) {
