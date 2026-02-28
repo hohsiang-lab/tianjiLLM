@@ -18,9 +18,11 @@ type LogData struct {
 	EndTime          time.Time
 	Latency          time.Duration
 	LLMAPILatency    time.Duration
-	PromptTokens     int
-	CompletionTokens int
-	TotalTokens      int
+	PromptTokens             int
+	CompletionTokens         int
+	TotalTokens              int
+	CacheReadInputTokens     int
+	CacheCreationInputTokens int
 	Cost             float64
 	UserID           string
 	TeamID           string

@@ -44,6 +44,8 @@ type SpendRecord struct {
 	TeamID           string
 	Tags             []string
 	Metadata         map[string]any
+	CacheReadInputTokens      int
+	CacheCreationInputTokens  int
 	Cost             float64
 }
 
@@ -60,6 +62,8 @@ func (t *Tracker) LogSuccess(data callback.LogData) {
 		User:             data.UserID,
 		TeamID:           data.TeamID,
 		Tags:             data.RequestTags,
+		CacheReadInputTokens:     data.CacheReadInputTokens,
+		CacheCreationInputTokens: data.CacheCreationInputTokens,
 		Cost:             data.Cost,
 	})
 }
@@ -72,7 +76,10 @@ func (t *Tracker) LogFailure(callback.LogData) {}
 func (t *Tracker) calculateCost(rec SpendRecord) float64 {
 	cost := rec.Cost
 	if cost == 0 && t.calculator != nil {
-		cost = t.calculator.Calculate(rec.Model, rec.PromptTokens, rec.CompletionTokens)
+		cost = t.calculator.CalculateWithCache(rec.Model, rec.PromptTokens, rec.CompletionTokens, CacheTokens{
+			CacheReadInputTokens:     rec.CacheReadInputTokens,
+			CacheCreationInputTokens: rec.CacheCreationInputTokens,
+		})
 	}
 	if cost == 0 && (rec.PromptTokens > 0 || rec.CompletionTokens > 0) {
 		cost = pricing.Default().TotalCost(rec.Model, rec.PromptTokens, rec.CompletionTokens)
