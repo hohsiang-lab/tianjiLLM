@@ -113,6 +113,18 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 				return nil
 			}
 
+			// Transparently decompress gzip responses (like LiteLLM/httpx).
+			// Go's ReverseProxy passes through compressed bytes as-is, but we
+			// need plaintext to parse usage tokens and for consistent client behavior.
+			if resp.Header.Get("Content-Encoding") == "gzip" {
+				gr, gzErr := gzip.NewReader(resp.Body)
+				if gzErr == nil {
+					resp.Body = &gzipReadCloser{gz: gr, orig: resp.Body}
+					resp.Header.Del("Content-Encoding")
+					resp.Header.Del("Content-Length") // length changes after decompression
+				}
+			}
+
 			streaming := strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
 
 			if streaming {
@@ -282,6 +294,19 @@ func (r *sseSpendReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
+// gzipReadCloser wraps a gzip.Reader and closes both the gzip reader and
+// the original response body.
+type gzipReadCloser struct {
+	gz   *gzip.Reader
+	orig io.ReadCloser
+}
+
+func (g *gzipReadCloser) Read(p []byte) (int, error) { return g.gz.Read(p) }
+func (g *gzipReadCloser) Close() error {
+	g.gz.Close()
+	return g.orig.Close()
+}
+
 // readCloserOnly wraps an io.ReadCloser to hide any additional interfaces
 // (like io.WriterTo). This prevents io.Copy from using the destination's
 // ReadFrom optimization, which would bypass our tee buffer.
@@ -290,20 +315,7 @@ type readCloserOnly struct{ io.ReadCloser }
 func (r *sseSpendReader) Close() error {
 	err := r.src.Close()
 
-	bufBytes := r.buf.Bytes()
-	// Decompress gzip if upstream returned compressed SSE (e.g. Anthropic
-	// with Accept-Encoding: gzip). ReverseProxy passes through compressed
-	// bytes without decoding, so we must decompress before parsing.
-	if len(bufBytes) >= 2 && bufBytes[0] == 0x1f && bufBytes[1] == 0x8b {
-		if gr, gzErr := gzip.NewReader(bytes.NewReader(bufBytes)); gzErr == nil {
-			if decompressed, readErr := io.ReadAll(gr); readErr == nil {
-				bufBytes = decompressed
-			}
-			gr.Close()
-		}
-	}
-
-	prompt, completion, modelName := parseSSEUsage(r.providerName, bufBytes)
+prompt, completion, modelName := parseSSEUsage(r.providerName, r.buf.Bytes())
 	if modelName == "" {
 		modelName = r.requestModel
 	}
