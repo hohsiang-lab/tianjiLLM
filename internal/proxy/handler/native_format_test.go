@@ -262,3 +262,39 @@ func TestRecordErrorLog_NoRequestID_EmptyString(t *testing.T) {
 	assert.Equal(t, "", args[0],
 		"RequestID must be empty string when chi request ID is absent from context")
 }
+
+func TestParseSSEUsage_Anthropic_InputTokens(t *testing.T) {
+	// Anthropic message_start carries input_tokens inside message.usage,
+	// and message_delta carries output_tokens in root usage.
+	raw := []byte(
+		`data: {"type":"message_start","message":{"model":"claude-sonnet-4-20250514","usage":{"input_tokens":42,"output_tokens":0}}}` + "\n" +
+			`data: {"type":"content_block_delta","delta":{"text":"hi"}}` + "\n" +
+			`data: {"type":"message_delta","usage":{"input_tokens":0,"output_tokens":15}}` + "\n",
+	)
+	prompt, completion, model := parseSSEUsage("anthropic", raw)
+	assert.Equal(t, 42, prompt, "input_tokens should be parsed from message_start.message.usage")
+	assert.Equal(t, 15, completion, "output_tokens should be parsed from message_delta.usage")
+	assert.Equal(t, "claude-sonnet-4-20250514", model)
+}
+
+func TestParseSSEUsage_Gemini(t *testing.T) {
+	// Gemini streaming: each chunk may have usageMetadata; last one wins.
+	raw := []byte(
+		`data: {"candidates":[{"content":{"parts":[{"text":"hello"}]}}],"modelVersion":"gemini-2.0-flash","usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5}}` + "\n" +
+			`data: {"candidates":[{"content":{"parts":[{"text":" world"}]}}],"modelVersion":"gemini-2.0-flash","usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":20}}` + "\n",
+	)
+	prompt, completion, model := parseSSEUsage("gemini", raw)
+	assert.Equal(t, 10, prompt, "promptTokenCount from last chunk")
+	assert.Equal(t, 20, completion, "candidatesTokenCount from last chunk")
+	assert.Equal(t, "gemini-2.0-flash", model)
+}
+
+func TestParseSSEUsage_Anthropic_ZeroInputTokens_BeforeFix(t *testing.T) {
+	// Ensures that even when root-level usage has 0 input_tokens,
+	// we still get the value from message.usage in message_start.
+	raw := []byte(
+		`data: {"type":"message_start","message":{"model":"claude-sonnet-4-20250514","usage":{"input_tokens":100,"output_tokens":0}}}` + "\n",
+	)
+	prompt, _, _ := parseSSEUsage("anthropic", raw)
+	assert.Equal(t, 100, prompt, "input_tokens must come from nested message.usage")
+}
