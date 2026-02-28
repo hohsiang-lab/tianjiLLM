@@ -51,10 +51,32 @@ jobs:
           for f in internal/db/schema/*.up.sql; do
             psql -f "$f" || true
           done
-      - name: Run tests
+      - name: Run tests with coverage
         env:
           TEST_DATABASE_URL: "postgres://tianji:tianji@localhost:5433/tianji?sslmode=disable"
-        run: go test -race -cover ./...
+          COVERAGE_THRESHOLD: "5"
+        run: |
+          # FR-1: Generate coverage profile, excluding UI packages
+          go test -race -coverprofile=coverage.raw ./...
+          grep -v -E 'internal/ui/components|internal/ui/pages' coverage.raw > coverage.out
+
+          # FR-3: Coverage report to step summary
+          echo '## 📊 Test Coverage Report' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          go tool cover -func=coverage.out >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          # FR-2: Coverage gate
+          TOTAL=$(go tool cover -func=coverage.out | grep '^total:' | awk '{print $3}' | tr -d '%')
+          echo "Total coverage: ${TOTAL}%"
+          echo "Threshold: ${COVERAGE_THRESHOLD}%"
+
+          if [ "$(echo "$TOTAL < $COVERAGE_THRESHOLD" | bc -l)" -eq 1 ]; then
+            echo "::error::Coverage ${TOTAL}% is below threshold ${COVERAGE_THRESHOLD}%"
+            exit 1
+          fi
+
+          echo "✅ Coverage ${TOTAL}% meets threshold ${COVERAGE_THRESHOLD}%" >> "$GITHUB_STEP_SUMMARY"
 
   build:
     runs-on: ubuntu-latest
