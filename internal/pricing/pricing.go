@@ -95,7 +95,6 @@ func (c *Calculator) ReloadFromDB(entries []db.ModelPricing) {
 // TokenUsage carries all token counts for a single LLM call.
 // PromptTokens is the total input token count (input + cache_read + cache_creation),
 // used for 200K threshold determination, matching LiteLLM Usage semantics.
-// NOTE: stub — Cost() implementation is pending (魯班).
 type TokenUsage struct {
 	PromptTokens             int // total = input + cache_read + cache_creation
 	CompletionTokens         int
@@ -106,15 +105,39 @@ type TokenUsage struct {
 // Cost calculates the cost in USD for a request given token counts.
 // Returns (inputSideCost, outputCost) where inputSideCost includes regular
 // input, cache_read, and cache_creation costs (with 200K threshold applied).
-// NOTE: stub — cache pricing + threshold logic is pending (魯班).
 func (c *Calculator) Cost(model string, usage TokenUsage) (float64, float64) {
 	info := c.lookup(model)
 	if info == nil {
 		return 0, 0
 	}
-	// TODO (魯班): implement cache pricing + 200K threshold
-	return float64(usage.PromptTokens) * info.InputCostPerToken,
-		float64(usage.CompletionTokens) * info.OutputCostPerToken
+
+	inputRate := info.InputCostPerToken
+	outputRate := info.OutputCostPerToken
+	cacheReadRate := info.CacheReadCostPerToken
+	cacheCreationRate := info.CacheCreationCostPerToken
+
+	totalTokens := usage.PromptTokens + usage.CacheReadInputTokens + usage.CacheCreationInputTokens
+	if totalTokens > 200000 {
+		if info.InputCostPerTokenAbove200k > 0 {
+			inputRate = info.InputCostPerTokenAbove200k
+		}
+		if info.OutputCostPerTokenAbove200k > 0 {
+			outputRate = info.OutputCostPerTokenAbove200k
+		}
+		if info.CacheReadCostPerTokenAbove200k > 0 {
+			cacheReadRate = info.CacheReadCostPerTokenAbove200k
+		}
+		if info.CacheCreationCostPerTokenAbove200k > 0 {
+			cacheCreationRate = info.CacheCreationCostPerTokenAbove200k
+		}
+	}
+
+	promptCost := float64(usage.PromptTokens)*inputRate +
+		float64(usage.CacheReadInputTokens)*cacheReadRate +
+		float64(usage.CacheCreationInputTokens)*cacheCreationRate
+	completionCost := float64(usage.CompletionTokens) * outputRate
+
+	return promptCost, completionCost
 }
 
 // TotalCost returns the total cost for a request.
@@ -203,10 +226,4 @@ func (c *Calculator) lookupInLayers(model string) *ModelInfo {
 	return nil
 }
 
-// CostWithCache calculates cost including cache token pricing and 200K threshold.
-// Returns (inputCost, cacheReadCost, cacheCreationCost, completionCost).
-// NOTE: stub — implementation pending (魯班).
-func (c *Calculator) CostWithCache(model string, promptTokens, cacheReadTokens, cacheCreationTokens, completionTokens int) (inputCost, cacheReadCost, cacheCreationCost, completionCost float64) {
-	// TODO: implement tiered cache pricing
-	return 0, 0, 0, 0
-}
+

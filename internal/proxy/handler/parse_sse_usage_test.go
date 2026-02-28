@@ -18,7 +18,7 @@ func TestParseSSEUsage_Anthropic_FullFlow(t *testing.T) {
 			"data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"hello\"}}\n" +
 			"data: {\"type\":\"message_delta\",\"usage\":{\"input_tokens\":0,\"output_tokens\":15}}\n",
 	)
-	prompt, completion, model := parseSSEUsage("anthropic", raw)
+	prompt, completion, _, _, model := parseSSEUsage("anthropic", raw)
 	assert.Equal(t, 42, prompt)
 	assert.Equal(t, 15, completion)
 	assert.Equal(t, "claude-sonnet-4-20250514", model)
@@ -28,7 +28,7 @@ func TestParseSSEUsage_Anthropic_OnlyMessageStart(t *testing.T) {
 	t.Parallel()
 	// Only message_start, no message_delta yet
 	raw := []byte("data: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-3-haiku\",\"usage\":{\"input_tokens\":100,\"output_tokens\":0}}}\n")
-	prompt, completion, model := parseSSEUsage("anthropic", raw)
+	prompt, completion, _, _, model := parseSSEUsage("anthropic", raw)
 	assert.Equal(t, 100, prompt)
 	assert.Equal(t, 0, completion)
 	assert.Equal(t, "claude-3-haiku", model)
@@ -36,7 +36,7 @@ func TestParseSSEUsage_Anthropic_OnlyMessageStart(t *testing.T) {
 
 func TestParseSSEUsage_Anthropic_EmptyPayload(t *testing.T) {
 	t.Parallel()
-	prompt, completion, model := parseSSEUsage("anthropic", []byte{})
+	prompt, completion, _, _, model := parseSSEUsage("anthropic", []byte{})
 	assert.Equal(t, 0, prompt)
 	assert.Equal(t, 0, completion)
 	assert.Equal(t, "", model)
@@ -45,7 +45,7 @@ func TestParseSSEUsage_Anthropic_EmptyPayload(t *testing.T) {
 func TestParseSSEUsage_Anthropic_NoUsageFields(t *testing.T) {
 	t.Parallel()
 	raw := []byte("data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"hi\"}}\n")
-	prompt, completion, model := parseSSEUsage("anthropic", raw)
+	prompt, completion, _, _, model := parseSSEUsage("anthropic", raw)
 	assert.Equal(t, 0, prompt)
 	assert.Equal(t, 0, completion)
 	assert.Equal(t, "", model)
@@ -54,7 +54,7 @@ func TestParseSSEUsage_Anthropic_NoUsageFields(t *testing.T) {
 func TestParseSSEUsage_Anthropic_MalformedJSON(t *testing.T) {
 	t.Parallel()
 	raw := []byte("data: {not valid json}\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-3\",\"usage\":{\"input_tokens\":5,\"output_tokens\":0}}}\n")
-	prompt, _, model := parseSSEUsage("anthropic", raw)
+	prompt, _, _, _, model := parseSSEUsage("anthropic", raw)
 	assert.Equal(t, 5, prompt, "should skip malformed line and parse valid one")
 	assert.Equal(t, "claude-3", model)
 }
@@ -69,7 +69,7 @@ func TestParseSSEUsage_Anthropic_NonDataLines(t *testing.T) {
 			"id: 123\n" +
 			"data: {\"type\":\"message_delta\",\"usage\":{\"input_tokens\":0,\"output_tokens\":7}}\n",
 	)
-	prompt, completion, _ := parseSSEUsage("anthropic", raw)
+	prompt, completion, _, _, _ := parseSSEUsage("anthropic", raw)
 	assert.Equal(t, 10, prompt)
 	assert.Equal(t, 7, completion)
 }
@@ -82,7 +82,7 @@ func TestParseSSEUsage_Anthropic_MultipleMessageDelta_LastWins(t *testing.T) {
 			"data: {\"type\":\"message_delta\",\"usage\":{\"input_tokens\":0,\"output_tokens\":5}}\n" +
 			"data: {\"type\":\"message_delta\",\"usage\":{\"input_tokens\":0,\"output_tokens\":30}}\n",
 	)
-	_, completion, _ := parseSSEUsage("anthropic", raw)
+	_, completion, _, _, _ := parseSSEUsage("anthropic", raw)
 	assert.Equal(t, 30, completion, "last message_delta should overwrite")
 }
 
@@ -96,7 +96,7 @@ func TestParseSSEUsage_Gemini_FullFlow(t *testing.T) {
 		"data: {\"modelVersion\":\"gemini-2.0-flash\",\"usageMetadata\":{\"promptTokenCount\":10,\"candidatesTokenCount\":5}}\n" +
 			"data: {\"modelVersion\":\"gemini-2.0-flash\",\"usageMetadata\":{\"promptTokenCount\":10,\"candidatesTokenCount\":20}}\n",
 	)
-	prompt, completion, model := parseSSEUsage("gemini", raw)
+	prompt, completion, _, _, model := parseSSEUsage("gemini", raw)
 	assert.Equal(t, 10, prompt)
 	assert.Equal(t, 20, completion, "last chunk wins")
 	assert.Equal(t, "gemini-2.0-flash", model)
@@ -104,7 +104,7 @@ func TestParseSSEUsage_Gemini_FullFlow(t *testing.T) {
 
 func TestParseSSEUsage_Gemini_EmptyPayload(t *testing.T) {
 	t.Parallel()
-	prompt, completion, model := parseSSEUsage("gemini", []byte{})
+	prompt, completion, _, _, model := parseSSEUsage("gemini", []byte{})
 	assert.Equal(t, 0, prompt)
 	assert.Equal(t, 0, completion)
 	assert.Equal(t, "", model)
@@ -113,7 +113,7 @@ func TestParseSSEUsage_Gemini_EmptyPayload(t *testing.T) {
 func TestParseSSEUsage_Gemini_NoUsageMetadata(t *testing.T) {
 	t.Parallel()
 	raw := []byte("data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"hi\"}]}}],\"modelVersion\":\"gemini-2.0-flash\"}\n")
-	prompt, completion, model := parseSSEUsage("gemini", raw)
+	prompt, completion, _, _, model := parseSSEUsage("gemini", raw)
 	assert.Equal(t, 0, prompt)
 	assert.Equal(t, 0, completion)
 	assert.Equal(t, "gemini-2.0-flash", model)
@@ -122,7 +122,7 @@ func TestParseSSEUsage_Gemini_NoUsageMetadata(t *testing.T) {
 func TestParseSSEUsage_Gemini_SingleChunk(t *testing.T) {
 	t.Parallel()
 	raw := []byte("data: {\"modelVersion\":\"gemini-1.5-pro\",\"usageMetadata\":{\"promptTokenCount\":50,\"candidatesTokenCount\":100}}\n")
-	prompt, completion, model := parseSSEUsage("gemini", raw)
+	prompt, completion, _, _, model := parseSSEUsage("gemini", raw)
 	assert.Equal(t, 50, prompt)
 	assert.Equal(t, 100, completion)
 	assert.Equal(t, "gemini-1.5-pro", model)
@@ -135,7 +135,7 @@ func TestParseSSEUsage_Gemini_SingleChunk(t *testing.T) {
 func TestParseSSEUsage_UnknownProvider(t *testing.T) {
 	t.Parallel()
 	raw := []byte("data: {\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5}}\n")
-	prompt, completion, model := parseSSEUsage("unknownprovider", raw)
+	prompt, completion, _, _, model := parseSSEUsage("unknownprovider", raw)
 	assert.Equal(t, 0, prompt, "unknown provider should not parse anything")
 	assert.Equal(t, 0, completion)
 	assert.Equal(t, "", model)
@@ -144,6 +144,6 @@ func TestParseSSEUsage_UnknownProvider(t *testing.T) {
 func TestParseSSEUsage_EmptyProvider(t *testing.T) {
 	t.Parallel()
 	raw := []byte("data: {\"type\":\"message_start\",\"message\":{\"model\":\"test\",\"usage\":{\"input_tokens\":10}}}\n")
-	prompt, _, _ := parseSSEUsage("", raw)
+	prompt, _, _, _, _ := parseSSEUsage("", raw)
 	assert.Equal(t, 0, prompt)
 }

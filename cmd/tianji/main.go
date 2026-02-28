@@ -204,8 +204,7 @@ func main() {
 
 	// Register spend tracker as callback (writes SpendLogs to DB)
 	if queries != nil {
-		calc, _ := spend.NewCalculator("")
-		spendTracker := spend.NewTracker(queries, calc, nil)
+		spendTracker := spend.NewTracker(queries, nil)
 		callbackRegistry.Register(spendTracker)
 		log.Println("spend tracker registered")
 	}

@@ -15,17 +15,15 @@ import (
 
 // Tracker records spend after each LLM call and updates key/team/user budgets.
 type Tracker struct {
-	db         *db.Queries
-	calculator *Calculator
-	buffer     *RedisBuffer
+	db     *db.Queries
+	buffer *RedisBuffer
 }
 
 // NewTracker creates a spend tracker.
-func NewTracker(database *db.Queries, calculator *Calculator, buffer *RedisBuffer) *Tracker {
+func NewTracker(database *db.Queries, buffer *RedisBuffer) *Tracker {
 	return &Tracker{
-		db:         database,
-		calculator: calculator,
-		buffer:     buffer,
+		db:     database,
+		buffer: buffer,
 	}
 }
 
@@ -69,17 +67,24 @@ func (t *Tracker) LogSuccess(data callback.LogData) {
 // LogFailure implements callback.CustomLogger — no-op for failed requests.
 func (t *Tracker) LogFailure(callback.LogData) {}
 
-// calculateCost resolves the final cost using three-layer fallback:
-// rec.Cost → calculator → pricing.Default()
+// calculateCost computes the cost using pricing.Default().Cost() with cache token support.
+// SpendRecord.PromptTokens is total; TokenUsage.PromptTokens is regular (non-cache) input.
 func (t *Tracker) calculateCost(rec SpendRecord) float64 {
-	cost := rec.Cost
-	if cost == 0 && t.calculator != nil {
-		cost = t.calculator.Calculate(rec.Model, rec.PromptTokens, rec.CompletionTokens)
+	if rec.Cost != 0 {
+		return rec.Cost
 	}
-	if cost == 0 && (rec.PromptTokens > 0 || rec.CompletionTokens > 0) {
-		cost = pricing.Default().TotalCost(rec.Model, pricing.TokenUsage{PromptTokens: rec.PromptTokens, CompletionTokens: rec.CompletionTokens})
+	regularInput := rec.PromptTokens - rec.CacheReadInputTokens - rec.CacheCreationInputTokens
+	if regularInput < 0 {
+		regularInput = 0
 	}
-	return cost
+	usage := pricing.TokenUsage{
+		PromptTokens:             regularInput,
+		CompletionTokens:         rec.CompletionTokens,
+		CacheReadInputTokens:     rec.CacheReadInputTokens,
+		CacheCreationInputTokens: rec.CacheCreationInputTokens,
+	}
+	prompt, completion := pricing.Default().Cost(rec.Model, usage)
+	return prompt + completion
 }
 
 // Record records spend for a completed LLM call.
