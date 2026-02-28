@@ -139,7 +139,11 @@ func (a *DiscordRateLimitAlerter) sendIfNotCooling(key, alertType string, state 
 		state.RequestsLimit, state.RequestsRemaining, state.RequestsReset,
 	)
 
-	payload, _ := json.Marshal(map[string]string{"content": msg})
+	payload, err := json.Marshal(map[string]string{"content": msg})
+	if err != nil {
+		log.Printf("ERROR ratelimit: failed to marshal Discord payload: %v", err)
+		return
+	}
 	resp, err := a.client.Post(a.webhookURL, "application/json", bytes.NewReader(payload))
 	if err != nil {
 		log.Printf("ERROR ratelimit: Discord webhook request failed: %v", err)
