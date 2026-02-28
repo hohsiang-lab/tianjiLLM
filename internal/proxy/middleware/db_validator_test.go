@@ -81,7 +81,7 @@ func TestDBValidator_ValidateToken(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			v := &DBValidator{DB: tc.querier}
-			userID, teamID, blocked, err := v.ValidateToken(context.Background(), "somehash")
+			userID, teamID, blocked, _, err := v.ValidateToken(context.Background(), "somehash")
 
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)

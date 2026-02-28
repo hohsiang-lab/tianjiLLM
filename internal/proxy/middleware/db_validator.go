@@ -27,26 +27,30 @@ type DBValidator struct {
 }
 
 // ValidateToken looks up a virtual key by its SHA256 hash.
+// Returns the key's identity fields, blocked status, and guardrail policies
+// in a single DB lookup.
 // Returns ErrKeyNotFound when the key does not exist, ErrDBUnavailable on DB failure.
-func (d *DBValidator) ValidateToken(ctx context.Context, tokenHash string) (userID, teamID *string, blocked bool, err error) {
+func (d *DBValidator) ValidateToken(ctx context.Context, tokenHash string) (userID, teamID *string, blocked bool, policies []string, err error) {
 	vt, err := d.DB.GetVerificationToken(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil, false, ErrKeyNotFound
+			return nil, nil, false, nil, ErrKeyNotFound
 		}
-		return nil, nil, false, ErrDBUnavailable
+		return nil, nil, false, nil, ErrDBUnavailable
 	}
 	blocked = vt.Blocked != nil && *vt.Blocked
-	return vt.UserID, vt.TeamID, blocked, nil
+	return vt.UserID, vt.TeamID, blocked, vt.Policies, nil
 }
 
 // GetGuardrails returns the guardrail policy names attached to the token.
+// Deprecated: policies are now returned by ValidateToken directly.
+// Retained for backward compatibility with the GuardrailProvider interface.
 func (d *DBValidator) GetGuardrails(ctx context.Context, tokenHash string) ([]string, error) {
-	vt, err := d.DB.GetVerificationToken(ctx, tokenHash)
+	_, _, _, policies, err := d.ValidateToken(ctx, tokenHash)
 	if err != nil {
 		return nil, err
 	}
-	return vt.Policies, nil
+	return policies, nil
 }
 
 // Compile-time interface satisfaction checks.

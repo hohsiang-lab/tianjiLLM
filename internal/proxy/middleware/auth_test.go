@@ -20,8 +20,8 @@ type mockValidator struct {
 	err     error
 }
 
-func (m *mockValidator) ValidateToken(_ context.Context, _ string) (*string, *string, bool, error) {
-	return m.userID, m.teamID, m.blocked, m.err
+func (m *mockValidator) ValidateToken(_ context.Context, _ string) (*string, *string, bool, []string, error) {
+	return m.userID, m.teamID, m.blocked, nil, m.err
 }
 
 // countingQuerier records how many times GetVerificationToken is called.

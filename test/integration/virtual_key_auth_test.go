@@ -40,16 +40,16 @@ type memValidator struct {
 	dbDown bool
 }
 
-func (m *memValidator) ValidateToken(_ context.Context, tokenHash string) (userID, teamID *string, blocked bool, err error) {
+func (m *memValidator) ValidateToken(_ context.Context, tokenHash string) (userID, teamID *string, blocked bool, policies []string, err error) {
 	if m.dbDown {
-		return nil, nil, false, middleware.ErrDBUnavailable
+		return nil, nil, false, nil, middleware.ErrDBUnavailable
 	}
 	tok, ok := m.tokens[tokenHash]
 	if !ok {
-		return nil, nil, false, middleware.ErrKeyNotFound
+		return nil, nil, false, nil, middleware.ErrKeyNotFound
 	}
 	uid, tid := tok.userID, tok.teamID
-	return &uid, &tid, tok.blocked, nil
+	return &uid, &tid, tok.blocked, tok.guardrails, nil
 }
 
 func (m *memValidator) GetGuardrails(_ context.Context, tokenHash string) ([]string, error) {
