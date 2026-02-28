@@ -132,10 +132,6 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 			resp.Body = io.NopCloser(bytes.NewReader(body))
 
 			prompt, completion, modelName := parseUsage(providerName, body)
-			if prompt == 0 && completion == 0 {
-				return nil
-			}
-
 			go h.Callbacks.LogSuccess(buildNativeLogData(
 				ctx, providerName, modelName, startTime,
 				prompt, completion,
@@ -229,10 +225,6 @@ func (r *sseSpendReader) Close() error {
 	err := r.src.Close()
 
 	prompt, completion, modelName := parseSSEUsage(r.providerName, r.buf.Bytes())
-	if prompt == 0 && completion == 0 {
-		return err
-	}
-
 	go r.callbacks.LogSuccess(buildNativeLogData(
 		r.ctx, r.providerName, modelName, r.startTime,
 		prompt, completion,
