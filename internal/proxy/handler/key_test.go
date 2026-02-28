@@ -78,8 +78,9 @@ func TestKeyList_Success(t *testing.T) {
 	}
 	var resp map[string]interface{}
 	_ = json.Unmarshal(w.Body.Bytes(), &resp)
-	if resp["total_count"].(float64) != 1 {
-		t.Fatalf("expected total_count 1")
+	tc, ok := resp["total_count"].(float64)
+	if !ok || tc != 1 {
+		t.Fatalf("expected total_count 1, got %v", resp["total_count"])
 	}
 }
 
