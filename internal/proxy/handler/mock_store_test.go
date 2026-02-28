@@ -54,6 +54,77 @@ type mockStore struct {
 
 	// Audit (no-op by default)
 	insertAuditLogFn func(ctx context.Context, arg db.InsertAuditLogParams) (db.AuditLog, error)
+
+	// Budget
+	createBudgetFn func(ctx context.Context, arg db.CreateBudgetParams) (db.BudgetTable, error)
+	getBudgetFn    func(ctx context.Context, budgetID string) (db.BudgetTable, error)
+	listBudgetsFn  func(ctx context.Context) ([]db.BudgetTable, error)
+	updateBudgetFn func(ctx context.Context, arg db.UpdateBudgetParams) (db.BudgetTable, error)
+	deleteBudgetFn func(ctx context.Context, budgetID string) error
+
+	// Tag
+	createTagFn func(ctx context.Context, arg db.CreateTagParams) (db.TagTable, error)
+	getTagFn    func(ctx context.Context, id string) (db.TagTable, error)
+	listTagsFn  func(ctx context.Context) ([]db.TagTable, error)
+	updateTagFn func(ctx context.Context, arg db.UpdateTagParams) (db.TagTable, error)
+	deleteTagFn func(ctx context.Context, id string) error
+
+	// Guardrail
+	createGuardrailConfigFn func(ctx context.Context, arg db.CreateGuardrailConfigParams) (db.GuardrailConfigTable, error)
+	getGuardrailConfigFn    func(ctx context.Context, id string) (db.GuardrailConfigTable, error)
+	listGuardrailConfigsFn  func(ctx context.Context) ([]db.GuardrailConfigTable, error)
+	updateGuardrailConfigFn func(ctx context.Context, arg db.UpdateGuardrailConfigParams) (db.GuardrailConfigTable, error)
+	deleteGuardrailConfigFn func(ctx context.Context, id string) error
+
+	// MCP
+	createMCPServerFn func(ctx context.Context, arg db.CreateMCPServerParams) (db.MCPServerTable, error)
+	getMCPServerFn    func(ctx context.Context, id string) (db.MCPServerTable, error)
+	listMCPServersFn  func(ctx context.Context) ([]db.MCPServerTable, error)
+	updateMCPServerFn func(ctx context.Context, arg db.UpdateMCPServerParams) (db.MCPServerTable, error)
+	deleteMCPServerFn func(ctx context.Context, id string) error
+
+	// Model
+	createProxyModelFn func(ctx context.Context, arg db.CreateProxyModelParams) (db.ProxyModelTable, error)
+	getProxyModelFn    func(ctx context.Context, modelID string) (db.ProxyModelTable, error)
+	listProxyModelsFn  func(ctx context.Context) ([]db.ProxyModelTable, error)
+	updateProxyModelFn func(ctx context.Context, arg db.UpdateProxyModelParams) (db.ProxyModelTable, error)
+	deleteProxyModelFn func(ctx context.Context, modelID string) error
+
+	// Policy
+	createPolicyFn           func(ctx context.Context, arg db.CreatePolicyParams) (db.PolicyTable, error)
+	getPolicyFn              func(ctx context.Context, id string) (db.PolicyTable, error)
+	listPoliciesFn           func(ctx context.Context) ([]db.PolicyTable, error)
+	updatePolicyFn           func(ctx context.Context, arg db.UpdatePolicyParams) (db.PolicyTable, error)
+	deletePolicyFn           func(ctx context.Context, id string) error
+	createPolicyAttachmentFn func(ctx context.Context, arg db.CreatePolicyAttachmentParams) (db.PolicyAttachmentTable, error)
+	getPolicyAttachmentFn    func(ctx context.Context, id string) (db.PolicyAttachmentTable, error)
+	listPolicyAttachmentsFn  func(ctx context.Context) ([]db.PolicyAttachmentTable, error)
+	deletePolicyAttachmentFn func(ctx context.Context, id string) error
+
+	// Credential
+	createCredentialFn     func(ctx context.Context, arg db.CreateCredentialParams) (db.CredentialTable, error)
+	getCredentialFn        func(ctx context.Context, credentialID string) (db.CredentialTable, error)
+	listCredentialsFn      func(ctx context.Context) ([]db.CredentialTable, error)
+	listCredentialsByOrgFn func(ctx context.Context, organizationID *string) ([]db.CredentialTable, error)
+	updateCredentialFn     func(ctx context.Context, arg db.UpdateCredentialParams) error
+	deleteCredentialFn     func(ctx context.Context, credentialID string) error
+
+	// Spend global
+	getGlobalSpendFn                 func(ctx context.Context, arg db.GetGlobalSpendParams) (db.GetGlobalSpendRow, error)
+	getGlobalSpendReportFn           func(ctx context.Context, arg db.GetGlobalSpendReportParams) ([]db.GetGlobalSpendReportRow, error)
+	getGlobalSpendReportByCustomerFn func(ctx context.Context, arg db.GetGlobalSpendReportByCustomerParams) ([]db.GetGlobalSpendReportByCustomerRow, error)
+	getGlobalSpendReportByKeyFn      func(ctx context.Context, arg db.GetGlobalSpendReportByKeyParams) ([]db.GetGlobalSpendReportByKeyRow, error)
+	getGlobalActivityFn              func(ctx context.Context, arg db.GetGlobalActivityParams) ([]db.GetGlobalActivityRow, error)
+	getGlobalActivityByModelFn       func(ctx context.Context, arg db.GetGlobalActivityByModelParams) ([]db.GetGlobalActivityByModelRow, error)
+	getGlobalSpendByProviderFn       func(ctx context.Context, arg db.GetGlobalSpendByProviderParams) ([]db.GetGlobalSpendByProviderRow, error)
+	getCacheHitStatsFn               func(ctx context.Context, arg db.GetCacheHitStatsParams) ([]db.GetCacheHitStatsRow, error)
+	getSpendLogsByFilterFn           func(ctx context.Context, arg db.GetSpendLogsByFilterParams) ([]db.GetSpendLogsByFilterRow, error)
+	getDailySpendByKeyFn             func(ctx context.Context, arg db.GetDailySpendByKeyParams) ([]db.GetDailySpendByKeyRow, error)
+	getDailySpendByModelFn           func(ctx context.Context, arg db.GetDailySpendByModelParams) ([]db.GetDailySpendByModelRow, error)
+	getDailySpendByTeamFn            func(ctx context.Context, arg db.GetDailySpendByTeamParams) ([]db.GetDailySpendByTeamRow, error)
+	getDailySpendByTagFn             func(ctx context.Context, arg db.GetDailySpendByTagParams) ([]db.GetDailySpendByTagRow, error)
+	resetAllKeySpendFn               func(ctx context.Context) error
+	resetAllTeamSpendFn              func(ctx context.Context) error
 }
 
 func newMockStore() *mockStore {
@@ -275,78 +346,131 @@ func (m *mockStore) CreateAgent(ctx context.Context, arg db.CreateAgentParams) (
 	return db.AgentsTable{}, nil
 }
 func (m *mockStore) CreateBudget(ctx context.Context, arg db.CreateBudgetParams) (db.BudgetTable, error) {
-	m.ni()
-	return db.BudgetTable{}, nil
+	if m.createBudgetFn != nil {
+		return m.createBudgetFn(ctx, arg)
+	}
+	return db.BudgetTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreateCredential(ctx context.Context, arg db.CreateCredentialParams) (db.CredentialTable, error) {
-	m.ni()
-	return db.CredentialTable{}, nil
+	if m.createCredentialFn != nil {
+		return m.createCredentialFn(ctx, arg)
+	}
+	return db.CredentialTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreateEndUser(ctx context.Context, arg db.CreateEndUserParams) (db.EndUserTable2, error) {
 	m.ni()
 	return db.EndUserTable2{}, nil
 }
 func (m *mockStore) CreateGuardrailConfig(ctx context.Context, arg db.CreateGuardrailConfigParams) (db.GuardrailConfigTable, error) {
-	m.ni()
-	return db.GuardrailConfigTable{}, nil
+	if m.createGuardrailConfigFn != nil {
+		return m.createGuardrailConfigFn(ctx, arg)
+	}
+	return db.GuardrailConfigTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreateIPWhitelist(ctx context.Context, arg db.CreateIPWhitelistParams) (db.IPWhitelistTable, error) {
 	m.ni()
 	return db.IPWhitelistTable{}, nil
 }
 func (m *mockStore) CreateMCPServer(ctx context.Context, arg db.CreateMCPServerParams) (db.MCPServerTable, error) {
-	m.ni()
-	return db.MCPServerTable{}, nil
+	if m.createMCPServerFn != nil {
+		return m.createMCPServerFn(ctx, arg)
+	}
+	return db.MCPServerTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreatePlugin(ctx context.Context, arg db.CreatePluginParams) (db.ClaudeCodePluginTable, error) {
 	m.ni()
 	return db.ClaudeCodePluginTable{}, nil
 }
 func (m *mockStore) CreatePolicy(ctx context.Context, arg db.CreatePolicyParams) (db.PolicyTable, error) {
-	m.ni()
-	return db.PolicyTable{}, nil
+	if m.createPolicyFn != nil {
+		return m.createPolicyFn(ctx, arg)
+	}
+	return db.PolicyTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreatePolicyAttachment(ctx context.Context, arg db.CreatePolicyAttachmentParams) (db.PolicyAttachmentTable, error) {
-	m.ni()
-	return db.PolicyAttachmentTable{}, nil
+	if m.createPolicyAttachmentFn != nil {
+		return m.createPolicyAttachmentFn(ctx, arg)
+	}
+	return db.PolicyAttachmentTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreatePromptTemplate(ctx context.Context, arg db.CreatePromptTemplateParams) (db.PromptTemplateTable, error) {
 	m.ni()
 	return db.PromptTemplateTable{}, nil
 }
 func (m *mockStore) CreateProxyModel(ctx context.Context, arg db.CreateProxyModelParams) (db.ProxyModelTable, error) {
-	m.ni()
-	return db.ProxyModelTable{}, nil
+	if m.createProxyModelFn != nil {
+		return m.createProxyModelFn(ctx, arg)
+	}
+	return db.ProxyModelTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreateSkill(ctx context.Context, arg db.CreateSkillParams) (db.SkillsTable, error) {
 	m.ni()
 	return db.SkillsTable{}, nil
 }
 func (m *mockStore) CreateTag(ctx context.Context, arg db.CreateTagParams) (db.TagTable, error) {
-	m.ni()
-	return db.TagTable{}, nil
+	if m.createTagFn != nil {
+		return m.createTagFn(ctx, arg)
+	}
+	return db.TagTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) DeleteAccessGroup(ctx context.Context, groupID string) error { m.ni(); return nil }
 func (m *mockStore) DeleteAgent(ctx context.Context, agentID string) error       { m.ni(); return nil }
-func (m *mockStore) DeleteBudget(ctx context.Context, budgetID string) error     { m.ni(); return nil }
+func (m *mockStore) DeleteBudget(ctx context.Context, budgetID string) error     {
+	if m.deleteBudgetFn != nil {
+		return m.deleteBudgetFn(ctx, budgetID)
+	}
+	return fmt.Errorf("not mocked")
+}
 func (m *mockStore) DeleteCredential(ctx context.Context, credentialID string) error {
-	m.ni()
-	return nil
+	if m.deleteCredentialFn != nil {
+		return m.deleteCredentialFn(ctx, credentialID)
+	}
+	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) DeleteEndUser(ctx context.Context, id string) error         { m.ni(); return nil }
-func (m *mockStore) DeleteGuardrailConfig(ctx context.Context, id string) error { m.ni(); return nil }
+func (m *mockStore) DeleteGuardrailConfig(ctx context.Context, id string) error {
+	if m.deleteGuardrailConfigFn != nil {
+		return m.deleteGuardrailConfigFn(ctx, id)
+	}
+	return fmt.Errorf("not mocked")
+}
 func (m *mockStore) DeleteIPWhitelistByAddress(ctx context.Context, ipAddress string) error {
 	m.ni()
 	return nil
 }
-func (m *mockStore) DeleteMCPServer(ctx context.Context, id string) error        { m.ni(); return nil }
+func (m *mockStore) DeleteMCPServer(ctx context.Context, id string) error        {
+	if m.deleteMCPServerFn != nil {
+		return m.deleteMCPServerFn(ctx, id)
+	}
+	return fmt.Errorf("not mocked")
+}
 func (m *mockStore) DeletePlugin(ctx context.Context, name string) error         { m.ni(); return nil }
-func (m *mockStore) DeletePolicy(ctx context.Context, id string) error           { m.ni(); return nil }
-func (m *mockStore) DeletePolicyAttachment(ctx context.Context, id string) error { m.ni(); return nil }
+func (m *mockStore) DeletePolicy(ctx context.Context, id string) error           {
+	if m.deletePolicyFn != nil {
+		return m.deletePolicyFn(ctx, id)
+	}
+	return fmt.Errorf("not mocked")
+}
+func (m *mockStore) DeletePolicyAttachment(ctx context.Context, id string) error {
+	if m.deletePolicyAttachmentFn != nil {
+		return m.deletePolicyAttachmentFn(ctx, id)
+	}
+	return fmt.Errorf("not mocked")
+}
 func (m *mockStore) DeletePromptTemplate(ctx context.Context, id string) error   { m.ni(); return nil }
-func (m *mockStore) DeleteProxyModel(ctx context.Context, modelID string) error  { m.ni(); return nil }
+func (m *mockStore) DeleteProxyModel(ctx context.Context, modelID string) error  {
+	if m.deleteProxyModelFn != nil {
+		return m.deleteProxyModelFn(ctx, modelID)
+	}
+	return fmt.Errorf("not mocked")
+}
 func (m *mockStore) DeleteSkill(ctx context.Context, skillID string) error       { m.ni(); return nil }
-func (m *mockStore) DeleteTag(ctx context.Context, id string) error              { m.ni(); return nil }
+func (m *mockStore) DeleteTag(ctx context.Context, id string) error              {
+	if m.deleteTagFn != nil {
+		return m.deleteTagFn(ctx, id)
+	}
+	return fmt.Errorf("not mocked")
+}
 func (m *mockStore) DisablePlugin(ctx context.Context, name string) error        { m.ni(); return nil }
 func (m *mockStore) EnablePlugin(ctx context.Context, name string) error         { m.ni(); return nil }
 func (m *mockStore) GetAccessGroup(ctx context.Context, groupID string) (db.ModelAccessGroup, error) {
@@ -362,72 +486,104 @@ func (m *mockStore) GetAuditLog(ctx context.Context, id string) (db.AuditLog, er
 	return db.AuditLog{}, nil
 }
 func (m *mockStore) GetBudget(ctx context.Context, budgetID string) (db.BudgetTable, error) {
-	m.ni()
-	return db.BudgetTable{}, nil
+	if m.getBudgetFn != nil {
+		return m.getBudgetFn(ctx, budgetID)
+	}
+	return db.BudgetTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetCacheHitStats(ctx context.Context, arg db.GetCacheHitStatsParams) ([]db.GetCacheHitStatsRow, error) {
-	m.ni()
-	return nil, nil
+	if m.getCacheHitStatsFn != nil {
+		return m.getCacheHitStatsFn(ctx, arg)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetCredential(ctx context.Context, credentialID string) (db.CredentialTable, error) {
-	m.ni()
-	return db.CredentialTable{}, nil
+	if m.getCredentialFn != nil {
+		return m.getCredentialFn(ctx, credentialID)
+	}
+	return db.CredentialTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetDailySpendByKey(ctx context.Context, arg db.GetDailySpendByKeyParams) ([]db.GetDailySpendByKeyRow, error) {
-	m.ni()
-	return nil, nil
+	if m.getDailySpendByKeyFn != nil {
+		return m.getDailySpendByKeyFn(ctx, arg)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetDailySpendByModel(ctx context.Context, arg db.GetDailySpendByModelParams) ([]db.GetDailySpendByModelRow, error) {
-	m.ni()
-	return nil, nil
+	if m.getDailySpendByModelFn != nil {
+		return m.getDailySpendByModelFn(ctx, arg)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetDailySpendByTag(ctx context.Context, arg db.GetDailySpendByTagParams) ([]db.GetDailySpendByTagRow, error) {
-	m.ni()
-	return nil, nil
+	if m.getDailySpendByTagFn != nil {
+		return m.getDailySpendByTagFn(ctx, arg)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetDailySpendByTeam(ctx context.Context, arg db.GetDailySpendByTeamParams) ([]db.GetDailySpendByTeamRow, error) {
-	m.ni()
-	return nil, nil
+	if m.getDailySpendByTeamFn != nil {
+		return m.getDailySpendByTeamFn(ctx, arg)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetEndUser(ctx context.Context, id string) (db.EndUserTable2, error) {
 	m.ni()
 	return db.EndUserTable2{}, nil
 }
 func (m *mockStore) GetGlobalActivity(ctx context.Context, arg db.GetGlobalActivityParams) ([]db.GetGlobalActivityRow, error) {
-	m.ni()
-	return nil, nil
+	if m.getGlobalActivityFn != nil {
+		return m.getGlobalActivityFn(ctx, arg)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetGlobalActivityByModel(ctx context.Context, arg db.GetGlobalActivityByModelParams) ([]db.GetGlobalActivityByModelRow, error) {
-	m.ni()
-	return nil, nil
+	if m.getGlobalActivityByModelFn != nil {
+		return m.getGlobalActivityByModelFn(ctx, arg)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetGlobalSpend(ctx context.Context, arg db.GetGlobalSpendParams) (db.GetGlobalSpendRow, error) {
-	m.ni()
-	return db.GetGlobalSpendRow{}, nil
+	if m.getGlobalSpendFn != nil {
+		return m.getGlobalSpendFn(ctx, arg)
+	}
+	return db.GetGlobalSpendRow{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetGlobalSpendByProvider(ctx context.Context, arg db.GetGlobalSpendByProviderParams) ([]db.GetGlobalSpendByProviderRow, error) {
-	m.ni()
-	return nil, nil
+	if m.getGlobalSpendByProviderFn != nil {
+		return m.getGlobalSpendByProviderFn(ctx, arg)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetGlobalSpendReport(ctx context.Context, arg db.GetGlobalSpendReportParams) ([]db.GetGlobalSpendReportRow, error) {
-	m.ni()
-	return nil, nil
+	if m.getGlobalSpendReportFn != nil {
+		return m.getGlobalSpendReportFn(ctx, arg)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetGlobalSpendReportByCustomer(ctx context.Context, arg db.GetGlobalSpendReportByCustomerParams) ([]db.GetGlobalSpendReportByCustomerRow, error) {
-	m.ni()
-	return nil, nil
+	if m.getGlobalSpendReportByCustomerFn != nil {
+		return m.getGlobalSpendReportByCustomerFn(ctx, arg)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetGlobalSpendReportByKey(ctx context.Context, arg db.GetGlobalSpendReportByKeyParams) ([]db.GetGlobalSpendReportByKeyRow, error) {
-	m.ni()
-	return nil, nil
+	if m.getGlobalSpendReportByKeyFn != nil {
+		return m.getGlobalSpendReportByKeyFn(ctx, arg)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetGuardrailConfig(ctx context.Context, id string) (db.GuardrailConfigTable, error) {
-	m.ni()
-	return db.GuardrailConfigTable{}, nil
+	if m.getGuardrailConfigFn != nil {
+		return m.getGuardrailConfigFn(ctx, id)
+	}
+	return db.GuardrailConfigTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetMCPServer(ctx context.Context, id string) (db.MCPServerTable, error) {
-	m.ni()
-	return db.MCPServerTable{}, nil
+	if m.getMCPServerFn != nil {
+		return m.getMCPServerFn(ctx, id)
+	}
+	return db.MCPServerTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetNextPromptVersion(ctx context.Context, name string) (int32, error) {
 	m.ni()
@@ -438,12 +594,16 @@ func (m *mockStore) GetPlugin(ctx context.Context, name string) (db.ClaudeCodePl
 	return db.ClaudeCodePluginTable{}, nil
 }
 func (m *mockStore) GetPolicy(ctx context.Context, id string) (db.PolicyTable, error) {
-	m.ni()
-	return db.PolicyTable{}, nil
+	if m.getPolicyFn != nil {
+		return m.getPolicyFn(ctx, id)
+	}
+	return db.PolicyTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetPolicyAttachment(ctx context.Context, id string) (db.PolicyAttachmentTable, error) {
-	m.ni()
-	return db.PolicyAttachmentTable{}, nil
+	if m.getPolicyAttachmentFn != nil {
+		return m.getPolicyAttachmentFn(ctx, id)
+	}
+	return db.PolicyAttachmentTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetPolicyByName(ctx context.Context, name string) (db.PolicyTable, error) {
 	m.ni()
@@ -462,20 +622,26 @@ func (m *mockStore) GetPromptVersions(ctx context.Context, name string) ([]db.Pr
 	return nil, nil
 }
 func (m *mockStore) GetProxyModel(ctx context.Context, modelID string) (db.ProxyModelTable, error) {
-	m.ni()
-	return db.ProxyModelTable{}, nil
+	if m.getProxyModelFn != nil {
+		return m.getProxyModelFn(ctx, modelID)
+	}
+	return db.ProxyModelTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetSkill(ctx context.Context, skillID string) (db.SkillsTable, error) {
 	m.ni()
 	return db.SkillsTable{}, nil
 }
 func (m *mockStore) GetSpendLogsByFilter(ctx context.Context, arg db.GetSpendLogsByFilterParams) ([]db.GetSpendLogsByFilterRow, error) {
-	m.ni()
-	return nil, nil
+	if m.getSpendLogsByFilterFn != nil {
+		return m.getSpendLogsByFilterFn(ctx, arg)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetTag(ctx context.Context, id string) (db.TagTable, error) {
-	m.ni()
-	return db.TagTable{}, nil
+	if m.getTagFn != nil {
+		return m.getTagFn(ctx, id)
+	}
+	return db.TagTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetTeam(ctx context.Context, teamID string) (db.TeamTable, error) {
 	m.ni()
@@ -530,16 +696,22 @@ func (m *mockStore) ListAvailableTeams(ctx context.Context) ([]db.TeamTable, err
 	return nil, nil
 }
 func (m *mockStore) ListBudgets(ctx context.Context) ([]db.BudgetTable, error) {
-	m.ni()
-	return nil, nil
+	if m.listBudgetsFn != nil {
+		return m.listBudgetsFn(ctx)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListCredentials(ctx context.Context) ([]db.CredentialTable, error) {
-	m.ni()
-	return nil, nil
+	if m.listCredentialsFn != nil {
+		return m.listCredentialsFn(ctx)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListCredentialsByOrg(ctx context.Context, organizationID *string) ([]db.CredentialTable, error) {
-	m.ni()
-	return nil, nil
+	if m.listCredentialsByOrgFn != nil {
+		return m.listCredentialsByOrgFn(ctx, organizationID)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListDistinctKeyAliases(ctx context.Context) ([]*string, error) {
 	m.ni()
@@ -558,8 +730,10 @@ func (m *mockStore) ListErrorLogs(ctx context.Context, arg db.ListErrorLogsParam
 	return nil, nil
 }
 func (m *mockStore) ListGuardrailConfigs(ctx context.Context) ([]db.GuardrailConfigTable, error) {
-	m.ni()
-	return nil, nil
+	if m.listGuardrailConfigsFn != nil {
+		return m.listGuardrailConfigsFn(ctx)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListHealthChecks(ctx context.Context, arg db.ListHealthChecksParams) ([]db.HealthCheckTable, error) {
 	m.ni()
@@ -570,20 +744,26 @@ func (m *mockStore) ListIPWhitelist(ctx context.Context) ([]db.IPWhitelistTable,
 	return nil, nil
 }
 func (m *mockStore) ListMCPServers(ctx context.Context) ([]db.MCPServerTable, error) {
-	m.ni()
-	return nil, nil
+	if m.listMCPServersFn != nil {
+		return m.listMCPServersFn(ctx)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListPlugins(ctx context.Context, arg db.ListPluginsParams) ([]db.ClaudeCodePluginTable, error) {
 	m.ni()
 	return nil, nil
 }
 func (m *mockStore) ListPolicies(ctx context.Context) ([]db.PolicyTable, error) {
-	m.ni()
-	return nil, nil
+	if m.listPoliciesFn != nil {
+		return m.listPoliciesFn(ctx)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListPolicyAttachments(ctx context.Context) ([]db.PolicyAttachmentTable, error) {
-	m.ni()
-	return nil, nil
+	if m.listPolicyAttachmentsFn != nil {
+		return m.listPolicyAttachmentsFn(ctx)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListPolicyAttachmentsByPolicy(ctx context.Context, policyName string) ([]db.PolicyAttachmentTable, error) {
 	m.ni()
@@ -594,14 +774,21 @@ func (m *mockStore) ListPromptTemplates(ctx context.Context) ([]db.PromptTemplat
 	return nil, nil
 }
 func (m *mockStore) ListProxyModels(ctx context.Context) ([]db.ProxyModelTable, error) {
-	m.ni()
-	return nil, nil
+	if m.listProxyModelsFn != nil {
+		return m.listProxyModelsFn(ctx)
+	}
+	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListSkills(ctx context.Context, arg db.ListSkillsParams) ([]db.SkillsTable, error) {
 	m.ni()
 	return nil, nil
 }
-func (m *mockStore) ListTags(ctx context.Context) ([]db.TagTable, error) { m.ni(); return nil, nil }
+func (m *mockStore) ListTags(ctx context.Context) ([]db.TagTable, error) {
+	if m.listTagsFn != nil {
+		return m.listTagsFn(ctx)
+	}
+	return nil, fmt.Errorf("not mocked")
+}
 func (m *mockStore) PatchAgent(ctx context.Context, arg db.PatchAgentParams) (db.AgentsTable, error) {
 	m.ni()
 	return db.AgentsTable{}, nil
@@ -614,8 +801,18 @@ func (m *mockStore) RemoveTeamModel(ctx context.Context, arg db.RemoveTeamModelP
 	m.ni()
 	return nil
 }
-func (m *mockStore) ResetAllKeySpend(ctx context.Context) error              { m.ni(); return nil }
-func (m *mockStore) ResetAllTeamSpend(ctx context.Context) error             { m.ni(); return nil }
+func (m *mockStore) ResetAllKeySpend(ctx context.Context) error              {
+	if m.resetAllKeySpendFn != nil {
+		return m.resetAllKeySpendFn(ctx)
+	}
+	return fmt.Errorf("not mocked")
+}
+func (m *mockStore) ResetAllTeamSpend(ctx context.Context) error             {
+	if m.resetAllTeamSpendFn != nil {
+		return m.resetAllTeamSpendFn(ctx)
+	}
+	return fmt.Errorf("not mocked")
+}
 func (m *mockStore) ResetTeamSpend(ctx context.Context, teamID string) error { m.ni(); return nil }
 func (m *mockStore) ResetVerificationTokenSpend(ctx context.Context, token string) error {
 	m.ni()
@@ -643,36 +840,50 @@ func (m *mockStore) UpdateAgent(ctx context.Context, arg db.UpdateAgentParams) (
 	return db.AgentsTable{}, nil
 }
 func (m *mockStore) UpdateBudget(ctx context.Context, arg db.UpdateBudgetParams) (db.BudgetTable, error) {
-	m.ni()
-	return db.BudgetTable{}, nil
+	if m.updateBudgetFn != nil {
+		return m.updateBudgetFn(ctx, arg)
+	}
+	return db.BudgetTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) UpdateCredential(ctx context.Context, arg db.UpdateCredentialParams) error {
-	m.ni()
-	return nil
+	if m.updateCredentialFn != nil {
+		return m.updateCredentialFn(ctx, arg)
+	}
+	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) UpdateEndUser(ctx context.Context, arg db.UpdateEndUserParams) (db.EndUserTable2, error) {
 	m.ni()
 	return db.EndUserTable2{}, nil
 }
 func (m *mockStore) UpdateGuardrailConfig(ctx context.Context, arg db.UpdateGuardrailConfigParams) (db.GuardrailConfigTable, error) {
-	m.ni()
-	return db.GuardrailConfigTable{}, nil
+	if m.updateGuardrailConfigFn != nil {
+		return m.updateGuardrailConfigFn(ctx, arg)
+	}
+	return db.GuardrailConfigTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) UpdateMCPServer(ctx context.Context, arg db.UpdateMCPServerParams) (db.MCPServerTable, error) {
-	m.ni()
-	return db.MCPServerTable{}, nil
+	if m.updateMCPServerFn != nil {
+		return m.updateMCPServerFn(ctx, arg)
+	}
+	return db.MCPServerTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) UpdatePolicy(ctx context.Context, arg db.UpdatePolicyParams) (db.PolicyTable, error) {
-	m.ni()
-	return db.PolicyTable{}, nil
+	if m.updatePolicyFn != nil {
+		return m.updatePolicyFn(ctx, arg)
+	}
+	return db.PolicyTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) UpdateProxyModel(ctx context.Context, arg db.UpdateProxyModelParams) (db.ProxyModelTable, error) {
-	m.ni()
-	return db.ProxyModelTable{}, nil
+	if m.updateProxyModelFn != nil {
+		return m.updateProxyModelFn(ctx, arg)
+	}
+	return db.ProxyModelTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) UpdateTag(ctx context.Context, arg db.UpdateTagParams) (db.TagTable, error) {
-	m.ni()
-	return db.TagTable{}, nil
+	if m.updateTagFn != nil {
+		return m.updateTagFn(ctx, arg)
+	}
+	return db.TagTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) UpdateTeamMemberRole(ctx context.Context, arg db.UpdateTeamMemberRoleParams) error {
 	m.ni()
