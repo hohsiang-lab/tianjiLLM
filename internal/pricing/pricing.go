@@ -226,5 +226,3 @@ func (c *Calculator) lookupInLayers(model string) *ModelInfo {
 
 	return nil
 }
-
-

@@ -21,10 +21,11 @@ import (
 // in LogData reflects the cache read fee, not just the base input cost.
 //
 // Expected (claude-sonnet-4, 1 input + 50K cache_read + 500 output):
-//   input:      1 × 3e-06    = $0.000003
-//   cache_read: 50000 × 3e-07 = $0.015000
-//   output:     500 × 1.5e-05 = $0.007500
-//   Total ≈ $0.022503
+//
+//	input:      1 × 3e-06    = $0.000003
+//	cache_read: 50000 × 3e-07 = $0.015000
+//	output:     500 × 1.5e-05 = $0.007500
+//	Total ≈ $0.022503
 func TestSpendTracking_CacheRead_CostIncludesCacheFee(t *testing.T) {
 	t.Parallel()
 

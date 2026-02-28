@@ -29,22 +29,22 @@ func NewTracker(database *db.Queries, buffer *RedisBuffer) *Tracker {
 
 // SpendRecord holds the data needed to record spend.
 type SpendRecord struct {
-	Model            string
-	ModelGroup       string
-	APIBase          string
-	APIKey           string
-	PromptTokens     int
-	CompletionTokens int
-	TotalTokens      int
-	StartTime        time.Time
-	EndTime          time.Time
-	User             string
-	TeamID           string
-	Tags             []string
-	Metadata         map[string]any
-	Cost                 float64
-	CacheReadInputTokens      int
-	CacheCreationInputTokens  int
+	Model                    string
+	ModelGroup               string
+	APIBase                  string
+	APIKey                   string
+	PromptTokens             int
+	CompletionTokens         int
+	TotalTokens              int
+	StartTime                time.Time
+	EndTime                  time.Time
+	User                     string
+	TeamID                   string
+	Tags                     []string
+	Metadata                 map[string]any
+	Cost                     float64
+	CacheReadInputTokens     int
+	CacheCreationInputTokens int
 }
 
 // LogSuccess implements callback.CustomLogger — writes spend to DB.
