@@ -39,16 +39,21 @@ type memValidator struct {
 	dbDown bool
 }
 
-func (m *memValidator) ValidateToken(_ context.Context, tokenHash string) (userID, teamID *string, blocked bool, guardrails []string, err error) {
+func (m *memValidator) ValidateToken(_ context.Context, tokenHash string) (*middleware.TokenInfo, error) {
 	if m.dbDown {
-		return nil, nil, false, nil, middleware.ErrDBUnavailable
+		return nil, middleware.ErrDBUnavailable
 	}
 	tok, ok := m.tokens[tokenHash]
 	if !ok {
-		return nil, nil, false, nil, middleware.ErrKeyNotFound
+		return nil, middleware.ErrKeyNotFound
 	}
 	uid, tid := tok.userID, tok.teamID
-	return &uid, &tid, tok.blocked, tok.guardrails, nil
+	return &middleware.TokenInfo{
+		UserID:     &uid,
+		TeamID:     &tid,
+		Blocked:    tok.blocked,
+		Guardrails: tok.guardrails,
+	}, nil
 }
 
 // newVirtualKeyServer creates a proxy server backed by the given TokenValidator.

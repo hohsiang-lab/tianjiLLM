@@ -14,15 +14,12 @@ import (
 
 // mockValidator implements TokenValidator for auth middleware tests.
 type mockValidator struct {
-	userID     *string
-	teamID     *string
-	blocked    bool
-	guardrails []string
-	err        error
+	info *TokenInfo
+	err  error
 }
 
-func (m *mockValidator) ValidateToken(_ context.Context, _ string) (*string, *string, bool, []string, error) {
-	return m.userID, m.teamID, m.blocked, m.guardrails, m.err
+func (m *mockValidator) ValidateToken(_ context.Context, _ string) (*TokenInfo, error) {
+	return m.info, m.err
 }
 
 // countingQuerier records how many times GetVerificationToken is called.
@@ -100,7 +97,7 @@ func TestMissingToken_Returns401(t *testing.T) {
 func TestVirtualKey_ValidKeyAuthenticates(t *testing.T) {
 	uid := "user-42"
 	tid := "team-99"
-	validator := &mockValidator{userID: &uid, teamID: &tid}
+	validator := &mockValidator{info: &TokenInfo{UserID: &uid, TeamID: &tid}}
 
 	authMW := NewAuthMiddleware(AuthConfig{
 		MasterKey: "sk-master",
@@ -128,7 +125,7 @@ func TestVirtualKey_ValidKeyAuthenticates(t *testing.T) {
 }
 
 func TestVirtualKey_BlockedKeyReturns403(t *testing.T) {
-	validator := &mockValidator{blocked: true}
+	validator := &mockValidator{info: &TokenInfo{Blocked: true}}
 
 	authMW := NewAuthMiddleware(AuthConfig{
 		MasterKey: "sk-master",
@@ -163,6 +160,7 @@ func TestVirtualKey_NilValidator_NonMasterKeyReturns401(t *testing.T) {
 
 func TestVirtualKey_DBUnavailableReturns503(t *testing.T) {
 	validator := &mockValidator{err: ErrDBUnavailable}
+
 
 	authMW := NewAuthMiddleware(AuthConfig{
 		MasterKey: "sk-master",

@@ -27,17 +27,21 @@ type DBValidator struct {
 }
 
 // ValidateToken looks up a virtual key by its SHA256 hash in a single DB call.
-// Returns user/team IDs, blocked status, guardrail policy names, and any error.
-func (d *DBValidator) ValidateToken(ctx context.Context, tokenHash string) (userID, teamID *string, blocked bool, guardrails []string, err error) {
+// Returns all key metadata needed for auth and guardrail enforcement.
+func (d *DBValidator) ValidateToken(ctx context.Context, tokenHash string) (*TokenInfo, error) {
 	vt, err := d.DB.GetVerificationToken(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil, false, nil, ErrKeyNotFound
+			return nil, ErrKeyNotFound
 		}
-		return nil, nil, false, nil, ErrDBUnavailable
+		return nil, ErrDBUnavailable
 	}
-	blocked = vt.Blocked != nil && *vt.Blocked
-	return vt.UserID, vt.TeamID, blocked, vt.Policies, nil
+	return &TokenInfo{
+		UserID:     vt.UserID,
+		TeamID:     vt.TeamID,
+		Blocked:    vt.Blocked != nil && *vt.Blocked,
+		Guardrails: vt.Policies,
+	}, nil
 }
 
 // Compile-time interface satisfaction checks.

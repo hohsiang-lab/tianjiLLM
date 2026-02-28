@@ -29,13 +29,10 @@ func TestDBValidator_ValidateToken(t *testing.T) {
 	tid := "team-1"
 
 	tests := []struct {
-		name           string
-		querier        *fakeQuerier
-		wantUserID     *string
-		wantTeamID     *string
-		wantBlocked    bool
-		wantGuardrails []string
-		wantErr        error
+		name    string
+		querier *fakeQuerier
+		want    *TokenInfo
+		wantErr error
 	}{
 		{
 			name:    "key not found maps to ErrKeyNotFound",
@@ -54,9 +51,7 @@ func TestDBValidator_ValidateToken(t *testing.T) {
 				TeamID:  &tid,
 				Blocked: ptr(true),
 			}},
-			wantUserID:  &uid,
-			wantTeamID:  &tid,
-			wantBlocked: true,
+			want: &TokenInfo{UserID: &uid, TeamID: &tid, Blocked: true},
 		},
 		{
 			name: "valid key returns userID, teamID, and guardrails",
@@ -66,18 +61,14 @@ func TestDBValidator_ValidateToken(t *testing.T) {
 				Blocked:  ptr(false),
 				Policies: []string{"guardrail-a", "guardrail-b"},
 			}},
-			wantUserID:     &uid,
-			wantTeamID:     &tid,
-			wantBlocked:    false,
-			wantGuardrails: []string{"guardrail-a", "guardrail-b"},
+			want: &TokenInfo{UserID: &uid, TeamID: &tid, Blocked: false, Guardrails: []string{"guardrail-a", "guardrail-b"}},
 		},
 		{
 			name: "nil Blocked field treated as not blocked",
 			querier: &fakeQuerier{result: db.VerificationToken{
 				UserID: &uid,
 			}},
-			wantUserID:  &uid,
-			wantBlocked: false,
+			want: &TokenInfo{UserID: &uid},
 		},
 		{
 			name: "nil policies returns nil guardrails",
@@ -85,25 +76,26 @@ func TestDBValidator_ValidateToken(t *testing.T) {
 				UserID:   &uid,
 				Policies: nil,
 			}},
-			wantUserID:     &uid,
-			wantGuardrails: nil,
+			want: &TokenInfo{UserID: &uid},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			v := &DBValidator{DB: tc.querier}
-			userID, teamID, blocked, guardrails, err := v.ValidateToken(context.Background(), "somehash")
+			info, err := v.ValidateToken(context.Background(), "somehash")
 
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
+				assert.Nil(t, info)
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tc.wantBlocked, blocked)
-			assert.Equal(t, tc.wantUserID, userID)
-			assert.Equal(t, tc.wantTeamID, teamID)
-			assert.Equal(t, tc.wantGuardrails, guardrails)
+			require.NotNil(t, info)
+			assert.Equal(t, tc.want.Blocked, info.Blocked)
+			assert.Equal(t, tc.want.UserID, info.UserID)
+			assert.Equal(t, tc.want.TeamID, info.TeamID)
+			assert.Equal(t, tc.want.Guardrails, info.Guardrails)
 		})
 	}
 }
