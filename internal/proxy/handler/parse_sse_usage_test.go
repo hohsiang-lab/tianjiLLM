@@ -135,7 +135,7 @@ func TestParseSSEUsage_Gemini_SingleChunk(t *testing.T) {
 func TestParseSSEUsage_UnknownProvider(t *testing.T) {
 	t.Parallel()
 	raw := []byte("data: {\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5}}\n")
-	prompt, completion, model := parseSSEUsage("openai", raw)
+	prompt, completion, model := parseSSEUsage("unknownprovider", raw)
 	assert.Equal(t, 0, prompt, "unknown provider should not parse anything")
 	assert.Equal(t, 0, completion)
 	assert.Equal(t, "", model)

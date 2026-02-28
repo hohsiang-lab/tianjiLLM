@@ -396,3 +396,27 @@ func TestParseSSEUsage_Anthropic_ZeroInputTokens_BeforeFix(t *testing.T) {
 	prompt, _, _ := parseSSEUsage("anthropic", raw)
 	assert.Equal(t, 100, prompt, "input_tokens must come from nested message.usage")
 }
+
+func TestParseSSEUsage_OpenAI(t *testing.T) {
+	// OpenAI streaming: last chunk has usage with prompt_tokens/completion_tokens.
+	raw := []byte(
+		`data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","model":"gpt-4o","choices":[{"delta":{"content":"hi"}}]}` + "\n" +
+			`data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","model":"gpt-4o","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":25,"total_tokens":35}}` + "\n",
+	)
+	prompt, completion, model := parseSSEUsage("openai", raw)
+	assert.Equal(t, 10, prompt, "prompt_tokens from usage chunk")
+	assert.Equal(t, 25, completion, "completion_tokens from usage chunk")
+	assert.Equal(t, "gpt-4o", model)
+}
+
+func TestParseSSEUsage_OpenAI_NoUsage(t *testing.T) {
+	// When no usage chunk is present, should return zeros without panic.
+	raw := []byte(
+		`data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","model":"gpt-4o","choices":[{"delta":{"content":"hi"}}]}` + "\n" +
+			`data: [DONE]` + "\n",
+	)
+	prompt, completion, model := parseSSEUsage("openai", raw)
+	assert.Equal(t, 0, prompt)
+	assert.Equal(t, 0, completion)
+	assert.Equal(t, "gpt-4o", model)
+}
