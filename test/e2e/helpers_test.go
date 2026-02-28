@@ -525,18 +525,18 @@ func (f *Fixture) SeedSpendLog(opts SeedSpendLogOpts) string {
 	end := start.Add(time.Duration(opts.DurationMs) * time.Millisecond)
 
 	params := db.CreateSpendLogParams{
-		RequestID:    opts.RequestID,
-		CallType:     "completion",
-		ApiKey:       opts.ApiKey,
-		Spend:        opts.Spend,
-		TotalTokens:  opts.Tokens,
-		PromptTokens: opts.Prompt,
+		RequestID:        opts.RequestID,
+		CallType:         "completion",
+		ApiKey:           opts.ApiKey,
+		Spend:            opts.Spend,
+		TotalTokens:      opts.Tokens,
+		PromptTokens:     opts.Prompt,
 		CompletionTokens: opts.Completion,
-		Starttime:    pgtype.Timestamptz{Time: start, Valid: true},
-		Endtime:      pgtype.Timestamptz{Time: end, Valid: true},
-		Model:        opts.Model,
-		Metadata:     []byte("{}"),
-		RequestTags:  []string{},
+		Starttime:        pgtype.Timestamptz{Time: start, Valid: true},
+		Endtime:          pgtype.Timestamptz{Time: end, Valid: true},
+		Model:            opts.Model,
+		Metadata:         []byte("{}"),
+		RequestTags:      []string{},
 	}
 	if opts.TeamID != "" {
 		params.TeamID = &opts.TeamID
@@ -598,17 +598,17 @@ func (f *Fixture) NavigateToTeamDetail(teamID string) {
 }
 
 type SeedTeamOpts struct {
-	Alias          string
-	OrgID          string
-	Members        []string
+	Alias            string
+	OrgID            string
+	Members          []string
 	MembersWithRoles []TeamMemberSeed
-	Models         []string
-	MaxBudget      *float64
-	Spend          float64
-	Blocked        bool
-	TPMLimit       *int64
-	RPMLimit       *int64
-	BudgetDuration string
+	Models           []string
+	MaxBudget        *float64
+	Spend            float64
+	Blocked          bool
+	TPMLimit         *int64
+	RPMLimit         *int64
+	BudgetDuration   string
 }
 
 type TeamMemberSeed struct {
@@ -820,4 +820,3 @@ func hashTestKey(key string) string {
 	sum := sha256.Sum256([]byte(key))
 	return hex.EncodeToString(sum[:])
 }
-

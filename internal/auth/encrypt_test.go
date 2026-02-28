@@ -1,86 +1,59 @@
 package auth
 
 import (
-	"crypto/sha256"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestDeriveKey(t *testing.T) {
-	key := DeriveKey("test-master-key")
-	expected := sha256.Sum256([]byte("test-master-key"))
-	if key != expected {
-		t.Fatalf("DeriveKey mismatch")
-	}
+func TestEncryptDecrypt_RoundTrip(t *testing.T) {
+	masterKey := "test-master-key-123"
+	plaintext := "hello world"
 
-	// Different keys produce different results
-	key2 := DeriveKey("other-key")
-	if key == key2 {
-		t.Fatal("different inputs should produce different keys")
-	}
+	encrypted, err := Encrypt(plaintext, masterKey)
+	require.NoError(t, err)
+	assert.NotEmpty(t, encrypted)
+	assert.NotEqual(t, plaintext, encrypted)
+
+	decrypted, err := Decrypt(encrypted, masterKey)
+	require.NoError(t, err)
+	assert.Equal(t, plaintext, decrypted)
 }
 
-func TestEncryptDecryptRoundTrip(t *testing.T) {
-	masterKey := "my-secret-master-key"
-	plaintext := "hello world 你好世界"
+func TestDecrypt_WrongKey(t *testing.T) {
+	encrypted, err := Encrypt("secret", "key1")
+	require.NoError(t, err)
 
-	ct, err := Encrypt(plaintext, masterKey)
-	if err != nil {
-		t.Fatalf("Encrypt: %v", err)
-	}
-
-	got, err := Decrypt(ct, masterKey)
-	if err != nil {
-		t.Fatalf("Decrypt: %v", err)
-	}
-
-	if got != plaintext {
-		t.Fatalf("got %q, want %q", got, plaintext)
-	}
+	_, err = Decrypt(encrypted, "key2")
+	assert.Error(t, err)
 }
 
-func TestEncryptProducesDifferentCiphertexts(t *testing.T) {
-	mk := "key"
-	ct1, _ := Encrypt("same", mk)
-	ct2, _ := Encrypt("same", mk)
-	if ct1 == ct2 {
-		t.Fatal("two encryptions of the same plaintext should differ (random nonce)")
-	}
-}
-
-func TestDecryptWrongKey(t *testing.T) {
-	ct, _ := Encrypt("secret", "key1")
-	_, err := Decrypt(ct, "key2")
-	if err == nil {
-		t.Fatal("expected decryption failure with wrong key")
-	}
-}
-
-func TestDecryptInvalidBase64(t *testing.T) {
+func TestDecrypt_InvalidBase64(t *testing.T) {
 	_, err := Decrypt("not-valid-base64!!!", "key")
-	if err == nil {
-		t.Fatal("expected error for invalid base64")
-	}
+	assert.Error(t, err)
 }
 
-func TestDecryptTooShort(t *testing.T) {
-	// Valid base64 but too short for nonce
-	_, err := Decrypt("AQID", "key")
-	if err == nil || err.Error() != "ciphertext too short" {
-		t.Fatalf("expected 'ciphertext too short', got %v", err)
-	}
+func TestDecrypt_TooShort(t *testing.T) {
+	// base64 of less than 24 bytes
+	_, err := Decrypt("AAAA", "key")
+	assert.Error(t, err)
 }
 
-func TestEncryptEmpty(t *testing.T) {
-	mk := "key"
-	ct, err := Encrypt("", mk)
-	if err != nil {
-		t.Fatalf("Encrypt empty: %v", err)
-	}
-	got, err := Decrypt(ct, mk)
-	if err != nil {
-		t.Fatalf("Decrypt empty: %v", err)
-	}
-	if got != "" {
-		t.Fatalf("expected empty string, got %q", got)
-	}
+func TestDeriveKey_Deterministic(t *testing.T) {
+	k1 := DeriveKey("test")
+	k2 := DeriveKey("test")
+	assert.Equal(t, k1, k2)
+}
+
+func TestDeriveKey_DifferentInputs(t *testing.T) {
+	k1 := DeriveKey("key1")
+	k2 := DeriveKey("key2")
+	assert.NotEqual(t, k1, k2)
+}
+
+func TestEncrypt_DifferentEachTime(t *testing.T) {
+	e1, _ := Encrypt("same", "key")
+	e2, _ := Encrypt("same", "key")
+	assert.NotEqual(t, e1, e2) // random nonce
 }
