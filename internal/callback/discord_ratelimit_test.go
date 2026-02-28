@@ -18,11 +18,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// captureLog redirects the standard logger to a buffer for the duration of the test.
+// syncBuffer is a bytes.Buffer protected by a mutex, safe for concurrent writes and reads.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (s *syncBuffer) Write(p []byte) (n int, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.Write(p)
+}
+
+func (s *syncBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.String()
+}
+
+// captureLog redirects the standard logger to a thread-safe buffer for the duration of the test.
 // Returns the buffer and a cleanup function that restores the original output.
-func captureLog(t *testing.T) (*bytes.Buffer, func()) {
+func captureLog(t *testing.T) (*syncBuffer, func()) {
 	t.Helper()
-	buf := &bytes.Buffer{}
+	buf := &syncBuffer{}
 	old := log.Writer()
 	log.SetOutput(buf)
 	return buf, func() { log.SetOutput(old) }
@@ -421,11 +439,12 @@ func TestCheckAndAlert_DiscordNon2xx_LogsErrorDoesNotPanic(t *testing.T) {
 		OutputTokensReset:     "2026-03-01T02:00:00Z",
 	}
 
-	// CheckAndAlert must not panic even when Discord returns non-2xx
-	assert.NotPanics(t, func() {
-		a.CheckAndAlert(state)
-		time.Sleep(150 * time.Millisecond) // wait for goroutine
-	})
+	// CheckAndAlert must not panic even when Discord returns non-2xx.
+	// assert.NotPanics cannot recover panics from spawned goroutines.
+	// Call directly and sleep to let the goroutine finish; a goroutine panic
+	// will crash the test binary — which is the intended failure signal.
+	a.CheckAndAlert(state)
+	time.Sleep(200 * time.Millisecond) // wait for goroutine to complete
 
 	logged := logBuf.String()
 	assert.Contains(t, logged, "429", "error log must include the HTTP status code")
