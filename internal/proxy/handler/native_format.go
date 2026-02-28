@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -290,12 +291,22 @@ func (r *sseSpendReader) Close() error {
 	err := r.src.Close()
 
 	bufBytes := r.buf.Bytes()
+	// Decompress gzip if upstream returned compressed SSE (e.g. Anthropic
+	// with Accept-Encoding: gzip). ReverseProxy passes through compressed
+	// bytes without decoding, so we must decompress before parsing.
+	if len(bufBytes) >= 2 && bufBytes[0] == 0x1f && bufBytes[1] == 0x8b {
+		if gr, gzErr := gzip.NewReader(bytes.NewReader(bufBytes)); gzErr == nil {
+			if decompressed, readErr := io.ReadAll(gr); readErr == nil {
+				bufBytes = decompressed
+			}
+			gr.Close()
+		}
+	}
+
 	prompt, completion, modelName := parseSSEUsage(r.providerName, bufBytes)
 	if modelName == "" {
 		modelName = r.requestModel
 	}
-	log.Printf("[HO-60 debug] sseSpendReader.Close: provider=%s model=%s bufLen=%d prompt=%d completion=%d first100=%q",
-		r.providerName, modelName, len(bufBytes), prompt, completion, truncate(bufBytes, 100))
 	go r.callbacks.LogSuccess(buildNativeLogData(
 		r.ctx, r.providerName, modelName, r.startTime,
 		prompt, completion,
@@ -462,9 +473,3 @@ func (h *Handlers) ImageVariation(w http.ResponseWriter, r *http.Request) {
 	h.assistantsProxy(w, r)
 }
 
-func truncate(b []byte, n int) []byte {
-	if len(b) > n {
-		return b[:n]
-	}
-	return b
-}
