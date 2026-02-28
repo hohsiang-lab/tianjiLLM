@@ -40,6 +40,9 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 		return
 	}
 
+	// Read request body to extract model name as fallback for spend logging.
+	requestModel := extractRequestModel(r)
+
 	startTime := time.Now()
 	ctx := r.Context()
 
@@ -120,6 +123,7 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 					startTime:    startTime,
 					ctx:          ctx,
 					callbacks:    h.Callbacks,
+					requestModel: requestModel,
 				}
 				return nil
 			}
@@ -132,6 +136,9 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 			resp.Body = io.NopCloser(bytes.NewReader(body))
 
 			prompt, completion, modelName := parseUsage(providerName, body)
+			if modelName == "" {
+				modelName = requestModel
+			}
 			go h.Callbacks.LogSuccess(buildNativeLogData(
 				ctx, providerName, modelName, startTime,
 				prompt, completion,
