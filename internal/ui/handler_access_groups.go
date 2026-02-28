@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -40,7 +41,10 @@ func (h *UIHandler) loadAccessGroupsPageData(r *http.Request) pages.AccessGroups
 
 	data.AvailableModels = h.loadAvailableModelNames(ctx)
 
-	orgs, _ := h.DB.ListOrganizations(ctx)
+	orgs, err := h.DB.ListOrganizations(ctx)
+	if err != nil {
+		log.Printf("ui: failed to list organizations: %v", err)
+	}
 	orgAliasMap := map[string]string{}
 	for _, o := range orgs {
 		opt := pages.OrgOption{ID: o.OrganizationID}
@@ -168,14 +172,21 @@ func (h *UIHandler) handleAccessGroupUpdate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	groupAlias := strings.TrimSpace(r.FormValue("group_alias"))
+	var groupAliasPtr *string
+	if groupAlias != "" {
+		groupAliasPtr = &groupAlias
+	}
+
 	models := parseModelSelection(r.FormValue("all_models"), r.Form["models"])
 	if models == nil {
 		models = []string{}
 	}
 
 	params := db.UpdateAccessGroupParams{
-		GroupID: id,
-		Models:  models,
+		GroupID:    id,
+		GroupAlias: groupAliasPtr,
+		Models:     models,
 	}
 
 	if err := h.DB.UpdateAccessGroup(r.Context(), params); err != nil {

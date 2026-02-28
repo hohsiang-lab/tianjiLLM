@@ -10,7 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"fmt"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
@@ -48,7 +48,7 @@ type AccessGroupsPageData struct {
 
 func (d AccessGroupsPageData) accessGroupsFilterQueryString() string {
 	if d.Search != "" {
-		return "&search=" + d.Search
+		return "&search=" + url.QueryEscape(d.Search)
 	}
 	return ""
 }
@@ -333,7 +333,7 @@ func createAccessGroupForm(data AccessGroupsPageData) templ.Component {
 			templ_7745c5c3_Var11 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<form hx-post=\"/ui/access-groups/create\" hx-target=\"#access-groups-table\"><div class=\"space-y-4 py-4\"><div class=\"space-y-2\"><label for=\"group_alias\" class=\"text-sm font-medium\">Group Alias <span class=\"text-destructive\">*</span></label>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<form hx-post=\"/ui/access-groups/create\" hx-target=\"#access-groups-table\" hx-swap=\"innerHTML\"><div class=\"space-y-4 py-4\"><div class=\"space-y-2\"><label for=\"group_alias\" class=\"text-sm font-medium\">Group Alias <span class=\"text-destructive\">*</span></label>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -363,7 +363,7 @@ func createAccessGroupForm(data AccessGroupsPageData) templ.Component {
 				var templ_7745c5c3_Var12 string
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(o.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 119, Col: 27}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 120, Col: 27}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 				if templ_7745c5c3_Err != nil {
@@ -377,7 +377,7 @@ func createAccessGroupForm(data AccessGroupsPageData) templ.Component {
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(o.Alias)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 121, Col: 18}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 122, Col: 18}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -387,7 +387,7 @@ func createAccessGroupForm(data AccessGroupsPageData) templ.Component {
 					var templ_7745c5c3_Var14 string
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(o.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 123, Col: 15}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 124, Col: 15}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 					if templ_7745c5c3_Err != nil {
@@ -843,7 +843,7 @@ func AccessGroupsTablePartial(data AccessGroupsPageData) templ.Component {
 			var templ_7745c5c3_Var33 string
 			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("Showing %d–%d of %d results", (data.Page-1)*data.PerPage+1, minInt((data.Page)*data.PerPage, data.TotalCount), data.TotalCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 192, Col: 148}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 193, Col: 148}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 			if templ_7745c5c3_Err != nil {
@@ -1016,7 +1016,7 @@ func AccessGroupsTablePartial(data AccessGroupsPageData) templ.Component {
 								var templ_7745c5c3_Var42 string
 								templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", p))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 235, Col: 30}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 236, Col: 30}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 								if templ_7745c5c3_Err != nil {
@@ -1101,7 +1101,7 @@ func AccessGroupsTablePartial(data AccessGroupsPageData) templ.Component {
 								var templ_7745c5c3_Var46 string
 								templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", pg.TotalPages))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 252, Col: 42}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 253, Col: 42}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 								if templ_7745c5c3_Err != nil {
@@ -1231,7 +1231,7 @@ func accessGroupTableRow(g AccessGroupRow, data AccessGroupsPageData) templ.Comp
 					var templ_7745c5c3_Var51 string
 					templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(g.GroupAlias)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 276, Col: 19}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 277, Col: 19}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 					if templ_7745c5c3_Err != nil {
@@ -1245,7 +1245,7 @@ func accessGroupTableRow(g AccessGroupRow, data AccessGroupsPageData) templ.Comp
 					var templ_7745c5c3_Var52 string
 					templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(g.GroupID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 278, Col: 62}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 279, Col: 62}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 					if templ_7745c5c3_Err != nil {
@@ -1303,7 +1303,7 @@ func accessGroupTableRow(g AccessGroupRow, data AccessGroupsPageData) templ.Comp
 						var templ_7745c5c3_Var55 string
 						templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d model(s)", len(g.Models)))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 287, Col: 48}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 288, Col: 48}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 						if templ_7745c5c3_Err != nil {
@@ -1346,7 +1346,7 @@ func accessGroupTableRow(g AccessGroupRow, data AccessGroupsPageData) templ.Comp
 					var templ_7745c5c3_Var57 string
 					templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(g.OrgAlias)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 293, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 294, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 					if templ_7745c5c3_Err != nil {
@@ -1364,7 +1364,7 @@ func accessGroupTableRow(g AccessGroupRow, data AccessGroupsPageData) templ.Comp
 					var templ_7745c5c3_Var58 string
 					templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(g.OrgID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 295, Col: 67}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 296, Col: 67}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 					if templ_7745c5c3_Err != nil {
@@ -1409,7 +1409,7 @@ func accessGroupTableRow(g AccessGroupRow, data AccessGroupsPageData) templ.Comp
 				var templ_7745c5c3_Var60 string
 				templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(g.CreatedAt.Format("2006-01-02"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 301, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 302, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
 				if templ_7745c5c3_Err != nil {
@@ -1695,7 +1695,7 @@ func accessGroupTableRow(g AccessGroupRow, data AccessGroupsPageData) templ.Comp
 									var templ_7745c5c3_Var75 string
 									templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs("Are you sure you want to delete access group \"" + g.GroupAlias + "\"? This action cannot be undone.")
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 333, Col: 113}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 334, Col: 113}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
 									if templ_7745c5c3_Err != nil {
@@ -1782,7 +1782,7 @@ func accessGroupTableRow(g AccessGroupRow, data AccessGroupsPageData) templ.Comp
 							var templ_7745c5c3_Var79 string
 							templ_7745c5c3_Var79, templ_7745c5c3_Err = templ.JoinStringErrs("/ui/access-groups/" + g.GroupID + "/delete")
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 345, Col: 67}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 346, Col: 67}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var79))
 							if templ_7745c5c3_Err != nil {
@@ -1884,7 +1884,7 @@ func editAccessGroupForm(g AccessGroupRow, data AccessGroupsPageData) templ.Comp
 		var templ_7745c5c3_Var82 string
 		templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs("/ui/access-groups/" + g.GroupID + "/update")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 360, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 361, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
 		if templ_7745c5c3_Err != nil {
@@ -1897,7 +1897,7 @@ func editAccessGroupForm(g AccessGroupRow, data AccessGroupsPageData) templ.Comp
 		var templ_7745c5c3_Var83 string
 		templ_7745c5c3_Var83, templ_7745c5c3_Err = templ.JoinStringErrs("edit_alias_" + g.GroupID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 366, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 367, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var83))
 		if templ_7745c5c3_Err != nil {
@@ -1953,7 +1953,7 @@ func editAccessGroupForm(g AccessGroupRow, data AccessGroupsPageData) templ.Comp
 					var templ_7745c5c3_Var85 string
 					templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs(m)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 385, Col: 11}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/access_groups.templ`, Line: 386, Col: 11}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var85))
 					if templ_7745c5c3_Err != nil {
@@ -2113,17 +2113,6 @@ func AccessGroupsTableWithToast(data AccessGroupsPageData, toastMsg string, toas
 		}
 		return nil
 	})
-}
-
-// accessGroupModelsPreview returns a short preview of model names.
-func accessGroupModelsPreview(models []string) string {
-	if len(models) == 0 {
-		return ""
-	}
-	if len(models) <= 3 {
-		return strings.Join(models, ", ")
-	}
-	return strings.Join(models[:3], ", ") + fmt.Sprintf(" +%d more", len(models)-3)
 }
 
 var _ = templruntime.GeneratedTemplate

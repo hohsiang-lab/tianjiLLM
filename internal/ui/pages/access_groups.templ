@@ -2,7 +2,7 @@ package pages
 
 import (
 	"fmt"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
@@ -40,7 +40,7 @@ type AccessGroupsPageData struct {
 
 func (d AccessGroupsPageData) accessGroupsFilterQueryString() string {
 	if d.Search != "" {
-		return "&search=" + d.Search
+		return "&search=" + url.QueryEscape(d.Search)
 	}
 	return ""
 }
@@ -99,6 +99,7 @@ templ createAccessGroupForm(data AccessGroupsPageData) {
 	<form
 		hx-post="/ui/access-groups/create"
 		hx-target="#access-groups-table"
+		hx-swap="innerHTML"
 	>
 		<div class="space-y-4 py-4">
 			<div class="space-y-2">
@@ -416,13 +417,4 @@ templ AccessGroupsTableWithToast(data AccessGroupsPageData, toastMsg string, toa
 	}
 }
 
-// accessGroupModelsPreview returns a short preview of model names.
-func accessGroupModelsPreview(models []string) string {
-	if len(models) == 0 {
-		return ""
-	}
-	if len(models) <= 3 {
-		return strings.Join(models, ", ")
-	}
-	return strings.Join(models[:3], ", ") + fmt.Sprintf(" +%d more", len(models)-3)
-}
+

@@ -11,7 +11,7 @@ SELECT * FROM "ModelAccessGroup" ORDER BY created_at DESC;
 
 -- name: UpdateAccessGroup :exec
 UPDATE "ModelAccessGroup"
-SET models = $2, updated_at = NOW()
+SET group_alias = $2, models = $3, updated_at = NOW()
 WHERE group_id = $1;
 
 -- name: DeleteAccessGroup :exec

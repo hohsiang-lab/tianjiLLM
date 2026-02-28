@@ -112,16 +112,17 @@ func (q *Queries) ListAccessGroups(ctx context.Context) ([]ModelAccessGroup, err
 
 const updateAccessGroup = `-- name: UpdateAccessGroup :exec
 UPDATE "ModelAccessGroup"
-SET models = $2, updated_at = NOW()
+SET group_alias = $2, models = $3, updated_at = NOW()
 WHERE group_id = $1
 `
 
 type UpdateAccessGroupParams struct {
-	GroupID string   `json:"group_id"`
-	Models  []string `json:"models"`
+	GroupID    string   `json:"group_id"`
+	GroupAlias *string  `json:"group_alias"`
+	Models     []string `json:"models"`
 }
 
 func (q *Queries) UpdateAccessGroup(ctx context.Context, arg UpdateAccessGroupParams) error {
-	_, err := q.db.Exec(ctx, updateAccessGroup, arg.GroupID, arg.Models)
+	_, err := q.db.Exec(ctx, updateAccessGroup, arg.GroupID, arg.GroupAlias, arg.Models)
 	return err
 }
