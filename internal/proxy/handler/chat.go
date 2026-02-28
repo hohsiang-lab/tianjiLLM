@@ -298,6 +298,7 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	var lastChunk *model.StreamChunk
+	var accUsage model.Usage
 	var assembledContent strings.Builder
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
@@ -319,7 +320,7 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 			fmt.Fprintf(w, "data: [DONE]\n\n")
 			flusher.Flush()
 			endTime := time.Now()
-			h.logStreamSuccess(r.Context(), req, lastChunk, p, startTime, endTime, llmLatency)
+			h.logStreamSuccess(r.Context(), req, lastChunk, accUsage, p, startTime, endTime, llmLatency)
 			// Cache assembled streaming response
 			h.cacheStreamResult(r.Context(), req, lastChunk, assembledContent.String())
 			return
@@ -327,6 +328,14 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 
 		if chunk != nil {
 			lastChunk = chunk
+			if chunk.Usage != nil {
+				if chunk.Usage.PromptTokens > 0 {
+					accUsage.PromptTokens = chunk.Usage.PromptTokens
+				}
+				if chunk.Usage.CompletionTokens > 0 {
+					accUsage.CompletionTokens = chunk.Usage.CompletionTokens
+				}
+			}
 			// Accumulate content for caching
 			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != nil {
 				assembledContent.WriteString(*chunk.Choices[0].Delta.Content)
@@ -343,7 +352,7 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 
 	// Stream ended without [DONE] — still log
 	endTime := time.Now()
-	h.logStreamSuccess(r.Context(), req, lastChunk, p, startTime, endTime, llmLatency)
+	h.logStreamSuccess(r.Context(), req, lastChunk, accUsage, p, startTime, endTime, llmLatency)
 }
 
 // cacheStreamResult assembles a non-streaming response from accumulated stream data and caches it.
@@ -429,7 +438,10 @@ func (h *Handlers) logSuccess(ctx context.Context, req *model.ChatCompletionRequ
 }
 
 // logStreamSuccess fires success callbacks for streaming responses.
-func (h *Handlers) logStreamSuccess(ctx context.Context, req *model.ChatCompletionRequest, lastChunk *model.StreamChunk, p provider.Provider, startTime, endTime time.Time, llmLatency time.Duration) {
+// accUsage carries prompt/completion tokens accumulated across all chunks
+// (different providers emit them in different events). Falls back to
+// lastChunk.Usage when accUsage is empty.
+func (h *Handlers) logStreamSuccess(ctx context.Context, req *model.ChatCompletionRequest, lastChunk *model.StreamChunk, accUsage model.Usage, p provider.Provider, startTime, endTime time.Time, llmLatency time.Duration) {
 	if h.Callbacks == nil {
 		return
 	}
@@ -439,11 +451,17 @@ func (h *Handlers) logStreamSuccess(ctx context.Context, req *model.ChatCompleti
 	data.Latency = endTime.Sub(startTime)
 	data.LLMAPILatency = llmLatency
 
-	if lastChunk != nil && lastChunk.Usage != nil {
-		data.PromptTokens = lastChunk.Usage.PromptTokens
-		data.CompletionTokens = lastChunk.Usage.CompletionTokens
-		data.TotalTokens = lastChunk.Usage.TotalTokens
-		data.Cost = pricing.Default().TotalCost(req.Model, lastChunk.Usage.PromptTokens, lastChunk.Usage.CompletionTokens)
+	promptTokens := accUsage.PromptTokens
+	completionTokens := accUsage.CompletionTokens
+	if promptTokens == 0 && completionTokens == 0 && lastChunk != nil && lastChunk.Usage != nil {
+		promptTokens = lastChunk.Usage.PromptTokens
+		completionTokens = lastChunk.Usage.CompletionTokens
+	}
+	if promptTokens > 0 || completionTokens > 0 {
+		data.PromptTokens = promptTokens
+		data.CompletionTokens = completionTokens
+		data.TotalTokens = promptTokens + completionTokens
+		data.Cost = pricing.Default().TotalCost(req.Model, promptTokens, completionTokens)
 	}
 
 	go h.Callbacks.LogSuccess(data)
