@@ -156,13 +156,12 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 			}
 			resp.Body = io.NopCloser(bytes.NewReader(body))
 
-			prompt, completion, modelName := parseUsage(providerName, body)
-			if modelName == "" {
-				modelName = requestModel
+			usage := parseUsage(providerName, body)
+			if usage.ModelName == "" {
+				usage.ModelName = requestModel
 			}
 			go h.Callbacks.LogSuccess(buildNativeLogData(
-				ctx, providerName, modelName, startTime,
-				prompt, completion,
+				ctx, providerName, startTime, usage,
 			))
 			return nil
 		},
@@ -196,19 +195,38 @@ func extractRequestModel(r *http.Request) string {
 	return partial.Model
 }
 
-// parseUsage extracts prompt/completion tokens and model name from a non-streaming response body.
-func parseUsage(providerName string, body []byte) (prompt, completion int, modelName string) {
+// UsageResult holds parsed token counts from a provider response.
+type UsageResult struct {
+	PromptTokens             int
+	CompletionTokens         int
+	ModelName                string
+	CacheReadInputTokens     int // Anthropic only
+	CacheCreationInputTokens int // Anthropic only
+}
+
+// parseUsage extracts usage info from a non-streaming response body.
+func parseUsage(providerName string, body []byte) UsageResult {
 	switch providerName {
 	case "anthropic":
 		var parsed struct {
 			Model string `json:"model"`
 			Usage struct {
-				InputTokens  int `json:"input_tokens"`
-				OutputTokens int `json:"output_tokens"`
+				InputTokens              int `json:"input_tokens"`
+				OutputTokens             int `json:"output_tokens"`
+				CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+				CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 			} `json:"usage"`
 		}
 		if json.Unmarshal(body, &parsed) == nil {
-			return parsed.Usage.InputTokens, parsed.Usage.OutputTokens, parsed.Model
+			u := parsed.Usage
+			totalPrompt := u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens
+			return UsageResult{
+				PromptTokens:             totalPrompt,
+				CompletionTokens:         u.OutputTokens,
+				ModelName:                parsed.Model,
+				CacheReadInputTokens:     u.CacheReadInputTokens,
+				CacheCreationInputTokens: u.CacheCreationInputTokens,
+			}
 		}
 	case "gemini":
 		var parsed struct {
@@ -218,7 +236,10 @@ func parseUsage(providerName string, body []byte) (prompt, completion int, model
 			} `json:"usageMetadata"`
 		}
 		if json.Unmarshal(body, &parsed) == nil {
-			return parsed.UsageMetadata.PromptTokenCount, parsed.UsageMetadata.CandidatesTokenCount, ""
+			return UsageResult{
+				PromptTokens:     parsed.UsageMetadata.PromptTokenCount,
+				CompletionTokens: parsed.UsageMetadata.CandidatesTokenCount,
+			}
 		}
 	case "openai", "openrouter", "deepseek", "groq", "together":
 		var parsed struct {
@@ -229,7 +250,11 @@ func parseUsage(providerName string, body []byte) (prompt, completion int, model
 			} `json:"usage"`
 		}
 		if json.Unmarshal(body, &parsed) == nil {
-			return parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens, parsed.Model
+			return UsageResult{
+				PromptTokens:     parsed.Usage.PromptTokens,
+				CompletionTokens: parsed.Usage.CompletionTokens,
+				ModelName:        parsed.Model,
+			}
 		}
 	default:
 		// Fallback: try OpenAI-compatible format for unknown providers
@@ -241,25 +266,31 @@ func parseUsage(providerName string, body []byte) (prompt, completion int, model
 			} `json:"usage"`
 		}
 		if json.Unmarshal(body, &parsed) == nil && (parsed.Usage.PromptTokens > 0 || parsed.Usage.CompletionTokens > 0) {
-			return parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens, parsed.Model
+			return UsageResult{
+				PromptTokens:     parsed.Usage.PromptTokens,
+				CompletionTokens: parsed.Usage.CompletionTokens,
+				ModelName:        parsed.Model,
+			}
 		}
 	}
-	return 0, 0, ""
+	return UsageResult{}
 }
 
 // buildNativeLogData constructs a LogData from native proxy usage info.
-func buildNativeLogData(ctx context.Context, providerName, modelName string, startTime time.Time, prompt, completion int) callback.LogData {
+func buildNativeLogData(ctx context.Context, providerName string, startTime time.Time, usage UsageResult) callback.LogData {
 	endTime := time.Now()
 	data := callback.LogData{
-		Model:            modelName,
-		Provider:         providerName,
-		StartTime:        startTime,
-		EndTime:          endTime,
-		Latency:          endTime.Sub(startTime),
-		PromptTokens:     prompt,
-		CompletionTokens: completion,
-		TotalTokens:      prompt + completion,
-		Cost:             pricing.Default().TotalCost(modelName, prompt, completion),
+		Model:                    usage.ModelName,
+		Provider:                 providerName,
+		StartTime:                startTime,
+		EndTime:                  endTime,
+		Latency:                  endTime.Sub(startTime),
+		PromptTokens:             usage.PromptTokens,
+		CompletionTokens:         usage.CompletionTokens,
+		TotalTokens:              usage.PromptTokens + usage.CompletionTokens,
+		Cost:                     pricing.Default().TotalCost(usage.ModelName, usage.PromptTokens, usage.CompletionTokens),
+		CacheReadInputTokens:     usage.CacheReadInputTokens,
+		CacheCreationInputTokens: usage.CacheCreationInputTokens,
 	}
 	if tokenHash, ok := ctx.Value(middleware.ContextKeyTokenHash).(string); ok {
 		data.APIKey = tokenHash
@@ -315,20 +346,26 @@ type readCloserOnly struct{ io.ReadCloser }
 func (r *sseSpendReader) Close() error {
 	err := r.src.Close()
 
-	prompt, completion, modelName := parseSSEUsage(r.providerName, r.buf.Bytes())
-	if modelName == "" {
-		modelName = r.requestModel
+	usage := parseSSEUsage(r.providerName, r.buf.Bytes())
+	if usage.ModelName == "" {
+		usage.ModelName = r.requestModel
 	}
 	go r.callbacks.LogSuccess(buildNativeLogData(
-		r.ctx, r.providerName, modelName, r.startTime,
-		prompt, completion,
+		r.ctx, r.providerName, r.startTime, usage,
 	))
 	return err
 }
 
 // parseSSEUsage scans SSE events for usage data.
 // Anthropic: model in message_start, usage in message_delta.
-func parseSSEUsage(providerName string, raw []byte) (prompt, completion int, modelName string) {
+func parseSSEUsage(providerName string, raw []byte) UsageResult {
+	var (
+		prompt        int
+		completion    int
+		modelName     string
+		cacheRead     int
+		cacheCreation int
+	)
 	// Split into lines and process "data: " prefixed lines.
 	for _, line := range bytes.Split(raw, []byte("\n")) {
 		line = bytes.TrimSpace(line)
@@ -344,8 +381,10 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion int, mod
 				Message struct {
 					Model string `json:"model"`
 					Usage struct {
-						InputTokens  int `json:"input_tokens"`
-						OutputTokens int `json:"output_tokens"`
+						InputTokens              int `json:"input_tokens"`
+						OutputTokens             int `json:"output_tokens"`
+						CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+						CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 					} `json:"usage"`
 				} `json:"message"`
 				Usage struct {
@@ -359,9 +398,12 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion int, mod
 			if event.Type == "message_start" && event.Message.Model != "" {
 				modelName = event.Message.Model
 			}
-			// message_start carries input_tokens in message.usage
-			if event.Type == "message_start" && event.Message.Usage.InputTokens > 0 {
-				prompt = event.Message.Usage.InputTokens
+			// message_start carries input_tokens (+ cache tokens) in message.usage
+			if event.Type == "message_start" {
+				u := event.Message.Usage
+				cacheRead = u.CacheReadInputTokens
+				cacheCreation = u.CacheCreationInputTokens
+				prompt = u.InputTokens + cacheRead + cacheCreation
 			}
 			// message_delta carries output_tokens in root usage
 			if event.Type == "message_delta" && event.Usage.OutputTokens > 0 {
@@ -408,7 +450,13 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion int, mod
 			}
 		}
 	}
-	return
+	return UsageResult{
+		PromptTokens:             prompt,
+		CompletionTokens:         completion,
+		ModelName:                modelName,
+		CacheReadInputTokens:     cacheRead,
+		CacheCreationInputTokens: cacheCreation,
+	}
 }
 
 // resolveNativeUpstream finds the base URL and API key for a native provider.

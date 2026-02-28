@@ -44,23 +44,27 @@ type SpendRecord struct {
 	TeamID           string
 	Tags             []string
 	Metadata         map[string]any
-	Cost             float64
+	Cost                     float64
+	CacheReadInputTokens     int
+	CacheCreationInputTokens int
 }
 
 // LogSuccess implements callback.CustomLogger — writes spend to DB.
 func (t *Tracker) LogSuccess(data callback.LogData) {
 	t.Record(context.Background(), SpendRecord{
-		Model:            data.Model,
-		APIKey:           data.APIKey,
-		PromptTokens:     data.PromptTokens,
-		CompletionTokens: data.CompletionTokens,
-		TotalTokens:      data.TotalTokens,
-		StartTime:        data.StartTime,
-		EndTime:          data.EndTime,
-		User:             data.UserID,
-		TeamID:           data.TeamID,
-		Tags:             data.RequestTags,
-		Cost:             data.Cost,
+		Model:                    data.Model,
+		APIKey:                   data.APIKey,
+		PromptTokens:             data.PromptTokens,
+		CompletionTokens:         data.CompletionTokens,
+		TotalTokens:              data.TotalTokens,
+		StartTime:                data.StartTime,
+		EndTime:                  data.EndTime,
+		User:                     data.UserID,
+		TeamID:                   data.TeamID,
+		Tags:                     data.RequestTags,
+		Cost:                     data.Cost,
+		CacheReadInputTokens:     data.CacheReadInputTokens,
+		CacheCreationInputTokens: data.CacheCreationInputTokens,
 	})
 }
 
@@ -72,7 +76,10 @@ func (t *Tracker) LogFailure(callback.LogData) {}
 func (t *Tracker) calculateCost(rec SpendRecord) float64 {
 	cost := rec.Cost
 	if cost == 0 && t.calculator != nil {
-		cost = t.calculator.Calculate(rec.Model, rec.PromptTokens, rec.CompletionTokens)
+		cost = t.calculator.CalculateWithCache(rec.Model, rec.PromptTokens, rec.CompletionTokens, CacheTokens{
+			ReadInputTokens:     rec.CacheReadInputTokens,
+			CreationInputTokens: rec.CacheCreationInputTokens,
+		})
 	}
 	if cost == 0 && (rec.PromptTokens > 0 || rec.CompletionTokens > 0) {
 		cost = pricing.Default().TotalCost(rec.Model, rec.PromptTokens, rec.CompletionTokens)

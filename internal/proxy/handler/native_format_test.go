@@ -369,7 +369,9 @@ func TestParseSSEUsage_Anthropic_InputTokens(t *testing.T) {
 			`data: {"type":"content_block_delta","delta":{"text":"hi"}}` + "\n" +
 			`data: {"type":"message_delta","usage":{"input_tokens":0,"output_tokens":15}}` + "\n",
 	)
-	prompt, completion, model := parseSSEUsage("anthropic", raw)
+	got := parseSSEUsage("anthropic", raw)
+
+	prompt, completion, model := got.PromptTokens, got.CompletionTokens, got.ModelName
 	assert.Equal(t, 42, prompt, "input_tokens should be parsed from message_start.message.usage")
 	assert.Equal(t, 15, completion, "output_tokens should be parsed from message_delta.usage")
 	assert.Equal(t, "claude-sonnet-4-20250514", model)
@@ -381,7 +383,9 @@ func TestParseSSEUsage_Gemini(t *testing.T) {
 		`data: {"candidates":[{"content":{"parts":[{"text":"hello"}]}}],"modelVersion":"gemini-2.0-flash","usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5}}` + "\n" +
 			`data: {"candidates":[{"content":{"parts":[{"text":" world"}]}}],"modelVersion":"gemini-2.0-flash","usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":20}}` + "\n",
 	)
-	prompt, completion, model := parseSSEUsage("gemini", raw)
+	got := parseSSEUsage("gemini", raw)
+
+	prompt, completion, model := got.PromptTokens, got.CompletionTokens, got.ModelName
 	assert.Equal(t, 10, prompt, "promptTokenCount from last chunk")
 	assert.Equal(t, 20, completion, "candidatesTokenCount from last chunk")
 	assert.Equal(t, "gemini-2.0-flash", model)
@@ -393,7 +397,9 @@ func TestParseSSEUsage_Anthropic_ZeroInputTokens_BeforeFix(t *testing.T) {
 	raw := []byte(
 		`data: {"type":"message_start","message":{"model":"claude-sonnet-4-20250514","usage":{"input_tokens":100,"output_tokens":0}}}` + "\n",
 	)
-	prompt, _, _ := parseSSEUsage("anthropic", raw)
+	got := parseSSEUsage("anthropic", raw)
+
+	prompt := got.PromptTokens
 	assert.Equal(t, 100, prompt, "input_tokens must come from nested message.usage")
 }
 
@@ -403,7 +409,9 @@ func TestParseSSEUsage_OpenAI(t *testing.T) {
 		`data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","model":"gpt-4o","choices":[{"delta":{"content":"hi"}}]}` + "\n" +
 			`data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","model":"gpt-4o","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":25,"total_tokens":35}}` + "\n",
 	)
-	prompt, completion, model := parseSSEUsage("openai", raw)
+	got := parseSSEUsage("openai", raw)
+
+	prompt, completion, model := got.PromptTokens, got.CompletionTokens, got.ModelName
 	assert.Equal(t, 10, prompt, "prompt_tokens from usage chunk")
 	assert.Equal(t, 25, completion, "completion_tokens from usage chunk")
 	assert.Equal(t, "gpt-4o", model)
@@ -415,7 +423,9 @@ func TestParseSSEUsage_OpenAI_NoUsage(t *testing.T) {
 		`data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","model":"gpt-4o","choices":[{"delta":{"content":"hi"}}]}` + "\n" +
 			`data: [DONE]` + "\n",
 	)
-	prompt, completion, model := parseSSEUsage("openai", raw)
+	got := parseSSEUsage("openai", raw)
+
+	prompt, completion, model := got.PromptTokens, got.CompletionTokens, got.ModelName
 	assert.Equal(t, 0, prompt)
 	assert.Equal(t, 0, completion)
 	assert.Equal(t, "gpt-4o", model)
@@ -423,7 +433,9 @@ func TestParseSSEUsage_OpenAI_NoUsage(t *testing.T) {
 
 func TestParseUsage_OpenAI(t *testing.T) {
 	body := []byte(`{"id":"chatcmpl-abc","model":"gpt-4o","usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`)
-	prompt, completion, model := parseUsage("openai", body)
+	got := parseUsage("openai", body)
+
+	prompt, completion, model := got.PromptTokens, got.CompletionTokens, got.ModelName
 	assert.Equal(t, 100, prompt)
 	assert.Equal(t, 50, completion)
 	assert.Equal(t, "gpt-4o", model)
@@ -431,7 +443,9 @@ func TestParseUsage_OpenAI(t *testing.T) {
 
 func TestParseUsage_OpenRouter(t *testing.T) {
 	body := []byte(`{"model":"meta-llama/llama-3-70b","usage":{"prompt_tokens":200,"completion_tokens":80}}`)
-	prompt, completion, model := parseUsage("openrouter", body)
+	got := parseUsage("openrouter", body)
+
+	prompt, completion, model := got.PromptTokens, got.CompletionTokens, got.ModelName
 	assert.Equal(t, 200, prompt)
 	assert.Equal(t, 80, completion)
 	assert.Equal(t, "meta-llama/llama-3-70b", model)
@@ -439,7 +453,9 @@ func TestParseUsage_OpenRouter(t *testing.T) {
 
 func TestParseUsage_DeepSeek(t *testing.T) {
 	body := []byte(`{"model":"deepseek-chat","usage":{"prompt_tokens":50,"completion_tokens":30}}`)
-	prompt, completion, model := parseUsage("deepseek", body)
+	got := parseUsage("deepseek", body)
+
+	prompt, completion, model := got.PromptTokens, got.CompletionTokens, got.ModelName
 	assert.Equal(t, 50, prompt)
 	assert.Equal(t, 30, completion)
 	assert.Equal(t, "deepseek-chat", model)
@@ -447,7 +463,9 @@ func TestParseUsage_DeepSeek(t *testing.T) {
 
 func TestParseUsage_DefaultFallback(t *testing.T) {
 	body := []byte(`{"model":"some-model","usage":{"prompt_tokens":10,"completion_tokens":5}}`)
-	prompt, completion, model := parseUsage("unknown-provider", body)
+	got := parseUsage("unknown-provider", body)
+
+	prompt, completion, model := got.PromptTokens, got.CompletionTokens, got.ModelName
 	assert.Equal(t, 10, prompt)
 	assert.Equal(t, 5, completion)
 	assert.Equal(t, "some-model", model)
@@ -456,7 +474,9 @@ func TestParseUsage_DefaultFallback(t *testing.T) {
 func TestParseUsage_DefaultFallback_ZeroTokens(t *testing.T) {
 	// Default fallback requires at least one non-zero token count
 	body := []byte(`{"model":"some-model","usage":{"prompt_tokens":0,"completion_tokens":0}}`)
-	prompt, completion, model := parseUsage("unknown-provider", body)
+	got := parseUsage("unknown-provider", body)
+
+	prompt, completion, model := got.PromptTokens, got.CompletionTokens, got.ModelName
 	assert.Equal(t, 0, prompt)
 	assert.Equal(t, 0, completion)
 	assert.Equal(t, "", model)
@@ -464,7 +484,9 @@ func TestParseUsage_DefaultFallback_ZeroTokens(t *testing.T) {
 
 func TestParseUsage_Anthropic(t *testing.T) {
 	body := []byte(`{"model":"claude-sonnet-4-20250514","usage":{"input_tokens":42,"output_tokens":15}}`)
-	prompt, completion, model := parseUsage("anthropic", body)
+	got := parseUsage("anthropic", body)
+
+	prompt, completion, model := got.PromptTokens, got.CompletionTokens, got.ModelName
 	assert.Equal(t, 42, prompt)
 	assert.Equal(t, 15, completion)
 	assert.Equal(t, "claude-sonnet-4-20250514", model)
@@ -472,7 +494,9 @@ func TestParseUsage_Anthropic(t *testing.T) {
 
 func TestParseUsage_InvalidJSON(t *testing.T) {
 	body := []byte(`not json`)
-	prompt, completion, model := parseUsage("openai", body)
+	got := parseUsage("openai", body)
+
+	prompt, completion, model := got.PromptTokens, got.CompletionTokens, got.ModelName
 	assert.Equal(t, 0, prompt)
 	assert.Equal(t, 0, completion)
 	assert.Equal(t, "", model)
