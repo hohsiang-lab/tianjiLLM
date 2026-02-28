@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
+	"github.com/praxisllmlab/tianjiLLM/internal/pricing"
 )
 
 // Tracker records spend after each LLM call and updates key/team/user budgets.
@@ -71,6 +72,14 @@ func (t *Tracker) Record(ctx context.Context, rec SpendRecord) {
 	cost := rec.Cost
 	if cost == 0 && t.calculator != nil {
 		cost = t.calculator.Calculate(rec.Model, rec.PromptTokens, rec.CompletionTokens)
+	}
+	// FR-1: Fallback to pricing.Default() when spend.Calculator has no pricing data
+	if cost == 0 && (rec.PromptTokens > 0 || rec.CompletionTokens > 0) {
+		cost = pricing.Default().TotalCost(rec.Model, rec.PromptTokens, rec.CompletionTokens)
+	}
+	// FR-3: Warn when streaming usage reports zero tokens
+	if rec.PromptTokens == 0 && rec.CompletionTokens == 0 {
+		log.Printf("warn: spend record for model %q has zero tokens — usage may not have been extracted", rec.Model)
 	}
 
 	metadataJSON, _ := json.Marshal(rec.Metadata)
