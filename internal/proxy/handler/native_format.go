@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -110,6 +111,18 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 
 			if h.Callbacks == nil {
 				return nil
+			}
+
+			// Transparently decompress gzip responses (like LiteLLM/httpx).
+			// Go's ReverseProxy passes through compressed bytes as-is, but we
+			// need plaintext to parse usage tokens and for consistent client behavior.
+			if resp.Header.Get("Content-Encoding") == "gzip" {
+				gr, gzErr := gzip.NewReader(resp.Body)
+				if gzErr == nil {
+					resp.Body = &gzipReadCloser{gz: gr, orig: resp.Body}
+					resp.Header.Del("Content-Encoding")
+					resp.Header.Del("Content-Length") // length changes after decompression
+				}
 			}
 
 			streaming := strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
@@ -279,6 +292,19 @@ func (r *sseSpendReader) Read(p []byte) (int, error) {
 		r.buf.Write(p[:n])
 	}
 	return n, err
+}
+
+// gzipReadCloser wraps a gzip.Reader and closes both the gzip reader and
+// the original response body.
+type gzipReadCloser struct {
+	gz   *gzip.Reader
+	orig io.ReadCloser
+}
+
+func (g *gzipReadCloser) Read(p []byte) (int, error) { return g.gz.Read(p) }
+func (g *gzipReadCloser) Close() error {
+	g.gz.Close()
+	return g.orig.Close()
 }
 
 // readCloserOnly wraps an io.ReadCloser to hide any additional interfaces
