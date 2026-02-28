@@ -140,10 +140,11 @@ func TestNativeProxy_AnthropicSpendLog(t *testing.T) {
 }
 
 func TestNativeProxy_StreamingSpendLog(t *testing.T) {
-	// Simulate a real Anthropic streaming response with usage in message_delta.
+	// Simulate a real Anthropic streaming response.
+	// input_tokens arrive in message_start.message.usage; output_tokens in message_delta.usage.
 	ssePayload := strings.Join([]string{
 		"event: message_start",
-		`data: {"type":"message_start","message":{"id":"msg_stream1","model":"claude-sonnet-4-20250514","role":"assistant"}}`,
+		`data: {"type":"message_start","message":{"id":"msg_stream1","model":"claude-sonnet-4-20250514","role":"assistant","usage":{"input_tokens":25}}}`,
 		"",
 		"event: content_block_start",
 		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
@@ -155,7 +156,7 @@ func TestNativeProxy_StreamingSpendLog(t *testing.T) {
 		`data: {"type":"content_block_stop","index":0}`,
 		"",
 		"event: message_delta",
-		`data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":25,"output_tokens":8}}`,
+		`data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":8}}`,
 		"",
 		"event: message_stop",
 		`data: {"type":"message_stop"}`,

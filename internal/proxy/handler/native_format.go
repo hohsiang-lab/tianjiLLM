@@ -257,6 +257,9 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion int, mod
 				Type    string `json:"type"`
 				Message struct {
 					Model string `json:"model"`
+					Usage struct {
+						InputTokens int `json:"input_tokens"`
+					} `json:"usage"`
 				} `json:"message"`
 				Usage struct {
 					InputTokens  int `json:"input_tokens"`
@@ -266,11 +269,15 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion int, mod
 			if json.Unmarshal(data, &event) != nil {
 				continue
 			}
-			if event.Type == "message_start" && event.Message.Model != "" {
-				modelName = event.Message.Model
+			if event.Type == "message_start" {
+				if event.Message.Model != "" {
+					modelName = event.Message.Model
+				}
+				if event.Message.Usage.InputTokens > 0 {
+					prompt = event.Message.Usage.InputTokens
+				}
 			}
-			if event.Type == "message_delta" && (event.Usage.InputTokens > 0 || event.Usage.OutputTokens > 0) {
-				prompt = event.Usage.InputTokens
+			if event.Type == "message_delta" && event.Usage.OutputTokens > 0 {
 				completion = event.Usage.OutputTokens
 			}
 		}

@@ -55,13 +55,16 @@ func handleMessageStart(event StreamEvent) (*model.StreamChunk, bool, error) {
 	var msg struct {
 		ID    string `json:"id"`
 		Model string `json:"model"`
+		Usage struct {
+			InputTokens int `json:"input_tokens"`
+		} `json:"usage"`
 	}
 	if event.Message != nil {
 		_ = json.Unmarshal(event.Message, &msg)
 	}
 
 	role := "assistant"
-	return &model.StreamChunk{
+	chunk := &model.StreamChunk{
 		ID:     msg.ID,
 		Object: "chat.completion.chunk",
 		Model:  msg.Model,
@@ -73,7 +76,13 @@ func handleMessageStart(event StreamEvent) (*model.StreamChunk, bool, error) {
 				},
 			},
 		},
-	}, false, nil
+	}
+	if msg.Usage.InputTokens > 0 {
+		chunk.Usage = &model.Usage{
+			PromptTokens: msg.Usage.InputTokens,
+		}
+	}
+	return chunk, false, nil
 }
 
 func handleContentBlockStart(event StreamEvent) (*model.StreamChunk, bool, error) {
