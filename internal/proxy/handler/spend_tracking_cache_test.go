@@ -58,11 +58,9 @@ func TestSpendTracking_CacheRead_CostIncludesCacheFee(t *testing.T) {
 	data := spy.calls[0]
 	spy.mu.Unlock()
 
-	// Cost must include cache_read fee; current (buggy) cost ≈ $0.0000045
-	// Correct cost ≈ $0.022503
-	const wantMinCost = 0.01 // at least $0.01 — proves cache cost is included
-	assert.Greater(t, data.Cost, wantMinCost,
-		"T14: Cost must include cache_read fee (~$0.022503); currently only input cost (~$0.0000045) is calculated")
+	// 1 input × 3e-06 + 50000 cache_read × 3e-07 + 500 completion × 1.5e-05
+	// = 0.000003 + 0.015 + 0.0075 = 0.022503
+	assert.InDelta(t, 0.022503, data.Cost, 1e-6, "cost should match cache pricing")
 
 	// Also verify prompt tokens are correct
 	assert.Equal(t, 50001, data.PromptTokens,

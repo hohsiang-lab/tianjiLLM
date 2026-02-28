@@ -93,10 +93,11 @@ func (c *Calculator) ReloadFromDB(entries []db.ModelPricing) {
 }
 
 // TokenUsage carries all token counts for a single LLM call.
-// PromptTokens is the total input token count (input + cache_read + cache_creation),
-// used for 200K threshold determination, matching LiteLLM Usage semantics.
+// PromptTokens is the regular (non-cache) input token count only.
+// CacheReadInputTokens and CacheCreationInputTokens are tracked separately.
+// The 200K threshold is evaluated against the sum of all three.
 type TokenUsage struct {
-	PromptTokens             int // total = input + cache_read + cache_creation
+	PromptTokens             int // regular input tokens only (excludes cache_read and cache_creation)
 	CompletionTokens         int
 	CacheReadInputTokens     int
 	CacheCreationInputTokens int
