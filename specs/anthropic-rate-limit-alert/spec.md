@@ -1,159 +1,178 @@
 # Feature Specification: Anthropic Rate Limit Monitoring + Discord Alert
 
-**Feature Branch**: `feat/anthropic-rate-limit-alert`  
-**Created**: 2026-03-01  
-**Status**: Draft  
+**Feature Branch**: `feat/anthropic-rate-limit-alert`
+**Created**: 2026-03-01
+**Updated**: 2026-03-01 (fix: use precise per-type input/output headers; store raw values without conversion)
+**Status**: Draft
 **Linear Issue**: HO-69
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Rate Limit Alert When Tokens Are Low (Priority: P1)
+### User Story 1 - Alert When Input Tokens Are Low (Priority: P1)
 
-As an operator running TianjiLLM with Anthropic as a provider, I want to receive a Discord alert
-when the Anthropic API's remaining token quota drops below a configured threshold, so I can take
-action before hitting rate limits that would degrade service.
+As an operator, I want a Discord alert when Anthropic input token quota drops below threshold,
+so I can act before requests get rate limited.
 
-**Why this priority**: Core alert function — without this, the feature has no value.
-
-**Independent Test**: Configure `discord_webhook_url` + `ratelimit_alert_threshold: 0.2` in
-`proxy_config.yaml`. Send an Anthropic request that returns `anthropic-ratelimit-tokens-remaining`
-header with value below 20% of limit. Verify Discord webhook receives a POST with a meaningful message.
+**Independent Test**: Set `discord_webhook_url` + `ratelimit_alert_threshold: 0.2`. Send a
+request that returns `anthropic-ratelimit-input-tokens-remaining` < 20% of
+`anthropic-ratelimit-input-tokens-limit`. Verify Discord POST contains exact header values.
 
 **Acceptance Scenarios**:
 
-1. **Given** `discord_webhook_url` and `ratelimit_alert_threshold: 0.2` are set in config,
-   **When** an Anthropic response includes `anthropic-ratelimit-tokens-remaining` = 1000 and
-   `anthropic-ratelimit-tokens-limit` = 10000 (10% remaining),
-   **Then** TianjiLLM POSTs an alert message to the Discord webhook URL within the same request cycle.
+1. **Given** threshold 0.2, **When** `input-tokens-limit=10000`, `input-tokens-remaining=1000` (10%),
+   **Then** Discord POST fires with exact values: limit=10000, remaining=1000, reset=<raw RFC3339 string>.
 
-2. **Given** same config,
-   **When** an Anthropic response includes `anthropic-ratelimit-tokens-remaining` = 4000 and
-   `anthropic-ratelimit-tokens-limit` = 10000 (40% remaining — above threshold),
-   **Then** no Discord alert is sent.
+2. **Given** threshold 0.2, **When** `input-tokens-remaining=4000`, limit=10000 (40%),
+   **Then** no alert.
 
-3. **Given** `discord_webhook_url` is not set in config,
-   **When** any Anthropic response is received,
-   **Then** no Discord alert is attempted and no error is logged.
+3. **Given** `discord_webhook_url` not set, **Then** no alert, no error.
 
 ---
 
-### User Story 2 - Cooldown Prevents Alert Spam (Priority: P2)
+### User Story 2 - Alert When Output Tokens Are Low (Priority: P1)
 
-As an operator, I want the alert system to avoid flooding Discord with repeated messages
-every request, so I can focus on actionable signals rather than noise.
+Output tokens are a separate limit and can be exhausted independently from input tokens.
 
-**Why this priority**: Without cooldown, a busy API period will spam Discord and operators
-will start ignoring the channel.
-
-**Independent Test**: Send 20 Anthropic requests in rapid succession, all returning tokens below
-threshold. Verify Discord receives only 1 alert within the cooldown window (default 1 hour).
+**Independent Test**: Trigger response with `output-tokens-remaining` below threshold.
+Verify Discord alert fires with exact output token values.
 
 **Acceptance Scenarios**:
 
-1. **Given** cooldown is 1 hour (default),
-   **When** a rate limit alert fires and another triggering response arrives within 1 hour,
-   **Then** the second alert is suppressed.
+1. **Given** threshold 0.2, **When** `output-tokens-limit=8000`, `output-tokens-remaining=1500` (18.75%),
+   **Then** Discord alert fires with exact values: output limit=8000, remaining=1500.
 
-2. **Given** cooldown is 1 hour,
-   **When** a rate limit alert fires and 61 minutes pass, and another triggering response arrives,
-   **Then** the new alert is sent.
+2. **Given** input tokens above threshold, output tokens below threshold,
+   **Then** alert fires for output tokens only (checks are independent).
 
 ---
 
-### User Story 3 - Configurable Alert Threshold (Priority: P3)
+### User Story 3 - Cooldown Prevents Spam (Priority: P2)
 
-As an operator, I want to tune the alerting threshold per deployment (e.g., alert at 30% for
-critical production, 10% for dev environments), so the system fits different risk tolerances.
-
-**Why this priority**: Flexibility is needed but the feature works at the default 20%.
-
-**Independent Test**: Set `ratelimit_alert_threshold: 0.3`. Send a response with 25% tokens
-remaining. Verify alert fires. Set threshold to `0.1`. Send same response. Verify no alert fires.
+Separate cooldown per alert type to avoid flooding Discord.
 
 **Acceptance Scenarios**:
 
-1. **Given** `ratelimit_alert_threshold: 0.3`,
-   **When** remaining tokens = 25% of limit,
-   **Then** alert fires.
+1. **Given** cooldown 1h, input alert fired, **When** another input-below-threshold response arrives within 1h,
+   **Then** second alert suppressed.
 
-2. **Given** `ratelimit_alert_threshold: 0.1`,
-   **When** remaining tokens = 25% of limit,
-   **Then** no alert fires.
+2. **Given** input alert on cooldown, **When** output tokens drop below threshold,
+   **Then** output alert fires (separate cooldown key).
+
+3. **Given** 61 minutes after last alert, **When** new triggering response arrives,
+   **Then** new alert sent.
+
+---
+
+### User Story 4 - Configurable Threshold (Priority: P3)
+
+**Acceptance Scenarios**:
+
+1. `ratelimit_alert_threshold: 0.3` + remaining=25% → alert fires.
+2. `ratelimit_alert_threshold: 0.1` + remaining=25% → no alert.
 
 ---
 
 ### Edge Cases
 
-- What if `anthropic-ratelimit-tokens-remaining` header is missing from response?
-  → Skip rate limit check silently; do not error.
-- What if `anthropic-ratelimit-tokens-limit` is 0 or missing?
-  → Skip rate limit check to avoid division-by-zero; log a warning.
-- What if the Discord webhook URL returns non-2xx?
-  → Log a warning, continue proxy response unaffected.
-- What happens with streaming responses?
-  → Headers are available on the initial HTTP response; check them there regardless of body streaming.
-- What if `ratelimit_alert_threshold` is not set?
-  → Default to 0.2 (20%).
+- `anthropic-ratelimit-input-tokens-remaining` missing → skip input check silently (debug log).
+- `anthropic-ratelimit-input-tokens-limit` missing or parses as 0 → skip (warn log with raw value).
+- `anthropic-ratelimit-output-tokens-*` missing → skip output check silently.
+- Discord webhook returns non-2xx → warn log with status code + response body. Proxy unaffected.
+- Streaming response → headers are on initial HTTP response; `ModifyResponse` fires before body is consumed. Correct.
+- `ratelimit_alert_threshold` not set → default 0.2.
+
+---
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST read `anthropic-ratelimit-tokens-remaining` and
-  `anthropic-ratelimit-tokens-limit` response headers in `native_format.go`'s `ModifyResponse`
-  handler for Anthropic provider responses.
+- **FR-001**: In `native_format.go` `ModifyResponse`, when provider is Anthropic, read ALL of:
+  - `anthropic-ratelimit-input-tokens-limit`
+  - `anthropic-ratelimit-input-tokens-remaining`
+  - `anthropic-ratelimit-input-tokens-reset`
+  - `anthropic-ratelimit-output-tokens-limit`
+  - `anthropic-ratelimit-output-tokens-remaining`
+  - `anthropic-ratelimit-output-tokens-reset`
+  - `anthropic-ratelimit-requests-limit`
+  - `anthropic-ratelimit-requests-remaining`
+  - `anthropic-ratelimit-requests-reset`
 
-- **FR-002**: System MUST calculate remaining token ratio:
-  `ratio = remaining / limit`. If `ratio < ratelimit_alert_threshold`, trigger Discord alert.
+- **FR-002**: All header values stored as raw parsed types — integers as `int64`, reset timestamps
+  as raw `string` (RFC3339, as-is from header). **No rounding, no aggregation, no conversion.**
 
-- **FR-003**: System MUST implement `DiscordRateLimitAlerter` in
-  `internal/callback/discord_ratelimit.go`, following the `SlackCallback` struct pattern
-  (webhook URL, cooldown, `alerted` map, mutex, `sendThrottledToWebhook`).
+- **FR-003**: Two independent threshold checks per response:
+  - `float64(input-tokens-remaining) / float64(input-tokens-limit) < threshold` → trigger input alert
+  - `float64(output-tokens-remaining) / float64(output-tokens-limit) < threshold` → trigger output alert
+  Each check has its own cooldown key. Both checks run on every Anthropic response.
 
-- **FR-004**: `DiscordRateLimitAlerter` MUST send HTTP POST to Discord Incoming Webhook URL
-  with JSON body `{"content": "<alert message>"}` (Discord Incoming Webhook format).
+- **FR-004**: Implement `DiscordRateLimitAlerter` in `internal/callback/discord_ratelimit.go`:
+  - Fields: `webhookURL string`, `threshold float64`, `cooldown time.Duration`,
+    `mu sync.Mutex`, `alerted map[string]time.Time`, `client *http.Client`
+  - Method: `CheckAndAlert(state AnthropicRateLimitState)` (non-blocking, runs in goroutine)
 
-- **FR-005**: Alert message MUST include: remaining tokens, limit, percentage remaining,
-  and current timestamp.
+- **FR-005**: Discord alert payload:
+  ```json
+  {"content": "⚠️ Anthropic Rate Limit\nInput: {remaining}/{limit} remaining (resets {reset})\nOutput: {remaining}/{limit} remaining (resets {reset})\nRequests: {remaining}/{limit} remaining (resets {reset})\nAlert triggered by: input | output | both"}
+  ```
+  All values are **exact integers / strings from headers**. Reset timestamps are the raw header
+  string, not reformatted. The percentage shown in message is `remaining * 100 / limit` (integer,
+  display only). Threshold comparison always uses `float64` on raw values.
 
-- **FR-006**: System MUST support cooldown per alert key to suppress duplicate alerts.
-  Default cooldown: 1 hour. Alert key: `"ratelimit:anthropic"`.
+- **FR-006**: Cooldown keys:
+  - `"ratelimit:anthropic:input"` for input token alert
+  - `"ratelimit:anthropic:output"` for output token alert
+  Default cooldown: 1 hour. Per-key, independent.
 
-- **FR-007**: Config struct MUST add two new optional fields:
-  - `discord_webhook_url` (string, YAML tag `discord_webhook_url`)
-  - `ratelimit_alert_threshold` (float64, YAML tag `ratelimit_alert_threshold`, default 0.2)
+- **FR-007**: `ProxyConfig` (`internal/config/config.go`) adds:
+  - `DiscordWebhookURL string` yaml:`discord_webhook_url`
+  - `RatelimitAlertThreshold float64` yaml:`ratelimit_alert_threshold` (default: 0.2)
 
-- **FR-008**: `DiscordRateLimitAlerter` MUST be initialized only when `discord_webhook_url`
-  is non-empty. It MUST be wired into the handler/proxy flow that processes Anthropic responses.
+- **FR-008**: `DiscordRateLimitAlerter` instantiated only if `discord_webhook_url` non-empty.
+  Wired into `Handlers` struct, called from `ModifyResponse`.
 
-- **FR-009**: Alert sending MUST be non-blocking (use `go` goroutine) to not affect proxy latency.
+- **FR-009**: Alert goroutine is fire-and-forget. No blocking in request path.
 
-- **FR-010**: The `ModifyResponse` hook MUST NOT return an error due to rate limit header
-  parsing failures; all errors are logged and swallowed.
+- **FR-010**: `ModifyResponse` must NOT return error from rate limit logic. All errors logged at
+  warn level with raw header value, then swallowed. Proxy response continues normally.
+
+- **FR-011**: Parse errors log raw header value:
+  `log.Warnf("ratelimit: cannot parse %q=%q: %v", headerName, rawValue, err)`
 
 ### Key Entities
 
-- **DiscordRateLimitAlerter**: Struct in `internal/callback/discord_ratelimit.go`. Fields:
-  `webhookURL string`, `threshold float64`, `cooldown time.Duration`, `mu sync.Mutex`,
-  `alerted map[string]time.Time`, `client *http.Client`.
+```go
+// AnthropicRateLimitState holds raw parsed header values.
+// No derived or computed fields. All values as received from Anthropic.
+type AnthropicRateLimitState struct {
+    InputTokensLimit      int64
+    InputTokensRemaining  int64
+    InputTokensReset      string // raw RFC3339 from header, not reformatted
+    OutputTokensLimit     int64
+    OutputTokensRemaining int64
+    OutputTokensReset     string
+    RequestsLimit         int64
+    RequestsRemaining     int64
+    RequestsReset         string
+}
+```
 
-- **Config extension**: Two new fields in `internal/config/config.go` `ProxyConfig` struct:
-  `DiscordWebhookURL string` and `RatelimitAlertThreshold float64`.
+---
 
 ## Success Criteria *(mandatory)*
 
-### Measurable Outcomes
+- **SC-001**: Input tokens below threshold → Discord POST within 500ms, message contains exact
+  `InputTokensLimit`, `InputTokensRemaining`, `InputTokensReset` values from headers.
 
-- **SC-001**: When Anthropic response contains tokens-remaining < threshold x tokens-limit,
-  Discord webhook receives a POST within 500ms of the response being processed (excluding network).
+- **SC-002**: Output tokens below threshold → Discord POST within 500ms, message contains exact
+  `OutputTokensLimit`, `OutputTokensRemaining`, `OutputTokensReset` values from headers.
 
-- **SC-002**: In a sequence of 100 triggering responses within 1 hour, Discord receives exactly 1
-  alert (cooldown works).
+- **SC-003**: 100 triggering responses within 1 hour → exactly 1 alert per type (input, output).
 
-- **SC-003**: Proxy response latency is unaffected by alert sending (alert is async goroutine).
+- **SC-004**: Proxy P99 latency unaffected (alert is goroutine, not in request path).
 
-- **SC-004**: All existing tests in `internal/callback/` and `internal/proxy/handler/` continue
-  to pass with no regression.
+- **SC-005**: `discord_webhook_url` absent → no `DiscordRateLimitAlerter` instantiated, zero alert code executed.
 
-- **SC-005**: When `discord_webhook_url` is absent from config, no `DiscordRateLimitAlerter` is
-  instantiated and no alert code path is exercised.
+- **SC-006**: All existing `internal/callback/` and `internal/proxy/handler/` tests pass.
+
+- **SC-007**: Missing or unparseable headers → proxy completes normally, warn log, no panic, no client error.
