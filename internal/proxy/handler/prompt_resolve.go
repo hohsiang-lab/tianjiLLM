@@ -12,7 +12,7 @@ import (
 // resolvePromptTemplate checks if the request has a PromptName and, if so,
 // fetches the template from DB, substitutes variables, and sets the messages.
 // Returns nil if no prompt resolution is needed.
-func resolvePromptTemplate(ctx context.Context, queries *db.Queries, req *model.ChatCompletionRequest) error {
+func resolvePromptTemplate(ctx context.Context, queries db.Store, req *model.ChatCompletionRequest) error {
 	if req.PromptName == "" {
 		return nil
 	}

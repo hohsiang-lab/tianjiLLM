@@ -31,7 +31,7 @@ type DBPinger interface {
 // Handlers holds all HTTP handler dependencies.
 type Handlers struct {
 	Config           *config.ProxyConfig
-	DB               *db.Queries
+	DB               db.Store
 	Cache            cache.Cache
 	Router           *router.Router
 	Callbacks        *callback.Registry
