@@ -122,18 +122,18 @@ func toLogRow(row db.ListRequestLogsRow) pages.RequestLogRow {
 		PromptTokens:     int(row.PromptTokens),
 		CompletionTokens: int(row.CompletionTokens),
 		CacheHit:         row.CacheHit,
-		KeyHash:          row.ApiKey,
+		KeyHash:          row.KeyHash,
 		TeamID:           row.TeamID,
 		EndUser:          row.EndUser,
 	}
 
-	if row.Starttime.Valid {
-		lr.Timestamp = row.Starttime.Time
+	if row.Ts.Valid {
+		lr.Timestamp = row.Ts.Time
 	}
 
 	// Duration = endtime - starttime
-	if row.Starttime.Valid && row.Endtime.Valid {
-		lr.DurationSec = row.Endtime.Time.Sub(row.Starttime.Time).Seconds()
+	if row.Ts.Valid && row.Endtime.Valid {
+		lr.DurationSec = row.Endtime.Time.Sub(row.Ts.Time).Seconds()
 	}
 
 	// Status: Failed if ErrorLogs row exists

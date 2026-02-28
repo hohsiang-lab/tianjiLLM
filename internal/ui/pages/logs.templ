@@ -471,6 +471,12 @@ templ logRow(row RequestLogRow) {
 				@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
 					Failed
 				}
+				if row.StatusCode != nil {
+					<span class="text-xs text-muted-foreground ml-1">{ fmt.Sprintf("%d", *row.StatusCode) }</span>
+				}
+				if row.ErrorType != nil && *row.ErrorType != "" {
+					<span class="block text-xs text-muted-foreground truncate max-w-[120px]" title={ *row.ErrorType }>{ *row.ErrorType }</span>
+				}
 			} else {
 				@badge.Badge(badge.Props{Variant: badge.VariantDefault}) {
 					Success

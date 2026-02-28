@@ -123,51 +123,92 @@ WHERE starttime >= $1 AND starttime < $2;
 -- Request Logs Dashboard queries
 
 -- name: ListRequestLogs :many
-SELECT
+(
+  SELECT
     sl.request_id,
-    sl.starttime,
+    sl.starttime        AS ts,
     sl.endtime,
-    sl.api_key,
+    sl.api_key          AS key_hash,
     sl.model,
     sl.spend,
     sl.total_tokens,
     sl.prompt_tokens,
     sl.completion_tokens,
-    sl.call_type,
     sl.cache_hit,
     sl.team_id,
-    sl."user",
     sl.end_user,
-    sl.requester_ip_address,
-    el.status_code AS error_status_code,
+    el.status_code      AS error_status_code,
     el.error_type
-FROM "SpendLogs" sl
-LEFT JOIN "ErrorLogs" el ON sl.request_id = el.request_id
-WHERE sl.starttime >= sqlc.arg(start_date)
-  AND sl.starttime < sqlc.arg(end_date)
-  AND (sqlc.narg(filter_api_key)::text IS NULL OR sl.api_key = sqlc.narg(filter_api_key))
-  AND (sqlc.narg(filter_team_id)::text IS NULL OR sl.team_id = sqlc.narg(filter_team_id))
-  AND (sqlc.narg(filter_model)::text IS NULL OR sl.model = sqlc.narg(filter_model))
-  AND (sqlc.narg(filter_request_id)::text IS NULL OR sl.request_id = sqlc.narg(filter_request_id))
-  AND (sqlc.narg(filter_status)::text IS NULL
-       OR (sqlc.narg(filter_status) = 'success' AND el.id IS NULL)
-       OR (sqlc.narg(filter_status) = 'failed' AND el.id IS NOT NULL))
-ORDER BY sl.starttime DESC
+  FROM "SpendLogs" sl
+  LEFT JOIN "ErrorLogs" el ON sl.request_id = el.request_id
+  WHERE sl.starttime >= sqlc.arg(start_date)
+    AND sl.starttime < sqlc.arg(end_date)
+    AND (sqlc.narg(filter_api_key)::text IS NULL OR sl.api_key = sqlc.narg(filter_api_key))
+    AND (sqlc.narg(filter_team_id)::text IS NULL OR sl.team_id = sqlc.narg(filter_team_id))
+    AND (sqlc.narg(filter_model)::text IS NULL OR sl.model = sqlc.narg(filter_model))
+    AND (sqlc.narg(filter_request_id)::text IS NULL OR sl.request_id = sqlc.narg(filter_request_id))
+    AND (sqlc.narg(filter_status)::text IS NULL
+         OR (sqlc.narg(filter_status) = 'success' AND el.id IS NULL)
+         OR (sqlc.narg(filter_status) = 'failed' AND el.id IS NOT NULL))
+)
+UNION ALL
+(
+  SELECT
+    el.request_id,
+    el.created_at       AS ts,
+    NULL                AS endtime,
+    el.api_key_hash     AS key_hash,
+    el.model,
+    0.0::float8         AS spend,
+    0::int8             AS total_tokens,
+    0::int8             AS prompt_tokens,
+    0::int8             AS completion_tokens,
+    ''                  AS cache_hit,
+    NULL::text          AS team_id,
+    NULL::text          AS end_user,
+    el.status_code      AS error_status_code,
+    el.error_type
+  FROM "ErrorLogs" el
+  WHERE NOT EXISTS (SELECT 1 FROM "SpendLogs" WHERE request_id = el.request_id)
+    AND el.created_at >= sqlc.arg(start_date)
+    AND el.created_at < sqlc.arg(end_date)
+    AND (sqlc.narg(filter_model)::text IS NULL OR el.model = sqlc.narg(filter_model))
+    AND (sqlc.narg(filter_request_id)::text IS NULL OR el.request_id = sqlc.narg(filter_request_id))
+    AND (sqlc.narg(filter_api_key)::text IS NULL OR el.api_key_hash = sqlc.narg(filter_api_key))
+    AND (sqlc.narg(filter_status)::text IS NULL OR sqlc.narg(filter_status) = 'failed')
+)
+ORDER BY ts DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
 -- name: CountRequestLogs :one
-SELECT COUNT(*)
-FROM "SpendLogs" sl
-LEFT JOIN "ErrorLogs" el ON sl.request_id = el.request_id
-WHERE sl.starttime >= sqlc.arg(start_date)
-  AND sl.starttime < sqlc.arg(end_date)
-  AND (sqlc.narg(filter_api_key)::text IS NULL OR sl.api_key = sqlc.narg(filter_api_key))
-  AND (sqlc.narg(filter_team_id)::text IS NULL OR sl.team_id = sqlc.narg(filter_team_id))
-  AND (sqlc.narg(filter_model)::text IS NULL OR sl.model = sqlc.narg(filter_model))
-  AND (sqlc.narg(filter_request_id)::text IS NULL OR sl.request_id = sqlc.narg(filter_request_id))
-  AND (sqlc.narg(filter_status)::text IS NULL
-       OR (sqlc.narg(filter_status) = 'success' AND el.id IS NULL)
-       OR (sqlc.narg(filter_status) = 'failed' AND el.id IS NOT NULL));
+SELECT COUNT(*) FROM (
+  (
+    SELECT sl.request_id
+    FROM "SpendLogs" sl
+    LEFT JOIN "ErrorLogs" el ON sl.request_id = el.request_id
+    WHERE sl.starttime >= sqlc.arg(start_date)
+      AND sl.starttime < sqlc.arg(end_date)
+      AND (sqlc.narg(filter_api_key)::text IS NULL OR sl.api_key = sqlc.narg(filter_api_key))
+      AND (sqlc.narg(filter_team_id)::text IS NULL OR sl.team_id = sqlc.narg(filter_team_id))
+      AND (sqlc.narg(filter_model)::text IS NULL OR sl.model = sqlc.narg(filter_model))
+      AND (sqlc.narg(filter_request_id)::text IS NULL OR sl.request_id = sqlc.narg(filter_request_id))
+      AND (sqlc.narg(filter_status)::text IS NULL
+           OR (sqlc.narg(filter_status) = 'success' AND el.id IS NULL)
+           OR (sqlc.narg(filter_status) = 'failed' AND el.id IS NOT NULL))
+  )
+  UNION ALL
+  (
+    SELECT el.request_id
+    FROM "ErrorLogs" el
+    WHERE NOT EXISTS (SELECT 1 FROM "SpendLogs" WHERE request_id = el.request_id)
+      AND el.created_at >= sqlc.arg(start_date)
+      AND el.created_at < sqlc.arg(end_date)
+      AND (sqlc.narg(filter_model)::text IS NULL OR el.model = sqlc.narg(filter_model))
+      AND (sqlc.narg(filter_request_id)::text IS NULL OR el.request_id = sqlc.narg(filter_request_id))
+      AND (sqlc.narg(filter_api_key)::text IS NULL OR el.api_key_hash = sqlc.narg(filter_api_key))
+      AND (sqlc.narg(filter_status)::text IS NULL OR sqlc.narg(filter_status) = 'failed')
+  )
+) AS combined;
 
 -- Usage Dashboard queries
 
