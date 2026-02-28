@@ -9,10 +9,40 @@ SELECT * FROM "ModelAccessGroup" WHERE group_id = $1;
 -- name: ListAccessGroups :many
 SELECT * FROM "ModelAccessGroup" ORDER BY created_at DESC;
 
+-- name: GetAccessGroupByAlias :one
+SELECT * FROM "ModelAccessGroup" WHERE group_alias = $1 LIMIT 1;
+
 -- name: UpdateAccessGroup :exec
 UPDATE "ModelAccessGroup"
-SET models = $2, updated_at = NOW()
+SET group_alias = $2, models = $3, organization_id = $4, updated_at = NOW(), updated_by = $5
 WHERE group_id = $1;
 
 -- name: DeleteAccessGroup :exec
 DELETE FROM "ModelAccessGroup" WHERE group_id = $1;
+
+-- name: ListKeysByAccessGroup :many
+SELECT token, key_name, key_alias FROM "VerificationToken"
+WHERE sqlc.arg(group_id)::text = ANY(access_group_ids);
+
+-- name: AddKeyToAccessGroup :exec
+UPDATE "VerificationToken"
+SET access_group_ids = array_append(access_group_ids, sqlc.arg(group_id)::text)
+WHERE token = sqlc.arg(token)::text AND NOT (sqlc.arg(group_id)::text = ANY(access_group_ids));
+
+-- name: RemoveKeyFromAccessGroup :exec
+UPDATE "VerificationToken"
+SET access_group_ids = array_remove(access_group_ids, sqlc.arg(group_id)::text)
+WHERE token = sqlc.arg(token)::text;
+
+-- name: RemoveAccessGroupFromAllKeys :exec
+UPDATE "VerificationToken"
+SET access_group_ids = array_remove(access_group_ids, sqlc.arg(group_id)::text)
+WHERE sqlc.arg(group_id)::text = ANY(access_group_ids);
+
+-- name: ListKeysNotInAccessGroup :many
+SELECT token, key_name, key_alias FROM "VerificationToken"
+WHERE NOT (sqlc.arg(group_id)::text = ANY(access_group_ids)) OR access_group_ids IS NULL;
+
+-- name: ListAllKeySummaries :many
+SELECT token, key_name, key_alias FROM "VerificationToken"
+ORDER BY key_alias, key_name;

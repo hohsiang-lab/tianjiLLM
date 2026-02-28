@@ -1,0 +1,521 @@
+package pages
+
+import (
+	"fmt"
+	"net/url"
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/pagination"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/table"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/toast"
+)
+
+// --- Data types ---
+
+type KeyMemberOption struct {
+	Token    string
+	KeyName  string
+	KeyAlias string
+}
+
+type AccessGroupRow struct {
+	GroupID    string
+	GroupAlias string
+	Models     []string
+	OrgID      string
+	OrgAlias   string
+	CreatedAt  time.Time
+	Members    []KeyMemberOption
+}
+
+type AccessGroupsPageData struct {
+	Groups          []AccessGroupRow
+	Page            int
+	TotalPages      int
+	TotalCount      int
+	PerPage         int
+	Search          string
+	Orgs            []OrgOption
+	AvailableModels []string
+	AllKeys         []KeyMemberOption
+}
+
+func (d AccessGroupsPageData) accessGroupsFilterQueryString() string {
+	if d.Search != "" {
+		return "&search=" + url.QueryEscape(d.Search)
+	}
+	return ""
+}
+
+// --- Templates ---
+
+templ AccessGroupsPage(data AccessGroupsPageData) {
+	@AppLayout("Access Groups", "/ui/access-groups") {
+		@dialog.Script()
+		@input.Script()
+		@toast.Script()
+		<div class="space-y-3">
+			<div id="access-group-filters" class="flex items-center gap-2">
+				<div class="relative flex-1">
+					@icon.Search(icon.Props{Size: 16, Class: "absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"})
+					<input
+						type="text"
+						name="search"
+						placeholder="Search by alias..."
+						value={ data.Search }
+						class="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+						hx-get="/ui/access-groups/table"
+						hx-trigger="input changed delay:300ms"
+						hx-target="#access-groups-table"
+						hx-include="#access-group-filters"
+					/>
+				</div>
+				@dialog.Dialog(dialog.Props{ID: "create-access-group-dialog"}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Size: button.SizeSm}) {
+							@icon.Plus(icon.Props{Size: 16, Class: "mr-1"})
+							New Access Group
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Create New Access Group
+							}
+							@dialog.Description() {
+								Define a group with an alias and the models it grants access to.
+							}
+						}
+						@createAccessGroupForm(data)
+					}
+				}
+			</div>
+			<div id="access-groups-table" data-testid="access-groups-table">
+				@AccessGroupsTablePartial(data)
+			</div>
+		</div>
+	}
+}
+
+templ createAccessGroupForm(data AccessGroupsPageData) {
+	<form
+		hx-post="/ui/access-groups/create"
+		hx-target="#access-groups-table"
+		hx-swap="innerHTML"
+	>
+		<div class="space-y-4 py-4">
+			<div class="space-y-2">
+				<label for="group_alias" class="text-sm font-medium">Group Alias <span class="text-destructive">*</span></label>
+				@input.Input(input.Props{
+					ID:          "group_alias",
+					Name:        "group_alias",
+					Placeholder: "my-access-group",
+					Attributes:  templ.Attributes{"required": "true"},
+				})
+			</div>
+			if len(data.Orgs) > 0 {
+				<div class="space-y-2">
+					<label for="organization_id" class="text-sm font-medium">Organization</label>
+					<select name="organization_id" id="organization_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+						<option value="">None</option>
+						for _, o := range data.Orgs {
+							<option value={ o.ID }>
+								if o.Alias != "" {
+									{ o.Alias }
+								} else {
+									{ o.ID }
+								}
+							</option>
+						}
+					</select>
+				</div>
+			}
+			<div class="space-y-2">
+				<label class="text-sm font-medium">Models <span class="text-destructive">*</span></label>
+				@modelsMultiSelect("create-ag", data.AvailableModels, []string{})
+			</div>
+		</div>
+		@dialog.Footer() {
+			@dialog.Close() {
+				@button.Button(button.Props{Variant: button.VariantOutline}) {
+					Cancel
+				}
+			}
+			@button.Button(button.Props{Type: "submit"}) {
+				Create Access Group
+			}
+		}
+	</form>
+}
+
+templ AccessGroupsTablePartial(data AccessGroupsPageData) {
+	@card.Card() {
+		@card.Content(card.ContentProps{Class: "p-0"}) {
+			@table.Table() {
+				@table.Header() {
+					@table.Row() {
+						@table.Head() { Alias }
+						@table.Head() { Models }
+						@table.Head() { Organization }
+						@table.Head() { Created }
+						@table.Head(table.HeadProps{Class: "text-right"}) { Actions }
+					}
+				}
+				@table.Body() {
+					if len(data.Groups) == 0 {
+						@table.Row() {
+							@table.Cell(table.CellProps{Attributes: templ.Attributes{"colspan": "5"}}) {
+								if data.Search != "" {
+									<div class="py-8 text-center text-muted-foreground">No access groups match your search</div>
+								} else {
+									<div class="py-8 text-center text-muted-foreground">
+										No access groups configured
+										<br/>
+										<button
+											{ templ.Attributes{"onclick": `document.querySelector('[data-dialog-id="create-access-group-dialog"] [data-dialog-trigger]').click()`}... }
+											class="mt-2 inline-flex items-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+										>New Access Group</button>
+									</div>
+								}
+							}
+						}
+					}
+					for _, g := range data.Groups {
+						@accessGroupTableRow(g, data)
+					}
+				}
+			}
+		}
+	}
+	<div class="mt-4 flex items-center justify-between">
+		<span class="text-sm text-muted-foreground">
+			if data.TotalCount == 0 {
+				No results
+			} else {
+				{ fmt.Sprintf("Showing %d–%d of %d results", (data.Page-1)*data.PerPage+1, minInt((data.Page)*data.PerPage, data.TotalCount), data.TotalCount) }
+			}
+		</span>
+		if data.TotalPages > 1 {
+			{{ pg := pagination.CreatePagination(data.Page, data.TotalPages, 5) }}
+			{{ qs := data.accessGroupsFilterQueryString() }}
+			@pagination.Pagination() {
+				@pagination.Content() {
+					@pagination.Item() {
+						@pagination.Previous(pagination.PreviousProps{
+							Disabled: !pg.HasPrevious,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/access-groups/table?page=%d%s", data.Page-1, qs),
+								"hx-target": "#access-groups-table",
+							},
+						})
+					}
+					if pg.Pages[0] > 1 {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/access-groups/table?page=1%s", qs),
+									"hx-target": "#access-groups-table",
+								},
+							}) {
+								1
+							}
+						}
+						if pg.Pages[0] > 2 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+					}
+					for _, p := range pg.Pages {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								IsActive: p == pg.CurrentPage,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/access-groups/table?page=%d%s", p, qs),
+									"hx-target": "#access-groups-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", p) }
+							}
+						}
+					}
+					if pg.Pages[len(pg.Pages)-1] < pg.TotalPages {
+						if pg.Pages[len(pg.Pages)-1] < pg.TotalPages-1 {
+							@pagination.Item() {
+								@pagination.Ellipsis()
+							}
+						}
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/ui/access-groups/table?page=%d%s", pg.TotalPages, qs),
+									"hx-target": "#access-groups-table",
+								},
+							}) {
+								{ fmt.Sprintf("%d", pg.TotalPages) }
+							}
+						}
+					}
+					@pagination.Item() {
+						@pagination.Next(pagination.NextProps{
+							Disabled: !pg.HasNext,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/ui/access-groups/table?page=%d%s", data.Page+1, qs),
+								"hx-target": "#access-groups-table",
+							},
+						})
+					}
+				}
+			}
+		}
+	</div>
+}
+
+templ accessGroupTableRow(g AccessGroupRow, data AccessGroupsPageData) {
+	@table.Row() {
+		@table.Cell() {
+			<span class="font-medium">
+				if g.GroupAlias != "" {
+					{ g.GroupAlias }
+				} else {
+					<span class="font-mono text-muted-foreground">{ g.GroupID }</span>
+				}
+			</span>
+		}
+		@table.Cell() {
+			if len(g.Models) == 0 {
+				<span class="text-sm text-muted-foreground italic">None</span>
+			} else {
+				@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+					{ fmt.Sprintf("%d model(s)", len(g.Models)) }
+				}
+			}
+		}
+		@table.Cell() {
+			if g.OrgAlias != "" {
+				<span class="text-sm text-muted-foreground">{ g.OrgAlias }</span>
+			} else if g.OrgID != "" {
+				<span class="text-sm font-mono text-muted-foreground">{ g.OrgID }</span>
+			} else {
+				<span class="text-sm text-muted-foreground italic">—</span>
+			}
+		}
+		@table.Cell() {
+			<span class="text-sm text-muted-foreground">{ g.CreatedAt.Format("2006-01-02") }</span>
+		}
+		@table.Cell(table.CellProps{Class: "text-right"}) {
+			<div class="flex items-center justify-end gap-1">
+				@dialog.Dialog(dialog.Props{ID: "edit-ag-" + g.GroupID}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm}) {
+							@icon.Pencil(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Edit Access Group
+							}
+						}
+						@editAccessGroupForm(g, data)
+					}
+				}
+				@dialog.Dialog(dialog.Props{ID: "delete-ag-" + g.GroupID}) {
+					@dialog.Trigger(dialog.TriggerProps{}) {
+						@button.Button(button.Props{Variant: button.VariantDestructive, Size: button.SizeSm}) {
+							@icon.Trash(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content(dialog.ContentProps{Class: "max-w-sm"}) {
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete Access Group
+							}
+							@dialog.Description() {
+								if g.GroupAlias != "" {
+									{ "Are you sure you want to delete access group \"" + g.GroupAlias + "\"? This action cannot be undone." }
+								} else {
+									This action cannot be undone.
+								}
+							}
+						}
+						@dialog.Footer() {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							<form hx-post={ "/ui/access-groups/" + g.GroupID + "/delete" } hx-target="#access-groups-table" hx-swap="innerHTML">
+								@button.Button(button.Props{Variant: button.VariantDestructive, Type: "submit"}) {
+									Delete
+								}
+							</form>
+						}
+					}
+				}
+			</div>
+		}
+	}
+}
+
+templ editAccessGroupForm(g AccessGroupRow, data AccessGroupsPageData) {
+	<form
+		hx-post={ "/ui/access-groups/" + g.GroupID + "/update" }
+		hx-target="#access-groups-table"
+		hx-swap="innerHTML"
+	>
+		<div class="space-y-4 py-4">
+			<div class="space-y-2">
+				<label for={ "edit_alias_" + g.GroupID } class="text-sm font-medium">Group Alias</label>
+				@input.Input(input.Props{
+					ID:    "edit_alias_" + g.GroupID,
+					Name:  "group_alias",
+					Value: g.GroupAlias,
+				})
+			</div>
+			if len(data.Orgs) > 0 {
+				<div class="space-y-2">
+					<label for={ "edit_org_" + g.GroupID } class="text-sm font-medium">Organization</label>
+					<select name="organization_id" id={ "edit_org_" + g.GroupID } class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+						<option value="">None</option>
+						for _, o := range data.Orgs {
+							if o.ID == g.OrgID {
+								<option value={ o.ID } selected>
+									if o.Alias != "" {
+										{ o.Alias }
+									} else {
+										{ o.ID }
+									}
+								</option>
+							} else {
+								<option value={ o.ID }>
+									if o.Alias != "" {
+										{ o.Alias }
+									} else {
+										{ o.ID }
+									}
+								</option>
+							}
+						}
+					</select>
+				</div>
+			}
+			<div class="space-y-2">
+				<label class="text-sm font-medium">Models</label>
+				@modelsMultiSelect("edit-ag-"+g.GroupID, data.AvailableModels, g.Models)
+			</div>
+			<div class="space-y-2">
+				<label class="text-sm font-medium">Current Models</label>
+				if len(g.Models) == 0 {
+					<p class="text-sm text-muted-foreground italic">None</p>
+				} else {
+					<div class="flex flex-wrap gap-1">
+						for _, m := range g.Models {
+							@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+								{ m }
+							}
+						}
+					</div>
+				}
+			</div>
+		</div>
+		@dialog.Footer() {
+			@dialog.Close() {
+				@button.Button(button.Props{Variant: button.VariantOutline}) {
+					Cancel
+				}
+			}
+			@button.Button(button.Props{Type: "submit"}) {
+				Save Changes
+			}
+		}
+	</form>
+	@accessGroupKeyMembership(g, data)
+}
+
+templ accessGroupKeyMembership(g AccessGroupRow, data AccessGroupsPageData) {
+	<div class="border-t pt-4 mt-2 space-y-3">
+		<p class="text-sm font-medium">Key Membership</p>
+		<div class="space-y-1">
+			if len(g.Members) == 0 {
+				<p class="text-sm text-muted-foreground italic">No keys assigned</p>
+			} else {
+				for _, k := range g.Members {
+					<div class="flex items-center justify-between py-1">
+						<span class="text-sm">
+							if k.KeyAlias != "" {
+								{ k.KeyAlias }
+							} else if k.KeyName != "" {
+								{ k.KeyName }
+							} else {
+								<span class="font-mono text-muted-foreground text-xs">{ k.Token[:12] }...</span>
+							}
+						</span>
+						<form
+							hx-post={ "/ui/access-groups/" + g.GroupID + "/remove-key" }
+							hx-target="#access-groups-table"
+							hx-swap="innerHTML"
+						>
+							<input type="hidden" name="token" value={ k.Token }/>
+							@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeSm, Type: "submit"}) {
+								@icon.X(icon.Props{Size: 14})
+							}
+						</form>
+					</div>
+				}
+			}
+		</div>
+		if len(data.AllKeys) > 0 {
+			{{ availableKeys := filterAvailableKeys(data.AllKeys, g.Members) }}
+			if len(availableKeys) > 0 {
+				<form
+					hx-post={ "/ui/access-groups/" + g.GroupID + "/add-key" }
+					hx-target="#access-groups-table"
+					hx-swap="innerHTML"
+					class="flex items-center gap-2"
+				>
+					<select name="token" required class="flex h-8 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm">
+						<option value="">Select a key…</option>
+						for _, k := range availableKeys {
+							<option value={ k.Token }>
+								if k.KeyAlias != "" {
+									{ k.KeyAlias }
+								} else if k.KeyName != "" {
+									{ k.KeyName }
+								} else {
+									{ k.Token[:12] + "..." }
+								}
+							</option>
+						}
+					</select>
+					@button.Button(button.Props{Size: button.SizeSm, Type: "submit"}) {
+						@icon.Plus(icon.Props{Size: 14, Class: "mr-1"})
+						Add
+					}
+				</form>
+			}
+		}
+	</div>
+}
+
+templ AccessGroupsTableWithToast(data AccessGroupsPageData, toastMsg string, toastVariant toast.Variant) {
+	@AccessGroupsTablePartial(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:       toastMsg,
+				Variant:     toastVariant,
+				Dismissible: true,
+				Duration:    3000,
+			})
+		</div>
+	}
+}
+
+
