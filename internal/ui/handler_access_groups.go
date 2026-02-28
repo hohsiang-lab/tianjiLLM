@@ -60,6 +60,19 @@ func (h *UIHandler) loadAccessGroupsPageData(r *http.Request) pages.AccessGroups
 		return data
 	}
 
+	// Load all keys for the "add key" dropdown
+	allTokens, _ := h.DB.ListAllKeySummaries(ctx)
+	for _, t := range allTokens {
+		opt := pages.KeyMemberOption{Token: t.Token}
+		if t.KeyName != nil {
+			opt.KeyName = *t.KeyName
+		}
+		if t.KeyAlias != nil {
+			opt.KeyAlias = *t.KeyAlias
+		}
+		data.AllKeys = append(data.AllKeys, opt)
+	}
+
 	var filtered []pages.AccessGroupRow
 	for _, g := range all {
 		alias := ""
@@ -83,6 +96,22 @@ func (h *UIHandler) loadAccessGroupsPageData(r *http.Request) pages.AccessGroups
 		if g.CreatedAt.Valid {
 			row.CreatedAt = g.CreatedAt.Time
 		}
+
+		// Load key members for this access group
+		members, err := h.DB.ListKeysByAccessGroup(ctx, g.GroupID)
+		if err == nil {
+			for _, m := range members {
+				km := pages.KeyMemberOption{Token: m.Token}
+				if m.KeyName != nil {
+					km.KeyName = *m.KeyName
+				}
+				if m.KeyAlias != nil {
+					km.KeyAlias = *m.KeyAlias
+				}
+				row.Members = append(row.Members, km)
+			}
+		}
+
 		filtered = append(filtered, row)
 	}
 
@@ -219,4 +248,80 @@ func (h *UIHandler) handleAccessGroupDelete(w http.ResponseWriter, r *http.Reque
 
 	data := h.loadAccessGroupsPageData(r)
 	render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Access group deleted successfully", toast.VariantSuccess))
+}
+
+func (h *UIHandler) handleAccessGroupAddKey(w http.ResponseWriter, r *http.Request) {
+	if h.DB == nil {
+		http.Error(w, "database not configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	groupID := chi.URLParam(r, "id")
+	if groupID == "" {
+		http.Error(w, "id required", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	token := r.FormValue("token")
+	if token == "" {
+		data := h.loadAccessGroupsPageData(r)
+		render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Key token is required", toast.VariantError))
+		return
+	}
+
+	params := db.AddKeyToAccessGroupParams{
+		GroupID: groupID,
+		Token:   token,
+	}
+	if err := h.DB.AddKeyToAccessGroup(r.Context(), params); err != nil {
+		data := h.loadAccessGroupsPageData(r)
+		render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Failed to add key: "+err.Error(), toast.VariantError))
+		return
+	}
+
+	data := h.loadAccessGroupsPageData(r)
+	render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Key added to access group", toast.VariantSuccess))
+}
+
+func (h *UIHandler) handleAccessGroupRemoveKey(w http.ResponseWriter, r *http.Request) {
+	if h.DB == nil {
+		http.Error(w, "database not configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	groupID := chi.URLParam(r, "id")
+	if groupID == "" {
+		http.Error(w, "id required", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	token := r.FormValue("token")
+	if token == "" {
+		data := h.loadAccessGroupsPageData(r)
+		render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Key token is required", toast.VariantError))
+		return
+	}
+
+	params := db.RemoveKeyFromAccessGroupParams{
+		GroupID: groupID,
+		Token:   token,
+	}
+	if err := h.DB.RemoveKeyFromAccessGroup(r.Context(), params); err != nil {
+		data := h.loadAccessGroupsPageData(r)
+		render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Failed to remove key: "+err.Error(), toast.VariantError))
+		return
+	}
+
+	data := h.loadAccessGroupsPageData(r)
+	render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Key removed from access group", toast.VariantSuccess))
 }

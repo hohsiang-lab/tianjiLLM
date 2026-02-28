@@ -9,6 +9,22 @@ import (
 	"context"
 )
 
+const addKeyToAccessGroup = `-- name: AddKeyToAccessGroup :exec
+UPDATE "VerificationToken"
+SET access_group_ids = array_append(access_group_ids, $1::text)
+WHERE token = $2::text AND NOT ($1::text = ANY(access_group_ids))
+`
+
+type AddKeyToAccessGroupParams struct {
+	GroupID string `json:"group_id"`
+	Token   string `json:"token"`
+}
+
+func (q *Queries) AddKeyToAccessGroup(ctx context.Context, arg AddKeyToAccessGroupParams) error {
+	_, err := q.db.Exec(ctx, addKeyToAccessGroup, arg.GroupID, arg.Token)
+	return err
+}
+
 const createAccessGroup = `-- name: CreateAccessGroup :one
 INSERT INTO "ModelAccessGroup" (group_id, group_alias, models, organization_id, created_by)
 VALUES ($1, $2, $3, $4, $5)
@@ -108,6 +124,115 @@ func (q *Queries) ListAccessGroups(ctx context.Context) ([]ModelAccessGroup, err
 		return nil, err
 	}
 	return items, nil
+}
+
+const listAllKeySummaries = `-- name: ListAllKeySummaries :many
+SELECT token, key_name, key_alias FROM "VerificationToken"
+ORDER BY key_alias, key_name
+`
+
+type ListAllKeySummariesRow struct {
+	Token    string  `json:"token"`
+	KeyName  *string `json:"key_name"`
+	KeyAlias *string `json:"key_alias"`
+}
+
+func (q *Queries) ListAllKeySummaries(ctx context.Context) ([]ListAllKeySummariesRow, error) {
+	rows, err := q.db.Query(ctx, listAllKeySummaries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllKeySummariesRow
+	for rows.Next() {
+		var i ListAllKeySummariesRow
+		if err := rows.Scan(&i.Token, &i.KeyName, &i.KeyAlias); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listKeysByAccessGroup = `-- name: ListKeysByAccessGroup :many
+SELECT token, key_name, key_alias FROM "VerificationToken"
+WHERE $1::text = ANY(access_group_ids)
+`
+
+type ListKeysByAccessGroupRow struct {
+	Token    string  `json:"token"`
+	KeyName  *string `json:"key_name"`
+	KeyAlias *string `json:"key_alias"`
+}
+
+func (q *Queries) ListKeysByAccessGroup(ctx context.Context, groupID string) ([]ListKeysByAccessGroupRow, error) {
+	rows, err := q.db.Query(ctx, listKeysByAccessGroup, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListKeysByAccessGroupRow
+	for rows.Next() {
+		var i ListKeysByAccessGroupRow
+		if err := rows.Scan(&i.Token, &i.KeyName, &i.KeyAlias); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listKeysNotInAccessGroup = `-- name: ListKeysNotInAccessGroup :many
+SELECT token, key_name, key_alias FROM "VerificationToken"
+WHERE NOT ($1::text = ANY(access_group_ids)) OR access_group_ids IS NULL
+`
+
+type ListKeysNotInAccessGroupRow struct {
+	Token    string  `json:"token"`
+	KeyName  *string `json:"key_name"`
+	KeyAlias *string `json:"key_alias"`
+}
+
+func (q *Queries) ListKeysNotInAccessGroup(ctx context.Context, groupID string) ([]ListKeysNotInAccessGroupRow, error) {
+	rows, err := q.db.Query(ctx, listKeysNotInAccessGroup, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListKeysNotInAccessGroupRow
+	for rows.Next() {
+		var i ListKeysNotInAccessGroupRow
+		if err := rows.Scan(&i.Token, &i.KeyName, &i.KeyAlias); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const removeKeyFromAccessGroup = `-- name: RemoveKeyFromAccessGroup :exec
+UPDATE "VerificationToken"
+SET access_group_ids = array_remove(access_group_ids, $1::text)
+WHERE token = $2::text
+`
+
+type RemoveKeyFromAccessGroupParams struct {
+	GroupID string `json:"group_id"`
+	Token   string `json:"token"`
+}
+
+func (q *Queries) RemoveKeyFromAccessGroup(ctx context.Context, arg RemoveKeyFromAccessGroupParams) error {
+	_, err := q.db.Exec(ctx, removeKeyFromAccessGroup, arg.GroupID, arg.Token)
+	return err
 }
 
 const updateAccessGroup = `-- name: UpdateAccessGroup :exec

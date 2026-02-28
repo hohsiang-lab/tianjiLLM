@@ -16,3 +16,25 @@ WHERE group_id = $1;
 
 -- name: DeleteAccessGroup :exec
 DELETE FROM "ModelAccessGroup" WHERE group_id = $1;
+
+-- name: ListKeysByAccessGroup :many
+SELECT token, key_name, key_alias FROM "VerificationToken"
+WHERE sqlc.arg(group_id)::text = ANY(access_group_ids);
+
+-- name: AddKeyToAccessGroup :exec
+UPDATE "VerificationToken"
+SET access_group_ids = array_append(access_group_ids, sqlc.arg(group_id)::text)
+WHERE token = sqlc.arg(token)::text AND NOT (sqlc.arg(group_id)::text = ANY(access_group_ids));
+
+-- name: RemoveKeyFromAccessGroup :exec
+UPDATE "VerificationToken"
+SET access_group_ids = array_remove(access_group_ids, sqlc.arg(group_id)::text)
+WHERE token = sqlc.arg(token)::text;
+
+-- name: ListKeysNotInAccessGroup :many
+SELECT token, key_name, key_alias FROM "VerificationToken"
+WHERE NOT (sqlc.arg(group_id)::text = ANY(access_group_ids)) OR access_group_ids IS NULL;
+
+-- name: ListAllKeySummaries :many
+SELECT token, key_name, key_alias FROM "VerificationToken"
+ORDER BY key_alias, key_name;

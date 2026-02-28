@@ -18,6 +18,12 @@ import (
 
 // --- Data types ---
 
+type KeyMemberOption struct {
+	Token    string
+	KeyName  string
+	KeyAlias string
+}
+
 type AccessGroupRow struct {
 	GroupID    string
 	GroupAlias string
@@ -25,6 +31,7 @@ type AccessGroupRow struct {
 	OrgID      string
 	OrgAlias   string
 	CreatedAt  time.Time
+	Members    []KeyMemberOption
 }
 
 type AccessGroupsPageData struct {
@@ -36,6 +43,7 @@ type AccessGroupsPageData struct {
 	Search          string
 	Orgs            []OrgOption
 	AvailableModels []string
+	AllKeys         []KeyMemberOption
 }
 
 func (d AccessGroupsPageData) accessGroupsFilterQueryString() string {
@@ -401,6 +409,72 @@ templ editAccessGroupForm(g AccessGroupRow, data AccessGroupsPageData) {
 			}
 		}
 	</form>
+	@accessGroupKeyMembership(g, data)
+}
+
+templ accessGroupKeyMembership(g AccessGroupRow, data AccessGroupsPageData) {
+	<div class="border-t pt-4 mt-2 space-y-3">
+		<p class="text-sm font-medium">Key Membership</p>
+		<div class="space-y-1">
+			if len(g.Members) == 0 {
+				<p class="text-sm text-muted-foreground italic">No keys assigned</p>
+			} else {
+				for _, k := range g.Members {
+					<div class="flex items-center justify-between py-1">
+						<span class="text-sm">
+							if k.KeyAlias != "" {
+								{ k.KeyAlias }
+							} else if k.KeyName != "" {
+								{ k.KeyName }
+							} else {
+								<span class="font-mono text-muted-foreground text-xs">{ k.Token[:12] }...</span>
+							}
+						</span>
+						<form
+							hx-post={ "/ui/access-groups/" + g.GroupID + "/remove-key" }
+							hx-target="#access-groups-table"
+							hx-swap="innerHTML"
+						>
+							<input type="hidden" name="token" value={ k.Token }/>
+							@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeSm, Type: "submit"}) {
+								@icon.X(icon.Props{Size: 14})
+							}
+						</form>
+					</div>
+				}
+			}
+		</div>
+		if len(data.AllKeys) > 0 {
+			{{ availableKeys := filterAvailableKeys(data.AllKeys, g.Members) }}
+			if len(availableKeys) > 0 {
+				<form
+					hx-post={ "/ui/access-groups/" + g.GroupID + "/add-key" }
+					hx-target="#access-groups-table"
+					hx-swap="innerHTML"
+					class="flex items-center gap-2"
+				>
+					<select name="token" class="flex h-8 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm">
+						<option value="">Select a key…</option>
+						for _, k := range availableKeys {
+							<option value={ k.Token }>
+								if k.KeyAlias != "" {
+									{ k.KeyAlias }
+								} else if k.KeyName != "" {
+									{ k.KeyName }
+								} else {
+									{ k.Token[:12] + "..." }
+								}
+							</option>
+						}
+					</select>
+					@button.Button(button.Props{Size: button.SizeSm, Type: "submit"}) {
+						@icon.Plus(icon.Props{Size: 14, Class: "mr-1"})
+						Add
+					}
+				</form>
+			}
+		}
+	</div>
 }
 
 templ AccessGroupsTableWithToast(data AccessGroupsPageData, toastMsg string, toastVariant toast.Variant) {
