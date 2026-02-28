@@ -21,12 +21,40 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: tianji
+          POSTGRES_USER: tianji
+          POSTGRES_PASSWORD: tianji
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U tianji"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
-      - run: go test -race -cover ./...
+      - name: Run DB migrations
+        env:
+          PGHOST: localhost
+          PGPORT: "5433"
+          PGUSER: tianji
+          PGPASSWORD: tianji
+          PGDATABASE: tianji
+        run: |
+          for f in internal/db/schema/*.up.sql; do
+            psql -f "$f" || true
+          done
+      - name: Run tests
+        env:
+          TEST_DATABASE_URL: "postgres://tianji:tianji@localhost:5433/tianji?sslmode=disable"
+        run: go test -race -cover ./...
 
   build:
     runs-on: ubuntu-latest
