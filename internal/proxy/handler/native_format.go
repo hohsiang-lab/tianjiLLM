@@ -289,10 +289,13 @@ type readCloserOnly struct{ io.ReadCloser }
 func (r *sseSpendReader) Close() error {
 	err := r.src.Close()
 
-	prompt, completion, modelName := parseSSEUsage(r.providerName, r.buf.Bytes())
+	bufBytes := r.buf.Bytes()
+	prompt, completion, modelName := parseSSEUsage(r.providerName, bufBytes)
 	if modelName == "" {
 		modelName = r.requestModel
 	}
+	log.Printf("[HO-60 debug] sseSpendReader.Close: provider=%s model=%s bufLen=%d prompt=%d completion=%d first100=%q",
+		r.providerName, modelName, len(bufBytes), prompt, completion, truncate(bufBytes, 100))
 	go r.callbacks.LogSuccess(buildNativeLogData(
 		r.ctx, r.providerName, modelName, r.startTime,
 		prompt, completion,
@@ -457,4 +460,11 @@ func (h *Handlers) ImagesEdit(w http.ResponseWriter, r *http.Request) {
 // ImageVariation handles POST /v1/images/variations.
 func (h *Handlers) ImageVariation(w http.ResponseWriter, r *http.Request) {
 	h.assistantsProxy(w, r)
+}
+
+func truncate(b []byte, n int) []byte {
+	if len(b) > n {
+		return b[:n]
+	}
+	return b
 }
