@@ -25,7 +25,8 @@ func TestDiskCacheGetSetDelete(t *testing.T) {
 	}
 
 	// Set + Get
-	if err := dc.Set(ctx, "k1", []byte("hello"), 1*time.Hour); err != nil {
+	err = dc.Set(ctx, "k1", []byte("hello"), 1*time.Hour)
+	if err != nil {
 		t.Fatal(err)
 	}
 	val, err = dc.Get(ctx, "k1")
@@ -37,7 +38,8 @@ func TestDiskCacheGetSetDelete(t *testing.T) {
 	}
 
 	// Delete
-	if err := dc.Delete(ctx, "k1"); err != nil {
+	err = dc.Delete(ctx, "k1")
+	if err != nil {
 		t.Fatal(err)
 	}
 	val, err = dc.Get(ctx, "k1")
@@ -84,7 +86,8 @@ func TestDiskCacheTTLExpiry(t *testing.T) {
 	ctx := context.Background()
 
 	// Set with very short TTL
-	if err := dc.Set(ctx, "exp", []byte("data"), 1*time.Millisecond); err != nil {
+	err = dc.Set(ctx, "exp", []byte("data"), 1*time.Millisecond)
+	if err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(10 * time.Millisecond)
@@ -106,7 +109,8 @@ func TestDiskCacheSetNoTTL(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	if err := dc.Set(ctx, "notl", []byte("data"), 0); err != nil {
+	err = dc.Set(ctx, "notl", []byte("data"), 0)
+	if err != nil {
 		t.Fatal(err)
 	}
 	val, err := dc.Get(ctx, "notl")
