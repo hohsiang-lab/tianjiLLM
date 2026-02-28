@@ -25,7 +25,9 @@ type LogData struct {
 	UserID           string
 	TeamID           string
 	RequestTags      []string
-	CacheHit         bool
+	CacheHit            bool
+	CacheReadTokens     int
+	CacheCreationTokens int
 }
 
 // CustomLogger is the interface for observability callbacks.

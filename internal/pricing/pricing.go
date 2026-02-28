@@ -21,6 +21,16 @@ type ModelInfo struct {
 	MaxTokens          int     `json:"max_tokens"`
 	Mode               string  `json:"mode"`
 	Provider           string  `json:"litellm_provider"`
+
+	// Cache token pricing (Anthropic prompt cache)
+	CacheReadCostPerToken     float64 `json:"cache_read_input_token_cost"`
+	CacheCreationCostPerToken float64 `json:"cache_creation_input_token_cost"`
+
+	// Threshold pricing (Anthropic 200K+ context)
+	InputCostPerTokenAbove200k         float64 `json:"input_cost_per_token_above_200k_tokens"`
+	OutputCostPerTokenAbove200k        float64 `json:"output_cost_per_token_above_200k_tokens"`
+	CacheReadCostPerTokenAbove200k     float64 `json:"cache_read_input_token_cost_above_200k_tokens"`
+	CacheCreationCostPerTokenAbove200k float64 `json:"cache_creation_input_token_cost_above_200k_tokens"`
 }
 
 // Calculator calculates LLM request costs from token counts.
@@ -177,4 +187,12 @@ func (c *Calculator) lookupInLayers(model string) *ModelInfo {
 	}
 
 	return nil
+}
+
+// CostWithCache calculates cost including cache token pricing and 200K threshold.
+// Returns (inputCost, cacheReadCost, cacheCreationCost, completionCost).
+// NOTE: stub — implementation pending (魯班).
+func (c *Calculator) CostWithCache(model string, promptTokens, cacheReadTokens, cacheCreationTokens, completionTokens int) (inputCost, cacheReadCost, cacheCreationCost, completionCost float64) {
+	// TODO: implement tiered cache pricing
+	return 0, 0, 0, 0
 }

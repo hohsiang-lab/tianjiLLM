@@ -44,7 +44,9 @@ type SpendRecord struct {
 	TeamID           string
 	Tags             []string
 	Metadata         map[string]any
-	Cost             float64
+	Cost                 float64
+	CacheReadTokens      int
+	CacheCreationTokens  int
 }
 
 // LogSuccess implements callback.CustomLogger — writes spend to DB.
