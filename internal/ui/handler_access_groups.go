@@ -153,6 +153,14 @@ func (h *UIHandler) handleAccessGroupCreate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Check alias uniqueness
+	existing, err := h.DB.GetAccessGroupByAlias(r.Context(), &groupAlias)
+	if err == nil && existing.GroupID != "" {
+		data := h.loadAccessGroupsPageData(r)
+		render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Alias '"+groupAlias+"' is already in use", toast.VariantError))
+		return
+	}
+
 	orgID := r.FormValue("organization_id")
 	var orgIDPtr *string
 	if orgID != "" {
@@ -166,15 +174,21 @@ func (h *UIHandler) handleAccessGroupCreate(w http.ResponseWriter, r *http.Reque
 
 	groupID := uuid.New().String()
 
+	// Get current user from session
+	createdBy := "admin"
+	if session, ok := getSessionFromRequest(r, h.sessionKey()); ok && session.UserID != "" {
+		createdBy = session.UserID
+	}
+
 	params := db.CreateAccessGroupParams{
 		GroupID:        groupID,
 		GroupAlias:     &groupAlias,
 		Models:         models,
 		OrganizationID: orgIDPtr,
-		CreatedBy:      "admin",
+		CreatedBy:      createdBy,
 	}
 
-	_, err := h.DB.CreateAccessGroup(r.Context(), params)
+	_, err = h.DB.CreateAccessGroup(r.Context(), params)
 	if err != nil {
 		data := h.loadAccessGroupsPageData(r)
 		render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Failed to create access group: "+err.Error(), toast.VariantError))
@@ -203,9 +217,24 @@ func (h *UIHandler) handleAccessGroupUpdate(w http.ResponseWriter, r *http.Reque
 	}
 
 	groupAlias := strings.TrimSpace(r.FormValue("group_alias"))
-	var groupAliasPtr *string
-	if groupAlias != "" {
-		groupAliasPtr = &groupAlias
+	if groupAlias == "" {
+		data := h.loadAccessGroupsPageData(r)
+		render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Group alias is required", toast.VariantError))
+		return
+	}
+
+	// Check alias uniqueness (exclude self)
+	existing, err := h.DB.GetAccessGroupByAlias(r.Context(), &groupAlias)
+	if err == nil && existing.GroupID != "" && existing.GroupID != id {
+		data := h.loadAccessGroupsPageData(r)
+		render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Alias '"+groupAlias+"' is already in use", toast.VariantError))
+		return
+	}
+
+	orgID := r.FormValue("organization_id")
+	var orgIDPtr *string
+	if orgID != "" {
+		orgIDPtr = &orgID
 	}
 
 	models := parseModelSelection(r.FormValue("all_models"), r.Form["models"])
@@ -214,9 +243,10 @@ func (h *UIHandler) handleAccessGroupUpdate(w http.ResponseWriter, r *http.Reque
 	}
 
 	params := db.UpdateAccessGroupParams{
-		GroupID:    id,
-		GroupAlias: groupAliasPtr,
-		Models:     models,
+		GroupID:        id,
+		GroupAlias:     &groupAlias,
+		Models:         models,
+		OrganizationID: orgIDPtr,
 	}
 
 	if err := h.DB.UpdateAccessGroup(r.Context(), params); err != nil {
@@ -241,21 +271,39 @@ func (h *UIHandler) handleAccessGroupDelete(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Clean up access_group_ids references from all keys before deleting the group
-	if err := h.DB.RemoveAccessGroupFromAllKeys(r.Context(), id); err != nil {
+	ctx := r.Context()
+
+	// Atomic delete: remove key references + delete group in one transaction
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
 		data := h.loadAccessGroupsPageData(r)
-		render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Failed to clean up key references: "+err.Error(), toast.VariantError))
+		render(ctx, w, pages.AccessGroupsTableWithToast(data, "Failed to start transaction: "+err.Error(), toast.VariantError))
+		return
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	qtx := h.DB.WithTx(tx)
+
+	if err := qtx.RemoveAccessGroupFromAllKeys(ctx, id); err != nil {
+		data := h.loadAccessGroupsPageData(r)
+		render(ctx, w, pages.AccessGroupsTableWithToast(data, "Failed to clean up key references: "+err.Error(), toast.VariantError))
 		return
 	}
 
-	if err := h.DB.DeleteAccessGroup(r.Context(), id); err != nil {
+	if err := qtx.DeleteAccessGroup(ctx, id); err != nil {
 		data := h.loadAccessGroupsPageData(r)
-		render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Failed to delete access group: "+err.Error(), toast.VariantError))
+		render(ctx, w, pages.AccessGroupsTableWithToast(data, "Failed to delete access group: "+err.Error(), toast.VariantError))
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		data := h.loadAccessGroupsPageData(r)
+		render(ctx, w, pages.AccessGroupsTableWithToast(data, "Failed to commit delete: "+err.Error(), toast.VariantError))
 		return
 	}
 
 	data := h.loadAccessGroupsPageData(r)
-	render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Access group deleted successfully", toast.VariantSuccess))
+	render(ctx, w, pages.AccessGroupsTableWithToast(data, "Access group deleted successfully", toast.VariantSuccess))
 }
 
 func (h *UIHandler) handleAccessGroupAddKey(w http.ResponseWriter, r *http.Request) {

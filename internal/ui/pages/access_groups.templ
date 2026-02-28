@@ -379,6 +379,33 @@ templ editAccessGroupForm(g AccessGroupRow, data AccessGroupsPageData) {
 					Value: g.GroupAlias,
 				})
 			</div>
+			if len(data.Orgs) > 0 {
+				<div class="space-y-2">
+					<label for={ "edit_org_" + g.GroupID } class="text-sm font-medium">Organization</label>
+					<select name="organization_id" id={ "edit_org_" + g.GroupID } class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+						<option value="">None</option>
+						for _, o := range data.Orgs {
+							if o.ID == g.OrgID {
+								<option value={ o.ID } selected>
+									if o.Alias != "" {
+										{ o.Alias }
+									} else {
+										{ o.ID }
+									}
+								</option>
+							} else {
+								<option value={ o.ID }>
+									if o.Alias != "" {
+										{ o.Alias }
+									} else {
+										{ o.ID }
+									}
+								</option>
+							}
+						}
+					</select>
+				</div>
+			}
 			<div class="space-y-2">
 				<label class="text-sm font-medium">Models</label>
 				@modelsMultiSelect("edit-ag-"+g.GroupID, data.AvailableModels, g.Models)
@@ -453,7 +480,7 @@ templ accessGroupKeyMembership(g AccessGroupRow, data AccessGroupsPageData) {
 					hx-swap="innerHTML"
 					class="flex items-center gap-2"
 				>
-					<select name="token" class="flex h-8 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm">
+					<select name="token" required class="flex h-8 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm">
 						<option value="">Select a key…</option>
 						for _, k := range availableKeys {
 							<option value={ k.Token }>

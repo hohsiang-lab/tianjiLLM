@@ -92,6 +92,27 @@ func (q *Queries) GetAccessGroup(ctx context.Context, groupID string) (ModelAcce
 	return i, err
 }
 
+const getAccessGroupByAlias = `-- name: GetAccessGroupByAlias :one
+SELECT group_id, group_alias, models, organization_id, metadata, created_at, created_by, updated_at, updated_by FROM "ModelAccessGroup" WHERE group_alias = $1 LIMIT 1
+`
+
+func (q *Queries) GetAccessGroupByAlias(ctx context.Context, groupAlias *string) (ModelAccessGroup, error) {
+	row := q.db.QueryRow(ctx, getAccessGroupByAlias, groupAlias)
+	var i ModelAccessGroup
+	err := row.Scan(
+		&i.GroupID,
+		&i.GroupAlias,
+		&i.Models,
+		&i.OrganizationID,
+		&i.Metadata,
+		&i.CreatedAt,
+		&i.CreatedBy,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
 const listAccessGroups = `-- name: ListAccessGroups :many
 SELECT group_id, group_alias, models, organization_id, metadata, created_at, created_by, updated_at, updated_by FROM "ModelAccessGroup" ORDER BY created_at DESC
 `
@@ -248,17 +269,23 @@ func (q *Queries) RemoveKeyFromAccessGroup(ctx context.Context, arg RemoveKeyFro
 
 const updateAccessGroup = `-- name: UpdateAccessGroup :exec
 UPDATE "ModelAccessGroup"
-SET group_alias = $2, models = $3, updated_at = NOW()
+SET group_alias = $2, models = $3, organization_id = $4, updated_at = NOW()
 WHERE group_id = $1
 `
 
 type UpdateAccessGroupParams struct {
-	GroupID    string   `json:"group_id"`
-	GroupAlias *string  `json:"group_alias"`
-	Models     []string `json:"models"`
+	GroupID        string   `json:"group_id"`
+	GroupAlias     *string  `json:"group_alias"`
+	Models         []string `json:"models"`
+	OrganizationID *string  `json:"organization_id"`
 }
 
 func (q *Queries) UpdateAccessGroup(ctx context.Context, arg UpdateAccessGroupParams) error {
-	_, err := q.db.Exec(ctx, updateAccessGroup, arg.GroupID, arg.GroupAlias, arg.Models)
+	_, err := q.db.Exec(ctx, updateAccessGroup,
+		arg.GroupID,
+		arg.GroupAlias,
+		arg.Models,
+		arg.OrganizationID,
+	)
 	return err
 }

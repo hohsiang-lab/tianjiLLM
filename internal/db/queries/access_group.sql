@@ -9,9 +9,12 @@ SELECT * FROM "ModelAccessGroup" WHERE group_id = $1;
 -- name: ListAccessGroups :many
 SELECT * FROM "ModelAccessGroup" ORDER BY created_at DESC;
 
+-- name: GetAccessGroupByAlias :one
+SELECT * FROM "ModelAccessGroup" WHERE group_alias = $1 LIMIT 1;
+
 -- name: UpdateAccessGroup :exec
 UPDATE "ModelAccessGroup"
-SET group_alias = $2, models = $3, updated_at = NOW()
+SET group_alias = $2, models = $3, organization_id = $4, updated_at = NOW()
 WHERE group_id = $1;
 
 -- name: DeleteAccessGroup :exec
