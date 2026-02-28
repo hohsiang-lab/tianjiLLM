@@ -97,6 +97,7 @@ func (h *UIHandler) loadAccessGroupsPageData(r *http.Request) pages.AccessGroups
 			row.CreatedAt = g.CreatedAt.Time
 		}
 
+		// TODO: batch query to avoid N+1 when group count grows
 		// Load key members for this access group
 		members, err := h.DB.ListKeysByAccessGroup(ctx, g.GroupID)
 		if err == nil {
@@ -237,6 +238,13 @@ func (h *UIHandler) handleAccessGroupDelete(w http.ResponseWriter, r *http.Reque
 	id := chi.URLParam(r, "id")
 	if id == "" {
 		http.Error(w, "id required", http.StatusBadRequest)
+		return
+	}
+
+	// Clean up access_group_ids references from all keys before deleting the group
+	if err := h.DB.RemoveAccessGroupFromAllKeys(r.Context(), id); err != nil {
+		data := h.loadAccessGroupsPageData(r)
+		render(r.Context(), w, pages.AccessGroupsTableWithToast(data, "Failed to clean up key references: "+err.Error(), toast.VariantError))
 		return
 	}
 

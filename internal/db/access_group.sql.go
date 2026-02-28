@@ -219,6 +219,17 @@ func (q *Queries) ListKeysNotInAccessGroup(ctx context.Context, groupID string) 
 	return items, nil
 }
 
+const removeAccessGroupFromAllKeys = `-- name: RemoveAccessGroupFromAllKeys :exec
+UPDATE "VerificationToken"
+SET access_group_ids = array_remove(access_group_ids, $1::text)
+WHERE $1::text = ANY(access_group_ids)
+`
+
+func (q *Queries) RemoveAccessGroupFromAllKeys(ctx context.Context, groupID string) error {
+	_, err := q.db.Exec(ctx, removeAccessGroupFromAllKeys, groupID)
+	return err
+}
+
 const removeKeyFromAccessGroup = `-- name: RemoveKeyFromAccessGroup :exec
 UPDATE "VerificationToken"
 SET access_group_ids = array_remove(access_group_ids, $1::text)
