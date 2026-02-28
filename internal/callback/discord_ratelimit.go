@@ -153,7 +153,9 @@ func (a *DiscordRateLimitAlerter) sendIfNotCooling(key, alertType string, state 
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var body bytes.Buffer
-		body.ReadFrom(resp.Body)
+		if _, err := body.ReadFrom(resp.Body); err != nil {
+			log.Printf("ERROR ratelimit: failed to read Discord webhook response: %v", err)
+		}
 		log.Printf("ERROR ratelimit: Discord webhook returned %d: %s", resp.StatusCode, body.String())
 	}
 }

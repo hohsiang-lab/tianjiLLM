@@ -45,7 +45,7 @@ func newMockDiscordServer(t *testing.T, statusCode int) (*httptest.Server, func(
 		}
 		w.WriteHeader(statusCode)
 		if statusCode >= 300 {
-			w.Write([]byte("webhook error"))
+			_, _ = w.Write([]byte("webhook error"))
 		}
 	}))
 
@@ -293,7 +293,9 @@ func TestCheckAndAlert_Cooldown_InputOutputIndependentKeys(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		var payload map[string]string
-		json.Unmarshal(body, &payload)
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("failed to unmarshal payload: %v", err)
+		}
 		content := payload["content"]
 		if strings.Contains(content, "input") {
 			atomic.AddInt32(&inputCount, 1)
@@ -342,7 +344,9 @@ func TestCheckAndAlert_Cooldown_InputCoolingOutputFires(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		var payload map[string]string
-		json.Unmarshal(body, &payload)
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("failed to unmarshal payload: %v", err)
+		}
 		atomic.AddInt32(&callCount, 1)
 		mu.Lock()
 		contents = append(contents, payload["content"])
