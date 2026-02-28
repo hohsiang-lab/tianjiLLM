@@ -276,10 +276,13 @@ func (r *sseSpendReader) Read(p []byte) (int, error) {
 func (r *sseSpendReader) Close() error {
 	err := r.src.Close()
 
-	prompt, completion, modelName := parseSSEUsage(r.providerName, r.buf.Bytes())
+	bufBytes := r.buf.Bytes()
+	prompt, completion, modelName := parseSSEUsage(r.providerName, bufBytes)
 	if modelName == "" {
 		modelName = r.requestModel
 	}
+	log.Printf("debug: sseSpendReader.Close provider=%s bufLen=%d prompt=%d completion=%d model=%s",
+		r.providerName, len(bufBytes), prompt, completion, modelName)
 	go r.callbacks.LogSuccess(buildNativeLogData(
 		r.ctx, r.providerName, modelName, r.startTime,
 		prompt, completion,
