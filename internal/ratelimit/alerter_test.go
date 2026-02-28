@@ -8,19 +8,6 @@ import (
 	"time"
 )
 
-func buildStore(limit, remaining int) *Store {
-	store := NewStore()
-	h := http.Header{}
-	h.Set("anthropic-ratelimit-tokens-limit", itoa(limit))
-	h.Set("anthropic-ratelimit-tokens-remaining", itoa(remaining))
-	store.ParseAndUpdate("anthropic/xxxx", h)
-	return store
-}
-
-func itoa(n int) string {
-	return http.Header{}.Get("") + string(rune('0'+n%10)) // won't work for large nums
-}
-
 func buildStoreStr(limit, remaining string) *Store {
 	store := NewStore()
 	h := http.Header{}
@@ -74,7 +61,6 @@ func TestDiscordAlerter_Cooldown(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	// Very long cooldown so second call is blocked
 	alerter := NewDiscordAlerter(srv.URL, 0.20, time.Hour)
 	store := buildStoreStr("800000", "100000") // below threshold
 
