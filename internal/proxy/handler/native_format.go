@@ -154,6 +154,27 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 	proxy.ServeHTTP(w, r)
 }
 
+// extractRequestModel reads the "model" field from the request body JSON
+// without consuming it (the body is re-set for downstream use).
+func extractRequestModel(r *http.Request) string {
+	if r.Body == nil {
+		return ""
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return ""
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+
+	var partial struct {
+		Model string `json:"model"`
+	}
+	if json.Unmarshal(body, &partial) != nil {
+		return ""
+	}
+	return partial.Model
+}
+
 // parseUsage extracts prompt/completion tokens and model name from a non-streaming response body.
 func parseUsage(providerName string, body []byte) (prompt, completion int, modelName string) {
 	switch providerName {
@@ -215,6 +236,7 @@ type sseSpendReader struct {
 	src          io.ReadCloser
 	buf          bytes.Buffer
 	providerName string
+	requestModel string
 	startTime    time.Time
 	ctx          context.Context
 	callbacks    *callback.Registry
@@ -232,6 +254,9 @@ func (r *sseSpendReader) Close() error {
 	err := r.src.Close()
 
 	prompt, completion, modelName := parseSSEUsage(r.providerName, r.buf.Bytes())
+	if modelName == "" {
+		modelName = r.requestModel
+	}
 	go r.callbacks.LogSuccess(buildNativeLogData(
 		r.ctx, r.providerName, modelName, r.startTime,
 		prompt, completion,
