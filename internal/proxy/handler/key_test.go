@@ -27,7 +27,7 @@ func TestKeyGenerate_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp["key"] == nil {
 		t.Fatal("expected key in response")
 	}
@@ -77,7 +77,7 @@ func TestKeyList_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp["total_count"].(float64) != 1 {
 		t.Fatalf("expected total_count 1")
 	}

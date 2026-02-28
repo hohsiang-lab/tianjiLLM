@@ -28,7 +28,7 @@ func TestUserNew_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 	var resp db.UserTable
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp.UserRole != "admin" {
 		t.Fatalf("expected role admin, got %s", resp.UserRole)
 	}
@@ -59,7 +59,7 @@ func TestUserList_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 	var resp map[string][]db.UserTable
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	if len(resp["users"]) != 2 {
 		t.Fatalf("expected 2 users, got %d", len(resp["users"]))
 	}
