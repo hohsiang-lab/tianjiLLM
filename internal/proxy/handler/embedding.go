@@ -4,13 +4,17 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider"
 )
 
 // Embedding handles POST /v1/embeddings.
 func (h *Handlers) Embedding(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+
 	var req model.EmbeddingRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, model.ErrorResponse{
@@ -81,6 +85,20 @@ func (h *Handlers) Embedding(w http.ResponseWriter, r *http.Request) {
 			},
 		})
 		return
+	}
+
+	endTime := time.Now()
+	if h.Callbacks != nil {
+		go h.Callbacks.LogSuccess(callback.LogData{
+			Model:        modelName,
+			APIKey:       apiKey,
+			PromptTokens: result.Usage.PromptTokens,
+			TotalTokens:  result.Usage.TotalTokens,
+			StartTime:    startTime,
+			EndTime:      endTime,
+			Latency:      endTime.Sub(startTime),
+			CallType:     "embedding",
+		})
 	}
 
 	writeJSON(w, http.StatusOK, result)

@@ -45,6 +45,7 @@ type SpendRecord struct {
 	Cost                     float64
 	CacheReadInputTokens     int
 	CacheCreationInputTokens int
+	CallType                 string
 }
 
 // LogSuccess implements callback.CustomLogger — writes spend to DB.
@@ -61,6 +62,7 @@ func (t *Tracker) LogSuccess(data callback.LogData) {
 		TeamID:           data.TeamID,
 		Tags:             data.RequestTags,
 		Cost:             data.Cost,
+		CallType:         data.CallType,
 	})
 }
 
@@ -100,9 +102,13 @@ func (t *Tracker) Record(ctx context.Context, rec SpendRecord) {
 		rec.Tags = []string{}
 	}
 
+	callType := rec.CallType
+	if callType == "" {
+		callType = "completion"
+	}
 	params := db.CreateSpendLogParams{
 		RequestID:        uuid.New().String(),
-		CallType:         "completion",
+		CallType:         callType,
 		ApiKey:           rec.APIKey,
 		Spend:            cost,
 		TotalTokens:      int32(rec.TotalTokens),
