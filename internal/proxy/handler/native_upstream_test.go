@@ -6,7 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
@@ -96,7 +95,7 @@ func TestSelectUpstream_RoundRobin(t *testing.T) {
 
 	seen := make(map[string]int)
 	for i := 0; i < 6; i++ {
-		u := selectUpstream(upstreams)
+		u := selectUpstream("anthropic", upstreams)
 		seen[u.APIKey]++
 	}
 
@@ -125,7 +124,7 @@ func TestSelectUpstream_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			results[idx] = selectUpstream(upstreams)
+			results[idx] = selectUpstream("anthropic", upstreams)
 		}(i)
 	}
 	wg.Wait()
@@ -178,8 +177,6 @@ func TestRateLimitParsed_On429Response(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.AnthropicMessages(rr, req)
 
-	// Give the handler a moment to process (ModifyResponse runs synchronously in httputil.ReverseProxy).
-	time.Sleep(50 * time.Millisecond)
 
 	cacheKey := callback.RateLimitCacheKey(apiKey)
 	state, ok := store.Get(cacheKey)
@@ -229,8 +226,6 @@ func TestRateLimitParsed_On200Response(t *testing.T) {
 
 	// Should not panic.
 	h.AnthropicMessages(rr, req)
-	time.Sleep(50 * time.Millisecond)
-
 	assert.True(t, called.Load(), "upstream should have been called")
 	assert.Equal(t, http.StatusOK, rr.Code)
 }

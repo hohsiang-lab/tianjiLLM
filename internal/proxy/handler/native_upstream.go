@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strings"
+	"sync"
 	"sync/atomic"
 )
 
@@ -11,8 +12,12 @@ type nativeUpstream struct {
 	APIKey  string
 }
 
-// globalRoundRobinCounter is a package-level atomic counter for round-robin upstream selection.
-var globalRoundRobinCounter atomic.Uint64
+// roundRobinCounters holds per-provider atomic counters for round-robin upstream selection.
+// FR-018: per-provider counters prevent cross-provider index drift.
+var (
+	roundRobinMu       sync.RWMutex
+	roundRobinCounters = map[string]*atomic.Uint64{}
+)
 
 // resolveAllNativeUpstreams returns all upstream entries matching the given providerName.
 // FR-017: unlike resolveNativeUpstream which returns only the first match, this returns all.
@@ -38,13 +43,24 @@ func (h *Handlers) resolveAllNativeUpstreams(providerName string) []nativeUpstre
 	return results
 }
 
-// selectUpstream implements a goroutine-safe round-robin selection from the given upstreams slice.
-// FR-018: uses atomic.Uint64 counter; no mutex required.
-func selectUpstream(upstreams []nativeUpstream) nativeUpstream {
+// selectUpstream implements a goroutine-safe per-provider round-robin selection.
+// FR-018: each provider maintains its own atomic counter to avoid cross-provider drift.
+func selectUpstream(provider string, upstreams []nativeUpstream) nativeUpstream {
 	if len(upstreams) == 0 {
 		return nativeUpstream{}
 	}
-	idx := globalRoundRobinCounter.Add(1) - 1
+	roundRobinMu.RLock()
+	counter, ok := roundRobinCounters[provider]
+	roundRobinMu.RUnlock()
+	if !ok {
+		roundRobinMu.Lock()
+		// Double-check after acquiring write lock.
+		if counter, ok = roundRobinCounters[provider]; !ok {
+			counter = &atomic.Uint64{}
+			roundRobinCounters[provider] = counter
+		}
+		roundRobinMu.Unlock()
+	}
+	idx := counter.Add(1) - 1
 	return upstreams[idx%uint64(len(upstreams))]
 }
-
