@@ -1,7 +1,7 @@
 package pages_test
 
 // HO-79: Failing tests for rate limit widget UI improvements.
-// These tests document the expected behaviour AFTER the fix.
+// These tests document the expected behavior AFTER the fix.
 // They are intentionally FAILING on main to guide the implementation.
 
 import (
@@ -28,7 +28,7 @@ func renderToString(t *testing.T, c templ.Component) string {
 // Anthropic OAuth token, the widget still renders the token key hash (first 12 chars
 // of the sha256 prefix stored in TokenKey) rather than the generic label "OAuth Token".
 //
-// Current behaviour (BUG): single-token path hard-codes the string "OAuth Token".
+// Current behavior (BUG): single-token path hard-codes the string "OAuth Token".
 // Expected: always display the 12-char key hash.
 func TestRateLimitCard_SingleToken_ShowsKeyHash(t *testing.T) {
 	const keyHash = "abc123def456" // first 12 chars of sha256
@@ -53,10 +53,10 @@ func TestRateLimitCard_SingleToken_ShowsKeyHash(t *testing.T) {
 	}
 }
 
-// TestRateLimitCard_ProgressBar_RendersAccessibleBar verifies the utilisation bars
+// TestRateLimitCard_ProgressBar_RendersAccessibleBar verifies the utilization bars
 // include role="progressbar" for accessibility.
 //
-// Current behaviour (BUG): plain <div> with CSS width style, no ARIA role.
+// Current behavior (BUG): plain <div> with CSS width style, no ARIA role.
 // Expected: at least one element with role="progressbar".
 func TestRateLimitCard_ProgressBar_RendersAccessibleBar(t *testing.T) {
 	tok := pages.AnthropicRateLimitWidgetData{
@@ -71,7 +71,7 @@ func TestRateLimitCard_ProgressBar_RendersAccessibleBar(t *testing.T) {
 	html := renderToString(t, pages.RateLimitWidget([]pages.AnthropicRateLimitWidgetData{tok}))
 
 	if !strings.Contains(html, `role="progressbar"`) {
-		t.Errorf("no element with role=\"progressbar\" found; utilisation bars should be accessible.\nRendered HTML:\n%s", html)
+		t.Errorf("no element with role=\"progressbar\" found; utilization bars should be accessible.\nRendered HTML:\n%s", html)
 	}
 }
 
@@ -79,8 +79,9 @@ func TestRateLimitCard_ProgressBar_RendersAccessibleBar(t *testing.T) {
 // OverageDisabledReason="org_level_disabled" renders as a styled badge,
 // not the raw machine string.
 //
-// Current behaviour (BUG):
-//   <p class="text-xs text-muted-foreground">Overage disabled: org_level_disabled</p>
+// Current behavior (BUG):
+//
+//	<p class="text-xs text-muted-foreground">Overage disabled: org_level_disabled</p>
 //
 // Expected: a badge element (span with badge class or emoji ⚠️).
 func TestRateLimitCard_OverageDisabledReason_RendersBadge(t *testing.T) {

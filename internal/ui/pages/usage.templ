@@ -792,7 +792,7 @@ func overageBadgeClass(policy string) string {
 	case "allowed":
 		return "bg-emerald-100 text-emerald-700"
 	case "rejected":
-		return "bg-destructive/10 text-destructive"
+		return "bg-red-100 text-red-700"
 	default:
 		return "bg-amber-100 text-amber-700"
 	}
@@ -910,8 +910,7 @@ templ rateLimitPollingScript() {
 							container.innerHTML = '<div class="col-span-full text-sm text-muted-foreground py-2">No OAuth token rate limit data yet. Send a request via an Anthropic OAuth-backed model to populate.</div>';
 							return;
 						}
-						var showKey = items.length > 1;
-						container.innerHTML = items.map(function(tok) {
+							container.innerHTML = items.map(function(tok) {
 							var status = tok.unified_status || '';
 							var badgeClass = status === 'allowed' ? 'bg-emerald-100 text-emerald-700'
 								: status === 'rate_limited' ? 'bg-red-100 text-red-700'
@@ -946,7 +945,7 @@ templ rateLimitPollingScript() {
 								+ '</div>';
 						}).join('');
 					})
-					.catch(function() { /* silently ignore */ });
+					.catch(function(e) { console.warn('[rate-limit-widget] fetch failed:', e); });
 			}
 			updateRateLimitCards();
 			setInterval(updateRateLimitCards, 30000);
