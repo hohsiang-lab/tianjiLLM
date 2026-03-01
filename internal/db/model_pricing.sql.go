@@ -19,7 +19,7 @@ func (q *Queries) DeleteAllModelPricing(ctx context.Context) error {
 }
 
 const listModelPricing = `-- name: ListModelPricing :many
-SELECT model_name, input_cost_per_token, output_cost_per_token, max_input_tokens, max_output_tokens, max_tokens, mode, provider, source_url, synced_at, created_at, updated_at FROM "ModelPricing"
+SELECT model_name, input_cost_per_token, output_cost_per_token, max_input_tokens, max_output_tokens, max_tokens, mode, provider, source_url, cache_read_input_token_cost, cache_creation_input_token_cost, cache_read_input_token_cost_above_200k, cache_creation_input_token_cost_above_200k, synced_at, created_at, updated_at FROM "ModelPricing"
 ORDER BY model_name
 `
 
@@ -42,6 +42,10 @@ func (q *Queries) ListModelPricing(ctx context.Context) ([]ModelPricing, error) 
 			&i.Mode,
 			&i.Provider,
 			&i.SourceUrl,
+			&i.CacheReadInputTokenCost,
+			&i.CacheCreationInputTokenCost,
+			&i.CacheReadInputTokenCostAbove200k,
+			&i.CacheCreationInputTokenCostAbove200k,
 			&i.SyncedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -60,11 +64,17 @@ const upsertModelPricing = `-- name: UpsertModelPricing :exec
 INSERT INTO "ModelPricing" (
     model_name, input_cost_per_token, output_cost_per_token,
     max_input_tokens, max_output_tokens, max_tokens,
-    mode, provider, source_url, synced_at
+    mode, provider, source_url,
+    cache_read_input_token_cost, cache_creation_input_token_cost,
+    cache_read_input_token_cost_above_200k, cache_creation_input_token_cost_above_200k,
+    synced_at
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6,
-    $7, $8, $9, NOW()
+    $7, $8, $9,
+    $10, $11,
+    $12, $13,
+    NOW()
 )
 ON CONFLICT (model_name) DO UPDATE SET
     input_cost_per_token  = EXCLUDED.input_cost_per_token,
@@ -75,20 +85,28 @@ ON CONFLICT (model_name) DO UPDATE SET
     mode                  = EXCLUDED.mode,
     provider              = EXCLUDED.provider,
     source_url            = EXCLUDED.source_url,
+    cache_read_input_token_cost             = EXCLUDED.cache_read_input_token_cost,
+    cache_creation_input_token_cost         = EXCLUDED.cache_creation_input_token_cost,
+    cache_read_input_token_cost_above_200k  = EXCLUDED.cache_read_input_token_cost_above_200k,
+    cache_creation_input_token_cost_above_200k = EXCLUDED.cache_creation_input_token_cost_above_200k,
     synced_at             = NOW(),
     updated_at            = NOW()
 `
 
 type UpsertModelPricingParams struct {
-	ModelName          string  `json:"model_name"`
-	InputCostPerToken  float64 `json:"input_cost_per_token"`
-	OutputCostPerToken float64 `json:"output_cost_per_token"`
-	MaxInputTokens     int32   `json:"max_input_tokens"`
-	MaxOutputTokens    int32   `json:"max_output_tokens"`
-	MaxTokens          int32   `json:"max_tokens"`
-	Mode               string  `json:"mode"`
-	Provider           string  `json:"provider"`
-	SourceUrl          string  `json:"source_url"`
+	ModelName                            string  `json:"model_name"`
+	InputCostPerToken                    float64 `json:"input_cost_per_token"`
+	OutputCostPerToken                   float64 `json:"output_cost_per_token"`
+	MaxInputTokens                       int32   `json:"max_input_tokens"`
+	MaxOutputTokens                      int32   `json:"max_output_tokens"`
+	MaxTokens                            int32   `json:"max_tokens"`
+	Mode                                 string  `json:"mode"`
+	Provider                             string  `json:"provider"`
+	SourceUrl                            string  `json:"source_url"`
+	CacheReadInputTokenCost              float64 `json:"cache_read_input_token_cost"`
+	CacheCreationInputTokenCost          float64 `json:"cache_creation_input_token_cost"`
+	CacheReadInputTokenCostAbove200k     float64 `json:"cache_read_input_token_cost_above_200k"`
+	CacheCreationInputTokenCostAbove200k float64 `json:"cache_creation_input_token_cost_above_200k"`
 }
 
 func (q *Queries) UpsertModelPricing(ctx context.Context, arg UpsertModelPricingParams) error {
@@ -102,6 +120,10 @@ func (q *Queries) UpsertModelPricing(ctx context.Context, arg UpsertModelPricing
 		arg.Mode,
 		arg.Provider,
 		arg.SourceUrl,
+		arg.CacheReadInputTokenCost,
+		arg.CacheCreationInputTokenCost,
+		arg.CacheReadInputTokenCostAbove200k,
+		arg.CacheCreationInputTokenCostAbove200k,
 	)
 	return err
 }
