@@ -24,6 +24,7 @@ type LogData struct {
 	Cost                     float64
 	UserID                   string
 	TeamID                   string
+	CallType                 string
 	RequestTags              []string
 	CacheHit                 bool
 	CacheReadInputTokens     int
