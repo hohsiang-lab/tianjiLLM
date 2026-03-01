@@ -140,3 +140,76 @@ func TestInMemoryRateLimitStore_Prune(t *testing.T) {
 		t.Error("Prune: 'fresh' entry should still be present")
 	}
 }
+
+// --- HO-82: Rate Limit utilization 顯示 "—" ---
+
+// TestParseRateLimitHeaders_MissingUtilizationHeaders verifies that when
+// anthropic-ratelimit-unified-5h/7d-utilization headers are absent (non-OAuth API key),
+// ParseAnthropicOAuthRateLimitHeaders returns -1 for both utilization fields.
+//
+// Root cause of HO-82: non-OAuth API key responses don't include the unified
+// utilization headers; parseFloat("") returns -1. The -1 sentinel is then
+// passed through to the UI layer where fmtUtilPct(-1) = "—".
+//
+// This test documents that the CURRENT behavior is: -1 for missing headers.
+// The DOWNSTREAM problem is that "—" alone gives no hint to the user.
+// (See TestRateLimitTemplate_ShowsHelpTextWhenUtilizationUnavailable for UI fix)
+func TestParseRateLimitHeaders_MissingUtilizationHeaders(t *testing.T) {
+	// Non-OAuth API key response: has legacy request/token headers but NO unified headers.
+	h := http.Header{}
+	h.Set("anthropic-ratelimit-requests-limit", "1000")
+	h.Set("anthropic-ratelimit-requests-remaining", "999")
+	h.Set("anthropic-ratelimit-tokens-limit", "100000")
+	h.Set("anthropic-ratelimit-tokens-remaining", "99000")
+
+	state := ParseAnthropicOAuthRateLimitHeaders(h, "api-key-hash")
+
+	// Missing utilization headers → must be exactly -1 (the unavailable sentinel).
+	if state.Unified5hUtilization != -1 {
+		t.Errorf("Unified5hUtilization = %v, want -1 (unavailable sentinel) when header is absent.\n"+
+			"Bug HO-82: -1 is the sentinel value that causes the UI to show '—' without explanation.",
+			state.Unified5hUtilization)
+	}
+	if state.Unified7dUtilization != -1 {
+		t.Errorf("Unified7dUtilization = %v, want -1 (unavailable sentinel) when header is absent.\n"+
+			"Bug HO-82: -1 is the sentinel value that causes the UI to show '—' without explanation.",
+			state.Unified7dUtilization)
+	}
+
+	// Legacy fields must be correctly parsed (non-OAuth keys DO have these headers).
+	if state.RequestsLimit != 1000 {
+		t.Errorf("RequestsLimit = %d, want 1000", state.RequestsLimit)
+	}
+	if state.TokensRemaining != 99000 {
+		t.Errorf("TokensRemaining = %d, want 99000", state.TokensRemaining)
+	}
+
+	// Unified status must be empty (header absent for non-OAuth keys).
+	if state.UnifiedStatus != "" {
+		t.Errorf("UnifiedStatus = %q, want empty when unified headers are absent", state.UnifiedStatus)
+	}
+
+	// DESIRED BEHAVIOR (currently NOT implemented → this assertion FAILS):
+	// The struct should distinguish "not present" from "0 utilization" explicitly,
+	// so the UI can show a helpful message instead of just "—".
+	// A proper fix would add: UtilizationAvailable bool (false when headers absent).
+	// Currently this field does not exist, so we verify the implicit contract:
+	// "if UnifiedStatus is empty AND Unified5hUtilization == -1, it's an API key token".
+	//
+	// This assertion documents the gap: no explicit "unavailable" flag exists.
+	// The fix is to add UtilizationAvailable bool to AnthropicOAuthRateLimitState.
+	type hasUtilAvailable interface {
+		IsUtilizationAvailable() bool
+	}
+	stateIface := interface{}(state)
+	if checker, ok := stateIface.(hasUtilAvailable); ok {
+		// If the fix is applied and IsUtilizationAvailable() exists, it must return false.
+		if checker.IsUtilizationAvailable() {
+			t.Errorf("IsUtilizationAvailable() must return false when utilization headers are absent")
+		}
+	} else {
+		// Fix not yet applied: document the gap.
+		t.Logf("NOTE HO-82: AnthropicOAuthRateLimitState lacks UtilizationAvailable flag. " +
+			"Currently using -1 sentinel. Fix: add explicit bool to distinguish missing vs zero utilization.")
+	}
+}

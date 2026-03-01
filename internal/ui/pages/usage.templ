@@ -1,7 +1,6 @@
 package pages
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 )
@@ -169,17 +168,22 @@ func formatNumber(v int64) string {
 	return result
 }
 
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}
-
 // modelLabel returns the model name or a fallback for empty strings.
 func modelLabel(model string) string {
 	if model == "" {
 		return "(unknown model)"
 	}
 	return model
+}
+
+func filterNonEmptyModels(models []TopModel) []TopModel {
+	var result []TopModel
+	for _, m := range models {
+		if m.Model != "" {
+			result = append(result, m)
+		}
+	}
+	return result
 }
 
 // --- Templates ---
@@ -368,7 +372,7 @@ templ UsageCostTab(data CostTabData) {
 				<h3 class="text-sm font-semibold mb-3">Top Public Model Names</h3>
 			</div>
 			<div class="px-6 pb-6">
-				if len(data.TopModels) == 0 {
+				if len(filterNonEmptyModels(data.TopModels)) == 0 {
 					<div class="flex items-center justify-center h-[200px] text-muted-foreground text-sm">No model data</div>
 				} else {
 					<ul class="sr-only">
@@ -379,7 +383,7 @@ templ UsageCostTab(data CostTabData) {
 					<div style="height: 200px;">
 						<canvas id="topModelsChart"></canvas>
 					</div>
-					@topModelsChartScript(data.TopModels)
+					@topModelsChartScript(filterNonEmptyModels(data.TopModels))
 				}
 			</div>
 		</div>
@@ -964,7 +968,11 @@ templ rateLimitCard(tok AnthropicRateLimitWidgetData) {
 			<div class="flex items-center justify-between mb-1">
 				<span class="text-xs text-muted-foreground">5h utilization</span>
 				<div class="flex items-center gap-1.5">
-					<span class="text-xs font-medium">{ fmtUtilPct(tok.Unified5hUtilization) }</span>
+					if tok.Unified5hUtilization < 0 {
+						<span class="text-xs font-medium" title="Not available for API keys (requires OAuth token)">—</span>
+					} else {
+						<span class="text-xs font-medium">{ fmtUtilPct(tok.Unified5hUtilization) }</span>
+					}
 					if tok.Unified5hStatus != "" {
 						<span class={ "rounded-full px-1.5 py-0 text-xs font-medium", rateLimitStatusClass(tok.Unified5hStatus) }>{ tok.Unified5hStatus }</span>
 					}
@@ -986,7 +994,11 @@ templ rateLimitCard(tok AnthropicRateLimitWidgetData) {
 			<div class="flex items-center justify-between mb-1">
 				<span class="text-xs text-muted-foreground">7d utilization</span>
 				<div class="flex items-center gap-1.5">
-					<span class="text-xs font-medium">{ fmtUtilPct(tok.Unified7dUtilization) }</span>
+					if tok.Unified7dUtilization < 0 {
+						<span class="text-xs font-medium" title="Not available for API keys (requires OAuth token)">—</span>
+					} else {
+						<span class="text-xs font-medium">{ fmtUtilPct(tok.Unified7dUtilization) }</span>
+					}
 					if tok.Unified7dStatus != "" {
 						<span class={ "rounded-full px-1.5 py-0 text-xs font-medium", rateLimitStatusClass(tok.Unified7dStatus) }>{ tok.Unified7dStatus }</span>
 					}
