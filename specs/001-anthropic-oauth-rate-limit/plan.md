@@ -196,3 +196,113 @@ Alerter         │
 | FR-014 | 單 token 退化顯示 | 4 |
 | FR-015 | Prune goroutine | 2 |
 | FR-016 | API key backward compat | 2 |
+
+---
+
+## Addendum（v3）— Multi-Token Routing & 429 Rate Limit Parsing
+
+> 本節擴充 Phase 2，涵蓋 FR-017 ~ FR-019 的實作細節。
+
+### Phase 2 擴充
+
+#### 2a：resolveAllNativeUpstreams + selectUpstream
+
+**新增** `internal/proxy/handler/native_format.go`：
+
+```go
+// nativeUpstream holds the resolved base URL and API key for one upstream entry.
+type nativeUpstream struct {
+    BaseURL string
+    APIKey  string
+}
+
+// resolveAllNativeUpstreams returns ALL config entries matching providerName.
+// Returns empty slice if none found.
+func (h *Handlers) resolveAllNativeUpstreams(providerName string) []nativeUpstream {
+    var results []nativeUpstream
+    for _, m := range h.Config.ModelList {
+        parts := strings.SplitN(m.TianjiParams.Model, "/", 2)
+        if len(parts) >= 1 && parts[0] == providerName {
+            apiKey := ""
+            if m.TianjiParams.APIKey != nil {
+                apiKey = *m.TianjiParams.APIKey
+            }
+            base := ""
+            if m.TianjiParams.APIBase != nil {
+                base = *m.TianjiParams.APIBase
+            }
+            if base == "" {
+                base = defaultBaseURL(providerName)
+            }
+            results = append(results, nativeUpstream{BaseURL: base, APIKey: apiKey})
+        }
+    }
+    return results
+}
+
+// upstreamCounter is a package-level counter for round-robin selection.
+var upstreamCounter atomic.Uint64
+
+// selectUpstream picks an upstream from the list using round-robin.
+// Safe for concurrent use via atomic.Uint64.
+func selectUpstream(upstreams []nativeUpstream) nativeUpstream {
+    idx := upstreamCounter.Add(1) - 1
+    return upstreams[idx%uint64(len(upstreams))]
+}
+```
+
+**修改** `nativeProxy`：
+- 改呼叫 `resolveAllNativeUpstreams` → `selectUpstream`
+- proxy closure（Director + ModifyResponse）捕獲被選中的 `upstream.APIKey`（not config 第一個）
+- `tokenKey` 計算改用 `selectedUpstream.APIKey`
+- `resolveNativeUpstream` 保留作為 backward-compat wrapper：`return resolveAllNativeUpstreams()[0]`（外部不應再新增呼叫點）
+
+#### 2b：429 路徑也解析 rate limit headers（FR-019）
+
+**修改** `ModifyResponse` 中的 non-200 早期 return 路徑：
+
+目前結構：
+```go
+if resp.StatusCode != http.StatusOK {
+    // ... log error to DB ...
+    return nil   // ← 這裡漏掉了 rate limit 解析
+}
+// rate limit 解析只在 200 才執行
+if providerName == "anthropic" {
+    state := callback.ParseAnthropicRateLimitHeaders(resp.Header)
+    ...
+}
+```
+
+修正後：在 non-200 path 的 `return nil` 之前，插入 rate limit 解析：
+
+```go
+if resp.StatusCode != http.StatusOK {
+    // ... 現有 error log 邏輯 ...
+
+    // FR-019：429（及其他非 200）response 也要解析 rate limit headers
+    // 這是最重要的訊號：token 已耗盡時 Anthropic 仍會帶 rate limit headers
+    if providerName == "anthropic" && h.RateLimitStore != nil {
+        rlState := callback.ParseAnthropicOAuthRateLimitHeaders(resp.Header, tokenKey)
+        h.RateLimitStore.Set(callback.RateLimitCacheKey(tokenKey), rlState)
+    }
+
+    return nil
+}
+```
+
+注意：`DiscordAlerter.CheckAndAlert` **不**移到此處，維持只在 200 path 觸發。
+
+#### 受影響檔案（Phase 2 擴充）
+
+| 檔案 | 異動 |
+|------|------|
+| `internal/proxy/handler/native_format.go` | 新增 `nativeUpstream`, `resolveAllNativeUpstreams`, `selectUpstream`, `upstreamCounter`；修改 `nativeProxy` 使用 round-robin；修改 `ModifyResponse` non-200 path 加 rate limit 解析 |
+
+#### FR → Phase 對照（新增）
+
+| FR | 說明 | Phase |
+|----|------|-------|
+| FR-017 | resolveAllNativeUpstreams | 2（擴充） |
+| FR-018 | selectUpstream round-robin | 2（擴充） |
+| FR-019 | 429 path rate limit 解析 | 2（擴充） |

@@ -102,3 +102,36 @@ Server 啟動時起 goroutine，每分鐘呼叫 RateLimitStore.Prune(5 * time.Mi
 4. 5 分鐘無 response 後，state 自動被 Prune 清除
 5. 現有 API key（非 OAuth）flow 不受影響，所有既有測試 pass
 6. AnthropicRateLimitState（discord alert 用）struct 不變，不影響 DiscordRateLimitAlerter
+
+---
+
+## Addendum（v3）— Multi-Token Routing & 429 Rate Limit Parsing
+
+> 本節為 Norman 確認後新增（2026-03-01），涵蓋 FR-017 ~ FR-019 與對應 SC。
+
+### User Story 5：多 OAuth token round-robin routing
+
+**As a** 系統管理員，設定了多把 Anthropic OAuth token，
+**I want** tianjiLLM 將請求均勻分配到各 token，並分別追蹤每把 token 的 rate limit 用量，
+**So that** Usage 頁面能真正顯示每把 token 各自的剩餘配額，而非全部混在一起。
+
+### FR-017：resolveAllNativeUpstreams — 回傳所有符合的 Anthropic entry
+`resolveNativeUpstream` 目前只回傳 ModelList 中第一筆符合的 entry，導致多把 OAuth token 的請求永遠使用同一把 key。
+新增 `resolveAllNativeUpstreams(providerName string) []nativeUpstream`（`nativeUpstream` 為 `{BaseURL, APIKey string}`），回傳所有符合 provider 的 entry slice。
+`resolveNativeUpstream` 保留作為 backward-compat wrapper（取 slice[0]），不破壞既有呼叫點。
+
+### FR-018：selectUpstream — round-robin 策略
+新增 `selectUpstream(upstreams []nativeUpstream) nativeUpstream`，以全域 `atomic.Uint64` counter 實作 round-robin，goroutine-safe，不需額外 mutex。
+`nativeProxy` 改呼叫 `resolveAllNativeUpstreams` + `selectUpstream` 取得本次請求的 upstream，proxy closure 捕獲**被選中的那個** apiKey（而非 config 第一個）。
+Rate limit store key = `sha256(selectedAPIKey)[:12]`，如此 UI 才能真正顯示多個 token 各自的使用量。
+
+### FR-019：429 response 也解析 rate limit headers
+目前 `ModifyResponse` 在 `resp.StatusCode != http.StatusOK` 時提前 return，漏掉 429 攜帶的 rate limit headers（這是最重要的訊號：token 已耗盡）。
+修正：在 non-200 路徑中，若 `providerName == "anthropic"`，不論 status code，仍須呼叫 `ParseAnthropicOAuthRateLimitHeaders(resp.Header, tokenKey)` 並 `RateLimitStore.Set`。
+Discord alerter 的呼叫邏輯維持在 status 200 path，不動。
+
+### SC（Success Criteria）新增
+
+- **SC-007**：設定兩把 Anthropic OAuth token → 連送 10 個請求 → `GET /ui/api/rate-limit-state` 回傳兩筆獨立記錄，各自有不同 TokenKey
+- **SC-008**：Anthropic 回傳 429 → `GET /ui/api/rate-limit-state` 仍能看到該 token 的 rate limit state 被更新（remaining = 0 或 header 值）
+- **SC-009**：單一 OAuth token 設定時，行為與既有一致（backward compat）
