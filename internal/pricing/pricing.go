@@ -226,3 +226,47 @@ func (c *Calculator) lookupInLayers(model string) *ModelInfo {
 
 	return nil
 }
+
+// modelInfoJSON is the intermediate type used for JSON unmarshaling of ModelInfo.
+// The token count fields use float64 to accept both integer and float JSON values
+// (e.g., 2000000 and 2000000.0 are both valid in the upstream model_prices.json).
+type modelInfoJSON struct {
+	InputCostPerToken  float64 `json:"input_cost_per_token"`
+	OutputCostPerToken float64 `json:"output_cost_per_token"`
+	MaxInputTokens     float64 `json:"max_input_tokens"`
+	MaxOutputTokens    float64 `json:"max_output_tokens"`
+	MaxTokens          float64 `json:"max_tokens"`
+	Mode               string  `json:"mode"`
+	Provider           string  `json:"litellm_provider"`
+
+	CacheReadCostPerToken     float64 `json:"cache_read_input_token_cost"`
+	CacheCreationCostPerToken float64 `json:"cache_creation_input_token_cost"`
+
+	InputCostPerTokenAbove200k         float64 `json:"input_cost_per_token_above_200k_tokens"`
+	OutputCostPerTokenAbove200k        float64 `json:"output_cost_per_token_above_200k_tokens"`
+	CacheReadCostPerTokenAbove200k     float64 `json:"cache_read_input_token_cost_above_200k_tokens"`
+	CacheCreationCostPerTokenAbove200k float64 `json:"cache_creation_input_token_cost_above_200k_tokens"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler for ModelInfo.
+// It handles float JSON values for integer fields (e.g. max_input_tokens: 2000000.0).
+func (m *ModelInfo) UnmarshalJSON(data []byte) error {
+	var raw modelInfoJSON
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	m.InputCostPerToken = raw.InputCostPerToken
+	m.OutputCostPerToken = raw.OutputCostPerToken
+	m.MaxInputTokens = int(raw.MaxInputTokens)
+	m.MaxOutputTokens = int(raw.MaxOutputTokens)
+	m.MaxTokens = int(raw.MaxTokens)
+	m.Mode = raw.Mode
+	m.Provider = raw.Provider
+	m.CacheReadCostPerToken = raw.CacheReadCostPerToken
+	m.CacheCreationCostPerToken = raw.CacheCreationCostPerToken
+	m.InputCostPerTokenAbove200k = raw.InputCostPerTokenAbove200k
+	m.OutputCostPerTokenAbove200k = raw.OutputCostPerTokenAbove200k
+	m.CacheReadCostPerTokenAbove200k = raw.CacheReadCostPerTokenAbove200k
+	m.CacheCreationCostPerTokenAbove200k = raw.CacheCreationCostPerTokenAbove200k
+	return nil
+}
