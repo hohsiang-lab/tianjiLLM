@@ -13,11 +13,11 @@ templ document(title string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>{ title } - TianjiLLM</title>
 			<link rel="stylesheet" href="/ui/static/css/output.css"/>
+			<script src="/ui/static/js/chart.min.js"></script>
 		</head>
 		<body class="h-full bg-background text-foreground antialiased">
 			{ children... }
 			<script src="/ui/static/js/htmx.min.js"></script>
-			<script src="/ui/static/js/chart.min.js"></script>
 			<script>
 				document.addEventListener('htmx:beforeSwap', function(e) {
 					e.detail.target.querySelectorAll('canvas').forEach(function(c) {
