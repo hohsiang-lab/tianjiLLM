@@ -115,8 +115,8 @@ func (h *Handlers) ErrorLogsList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logs, err := h.DB.ListErrorLogs(r.Context(), db.ListErrorLogsParams{
-		Limit:  limit,
-		Offset: 0,
+		QueryLimit:  limit,
+		QueryOffset: 0,
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
