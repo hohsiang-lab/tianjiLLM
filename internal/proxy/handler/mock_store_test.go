@@ -28,6 +28,10 @@ type mockStore struct {
 	deleteTeamFn       func(ctx context.Context, teamID string) error
 	updateTeamFn       func(ctx context.Context, arg db.UpdateTeamParams) (db.TeamTable, error)
 	addTeamMemberFn    func(ctx context.Context, arg db.AddTeamMemberParams) error
+	blockTeamFn        func(ctx context.Context, teamID string) error
+	unblockTeamFn      func(ctx context.Context, teamID string) error
+	addTeamModelFn     func(ctx context.Context, arg db.AddTeamModelParams) error
+	removeTeamModelFn  func(ctx context.Context, arg db.RemoveTeamModelParams) error
 	removeTeamMemberFn func(ctx context.Context, arg db.RemoveTeamMemberParams) error
 
 	// Users
@@ -325,14 +329,21 @@ func (m *mockStore) InsertAuditLog(ctx context.Context, arg db.InsertAuditLogPar
 func (m *mockStore) Pool() *pgxpool.Pool            { return nil }
 func (m *mockStore) Ping(ctx context.Context) error { return nil }
 func (m *mockStore) AddTeamModel(ctx context.Context, arg db.AddTeamModelParams) error {
-	m.ni()
-	return nil
+	if m.addTeamModelFn != nil {
+		return m.addTeamModelFn(ctx, arg)
+	}
+	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) BlockEndUser(ctx context.Context, id string) (db.EndUserTable2, error) {
 	m.ni()
 	return db.EndUserTable2{}, nil
 }
-func (m *mockStore) BlockTeam(ctx context.Context, teamID string) error { m.ni(); return nil }
+func (m *mockStore) BlockTeam(ctx context.Context, teamID string) error {
+	if m.blockTeamFn != nil {
+		return m.blockTeamFn(ctx, teamID)
+	}
+	return fmt.Errorf("not mocked")
+}
 func (m *mockStore) BulkUpdateVerificationTokens(ctx context.Context, arg db.BulkUpdateVerificationTokensParams) error {
 	m.ni()
 	return nil
@@ -798,8 +809,10 @@ func (m *mockStore) RegenerateVerificationToken(ctx context.Context, arg db.Rege
 	return db.VerificationToken{}, nil
 }
 func (m *mockStore) RemoveTeamModel(ctx context.Context, arg db.RemoveTeamModelParams) error {
-	m.ni()
-	return nil
+	if m.removeTeamModelFn != nil {
+		return m.removeTeamModelFn(ctx, arg)
+	}
+	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) ResetAllKeySpend(ctx context.Context) error {
 	if m.resetAllKeySpendFn != nil {
@@ -830,7 +843,12 @@ func (m *mockStore) UnblockEndUser(ctx context.Context, id string) (db.EndUserTa
 	m.ni()
 	return db.EndUserTable2{}, nil
 }
-func (m *mockStore) UnblockTeam(ctx context.Context, teamID string) error { m.ni(); return nil }
+func (m *mockStore) UnblockTeam(ctx context.Context, teamID string) error {
+	if m.unblockTeamFn != nil {
+		return m.unblockTeamFn(ctx, teamID)
+	}
+	return fmt.Errorf("not mocked")
+}
 func (m *mockStore) UpdateAccessGroup(ctx context.Context, arg db.UpdateAccessGroupParams) error {
 	m.ni()
 	return nil
