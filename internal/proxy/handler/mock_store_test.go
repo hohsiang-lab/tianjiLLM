@@ -60,6 +60,14 @@ type mockStore struct {
 	// EndUser ext
 
 	// Misc / team ext
+
+	// Team callback / permissions
+	getTeamCallbackFn      func(ctx context.Context, teamID string) (interface{}, error)
+	setTeamCallbackFn      func(ctx context.Context, arg db.SetTeamCallbackParams) error
+	getTeamPermissionsFn   func(ctx context.Context, teamID string) ([]byte, error)
+	setTeamPermissionsFn   func(ctx context.Context, arg db.SetTeamPermissionsParams) error
+	updateTeamMemberRoleFn func(ctx context.Context, arg db.UpdateTeamMemberRoleParams) error
+
 	listErrorLogsFn        func(ctx context.Context, arg db.ListErrorLogsParams) ([]db.ErrorLog, error)
 	listHealthChecksFn     func(ctx context.Context, arg db.ListHealthChecksParams) ([]db.HealthCheckTable, error)
 	listAvailableTeamsFn   func(ctx context.Context) ([]db.TeamTable, error)
@@ -837,7 +845,9 @@ func (m *mockStore) GetTeam(ctx context.Context, teamID string) (db.TeamTable, e
 	return db.TeamTable{}, nil
 }
 func (m *mockStore) GetTeamCallback(ctx context.Context, teamID string) (interface{}, error) {
-	m.ni()
+	if m.getTeamCallbackFn != nil {
+		return m.getTeamCallbackFn(ctx, teamID)
+	}
 	return nil, nil
 }
 func (m *mockStore) GetTeamDailyActivity(ctx context.Context, arg db.GetTeamDailyActivityParams) ([]db.GetTeamDailyActivityRow, error) {
@@ -847,7 +857,9 @@ func (m *mockStore) GetTeamDailyActivity(ctx context.Context, arg db.GetTeamDail
 	return nil, nil
 }
 func (m *mockStore) GetTeamPermissions(ctx context.Context, teamID string) ([]byte, error) {
-	m.ni()
+	if m.getTeamPermissionsFn != nil {
+		return m.getTeamPermissionsFn(ctx, teamID)
+	}
 	return nil, nil
 }
 func (m *mockStore) GetUser(ctx context.Context, userID string) (db.UserTable, error) {
@@ -1057,11 +1069,15 @@ func (m *mockStore) ResetVerificationTokenSpend(ctx context.Context, token strin
 	return nil
 }
 func (m *mockStore) SetTeamCallback(ctx context.Context, arg db.SetTeamCallbackParams) error {
-	m.ni()
+	if m.setTeamCallbackFn != nil {
+		return m.setTeamCallbackFn(ctx, arg)
+	}
 	return nil
 }
 func (m *mockStore) SetTeamPermissions(ctx context.Context, arg db.SetTeamPermissionsParams) error {
-	m.ni()
+	if m.setTeamPermissionsFn != nil {
+		return m.setTeamPermissionsFn(ctx, arg)
+	}
 	return nil
 }
 func (m *mockStore) UnblockEndUser(ctx context.Context, id string) (db.EndUserTable2, error) {
@@ -1139,7 +1155,9 @@ func (m *mockStore) UpdateTag(ctx context.Context, arg db.UpdateTagParams) (db.T
 	return db.TagTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) UpdateTeamMemberRole(ctx context.Context, arg db.UpdateTeamMemberRoleParams) error {
-	m.ni()
+	if m.updateTeamMemberRoleFn != nil {
+		return m.updateTeamMemberRoleFn(ctx, arg)
+	}
 	return nil
 }
 func (m *mockStore) UpdateUser(ctx context.Context, arg db.UpdateUserParams) (db.UserTable, error) {
