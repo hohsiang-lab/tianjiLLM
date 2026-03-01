@@ -26,6 +26,7 @@ import (
 	dbmigrate "github.com/praxisllmlab/tianjiLLM/internal/db/migrate"
 	"github.com/praxisllmlab/tianjiLLM/internal/guardrail"
 	"github.com/praxisllmlab/tianjiLLM/internal/mcp"
+	"github.com/praxisllmlab/tianjiLLM/internal/metrics"
 	"github.com/praxisllmlab/tianjiLLM/internal/policy"
 	"github.com/praxisllmlab/tianjiLLM/internal/pricing"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider/openaicompat"
@@ -494,6 +495,11 @@ func main() {
 		}
 		cancel()
 	}()
+
+
+
+	// Start dedicated metrics server (separate port)
+	go metrics.ListenAndServe(ctx)
 
 	log.Printf("tianjiLLM listening on %s", addr)
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
