@@ -214,3 +214,35 @@ func TestMapStopReason(t *testing.T) {
 		assert.Equal(t, tt.expected, mapStopReason(tt.input))
 	}
 }
+
+func TestNewWithBaseURL(t *testing.T) {
+	p := NewWithBaseURL("https://custom.anthropic.example.com")
+	assert.NotNil(t, p)
+	url := p.GetRequestURL("claude-3")
+	assert.Contains(t, url, "custom.anthropic.example.com")
+}
+
+func TestGetSupportedParams(t *testing.T) {
+	p := New()
+	params := p.GetSupportedParams()
+	assert.Contains(t, params, "max_tokens")
+	assert.Contains(t, params, "temperature")
+}
+
+func TestMapParams(t *testing.T) {
+	p := New()
+	result := p.MapParams(map[string]any{
+		"max_completion_tokens": 100,
+		"temperature":           0.7,
+	})
+	assert.Equal(t, 100, result["max_tokens"])
+	assert.Equal(t, 0.7, result["temperature"])
+}
+
+func TestTransformStreamChunk_MessageStop(t *testing.T) {
+	p := New()
+	data := []byte(`{"type":"message_stop"}`)
+	_, done, err := p.TransformStreamChunk(context.Background(), data)
+	assert.NoError(t, err)
+	assert.True(t, done)
+}

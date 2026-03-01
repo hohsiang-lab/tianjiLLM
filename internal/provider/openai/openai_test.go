@@ -309,3 +309,59 @@ func TestTransformResponse_NoImages_TextOnly(t *testing.T) {
 	assert.Equal(t, "Hello world", msg.Content)
 	assert.Empty(t, msg.Images, "no images for text-only response")
 }
+
+func TestTransformStreamChunk(t *testing.T) {
+	p := New()
+	data := []byte(`data: {"id":"1","choices":[{"delta":{"content":"hi"}}]}`)
+	chunk, done, err := p.TransformStreamChunk(context.Background(), data)
+	// valid chunk or not — should not panic
+	_ = chunk
+	_ = done
+	_ = err
+}
+
+func TestGetSupportedParams(t *testing.T) {
+	p := New()
+	params := p.GetSupportedParams()
+	assert.NotNil(t, params)
+}
+
+func TestMapParams(t *testing.T) {
+	p := New()
+	result := p.MapParams(map[string]any{"temperature": 0.5, "max_tokens": 100})
+	assert.NotNil(t, result)
+}
+
+func TestTransformEmbeddingRequest(t *testing.T) {
+	p := New()
+	req := &model.EmbeddingRequest{
+		Model: "text-embedding-ada-002",
+		Input: "hello world",
+	}
+	httpReq, err := p.TransformEmbeddingRequest(context.Background(), req, "test-key")
+	require.NoError(t, err)
+	assert.NotNil(t, httpReq)
+	assert.Equal(t, "Bearer test-key", httpReq.Header.Get("Authorization"))
+}
+
+func TestTransformEmbeddingResponse_Success(t *testing.T) {
+	p := New()
+	body := `{"object":"list","data":[{"object":"embedding","index":0,"embedding":[0.1,0.2]}],"model":"text-embedding-ada-002","usage":{"prompt_tokens":2,"total_tokens":2}}`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader([]byte(body))),
+	}
+	result, err := p.TransformEmbeddingResponse(context.Background(), resp)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
+func TestTransformEmbeddingResponse_Error(t *testing.T) {
+	p := New()
+	resp := &http.Response{
+		StatusCode: http.StatusUnauthorized,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":{"message":"unauthorized","type":"auth"}}`))),
+	}
+	_, err := p.TransformEmbeddingResponse(context.Background(), resp)
+	assert.Error(t, err)
+}

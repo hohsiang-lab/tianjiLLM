@@ -134,3 +134,22 @@ func TestRequestBodyFormat(t *testing.T) {
 	assert.Equal(t, 0.5, parsed["temperature"])
 	assert.Equal(t, float64(50), parsed["max_tokens"])
 }
+
+func TestTransformStreamChunk(t *testing.T) {
+	p := New()
+	data := []byte(`data: {"id":"1","choices":[{"delta":{"content":"hi"}}]}`)
+	_, _, err := p.TransformStreamChunk(context.Background(), data)
+	_ = err
+}
+
+func TestGetSupportedParams(t *testing.T) {
+	p := New()
+	params := p.GetSupportedParams()
+	assert.NotNil(t, params)
+}
+
+func TestMapParams(t *testing.T) {
+	p := New()
+	result := p.MapParams(map[string]any{"temperature": 0.7})
+	assert.NotNil(t, result)
+}
