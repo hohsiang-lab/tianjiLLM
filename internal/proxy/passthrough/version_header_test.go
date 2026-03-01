@@ -14,7 +14,7 @@ func TestPassthrough_PreservesClientAnthropicVersion(t *testing.T) {
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedVersion = r.Header.Get("anthropic-version")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"ok":true}`))
+		_,_ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer backend.Close()
 
