@@ -60,6 +60,21 @@ type mockStore struct {
 	// Audit (no-op by default)
 	insertAuditLogFn func(ctx context.Context, arg db.InsertAuditLogParams) (db.AuditLog, error)
 
+	// Audit log
+	getAuditLogFn   func(ctx context.Context, id string) (db.AuditLog, error)
+	listAuditLogsFn func(ctx context.Context, arg db.ListAuditLogsParams) ([]db.AuditLog, error)
+
+	// Agent
+	createAgentFn func(ctx context.Context, arg db.CreateAgentParams) (db.AgentsTable, error)
+	getAgentFn    func(ctx context.Context, agentID string) (db.AgentsTable, error)
+	listAgentsFn  func(ctx context.Context, arg db.ListAgentsParams) ([]db.AgentsTable, error)
+	deleteAgentFn func(ctx context.Context, agentID string) error
+
+	// EndUser
+	createEndUserFn func(ctx context.Context, arg db.CreateEndUserParams) (db.EndUserTable2, error)
+	getEndUserFn    func(ctx context.Context, id string) (db.EndUserTable2, error)
+	deleteEndUserFn func(ctx context.Context, id string) error
+
 	// AccessGroup
 	createAccessGroupFn func(ctx context.Context, arg db.CreateAccessGroupParams) (db.ModelAccessGroup, error)
 	getAccessGroupFn    func(ctx context.Context, groupID string) (db.ModelAccessGroup, error)
@@ -363,6 +378,9 @@ func (m *mockStore) CreateAccessGroup(ctx context.Context, arg db.CreateAccessGr
 	return db.ModelAccessGroup{}, nil
 }
 func (m *mockStore) CreateAgent(ctx context.Context, arg db.CreateAgentParams) (db.AgentsTable, error) {
+	if m.createAgentFn != nil {
+		return m.createAgentFn(ctx, arg)
+	}
 	m.ni()
 	return db.AgentsTable{}, nil
 }
@@ -379,6 +397,9 @@ func (m *mockStore) CreateCredential(ctx context.Context, arg db.CreateCredentia
 	return db.CredentialTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreateEndUser(ctx context.Context, arg db.CreateEndUserParams) (db.EndUserTable2, error) {
+	if m.createEndUserFn != nil {
+		return m.createEndUserFn(ctx, arg)
+	}
 	m.ni()
 	return db.EndUserTable2{}, nil
 }
@@ -441,7 +462,13 @@ func (m *mockStore) DeleteAccessGroup(ctx context.Context, groupID string) error
 	m.ni()
 	return nil
 }
-func (m *mockStore) DeleteAgent(ctx context.Context, agentID string) error { m.ni(); return nil }
+func (m *mockStore) DeleteAgent(ctx context.Context, agentID string) error {
+	if m.deleteAgentFn != nil {
+		return m.deleteAgentFn(ctx, agentID)
+	}
+	m.ni()
+	return nil
+}
 func (m *mockStore) DeleteBudget(ctx context.Context, budgetID string) error {
 	if m.deleteBudgetFn != nil {
 		return m.deleteBudgetFn(ctx, budgetID)
@@ -454,7 +481,13 @@ func (m *mockStore) DeleteCredential(ctx context.Context, credentialID string) e
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeleteEndUser(ctx context.Context, id string) error { m.ni(); return nil }
+func (m *mockStore) DeleteEndUser(ctx context.Context, id string) error {
+	if m.deleteEndUserFn != nil {
+		return m.deleteEndUserFn(ctx, id)
+	}
+	m.ni()
+	return nil
+}
 func (m *mockStore) DeleteGuardrailConfig(ctx context.Context, id string) error {
 	if m.deleteGuardrailConfigFn != nil {
 		return m.deleteGuardrailConfigFn(ctx, id)
@@ -508,10 +541,16 @@ func (m *mockStore) GetAccessGroup(ctx context.Context, groupID string) (db.Mode
 	return db.ModelAccessGroup{}, nil
 }
 func (m *mockStore) GetAgent(ctx context.Context, agentID string) (db.AgentsTable, error) {
+	if m.getAgentFn != nil {
+		return m.getAgentFn(ctx, agentID)
+	}
 	m.ni()
 	return db.AgentsTable{}, nil
 }
 func (m *mockStore) GetAuditLog(ctx context.Context, id string) (db.AuditLog, error) {
+	if m.getAuditLogFn != nil {
+		return m.getAuditLogFn(ctx, id)
+	}
 	m.ni()
 	return db.AuditLog{}, nil
 }
@@ -558,6 +597,9 @@ func (m *mockStore) GetDailySpendByTeam(ctx context.Context, arg db.GetDailySpen
 	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetEndUser(ctx context.Context, id string) (db.EndUserTable2, error) {
+	if m.getEndUserFn != nil {
+		return m.getEndUserFn(ctx, id)
+	}
 	m.ni()
 	return db.EndUserTable2{}, nil
 }
@@ -717,10 +759,16 @@ func (m *mockStore) InsertHealthCheck(ctx context.Context, arg db.InsertHealthCh
 	return nil
 }
 func (m *mockStore) ListAgents(ctx context.Context, arg db.ListAgentsParams) ([]db.AgentsTable, error) {
+	if m.listAgentsFn != nil {
+		return m.listAgentsFn(ctx, arg)
+	}
 	m.ni()
 	return nil, nil
 }
 func (m *mockStore) ListAuditLogs(ctx context.Context, arg db.ListAuditLogsParams) ([]db.AuditLog, error) {
+	if m.listAuditLogsFn != nil {
+		return m.listAuditLogsFn(ctx, arg)
+	}
 	m.ni()
 	return nil, nil
 }
@@ -939,3 +987,18 @@ func (m *mockStore) UpdateUser(ctx context.Context, arg db.UpdateUserParams) (db
 
 // Compile-time check
 var _ db.Store = (*mockStore)(nil)
+
+func (m *mockStore) UpdateUserMetadata(ctx context.Context, arg db.UpdateUserMetadataParams) error {
+	m.ni()
+	return nil
+}
+
+func (m *mockStore) ListVerificationTokensByUser(ctx context.Context, userID *string) ([]db.VerificationToken, error) {
+	m.ni()
+	return nil, nil
+}
+
+func (m *mockStore) UpdateTeamMetadata(ctx context.Context, arg db.UpdateTeamMetadataParams) error {
+	m.ni()
+	return nil
+}

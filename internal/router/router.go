@@ -420,3 +420,12 @@ func extractTags(req *model.ChatCompletionRequest) []string {
 	}
 	return tags
 }
+
+// RouterProvider is the interface that handlers depend on.
+// *Router satisfies this interface.
+type RouterProvider interface {
+	Route(ctx context.Context, modelName string, req *model.ChatCompletionRequest) (*Deployment, provider.Provider, error)
+	GeneralFallback(modelName string) (*Deployment, provider.Provider, error)
+	ListModelGroups(ctx context.Context) map[string][]*Deployment
+	ModelGroupAlias() map[string]ModelGroupAliasItem
+}

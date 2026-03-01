@@ -211,6 +211,10 @@ type Store interface {
 	RegenerateVerificationToken(ctx context.Context, arg RegenerateVerificationTokenParams) (VerificationToken, error)
 	UnblockVerificationToken(ctx context.Context, token string) error
 	UpdateVerificationToken(ctx context.Context, arg UpdateVerificationTokenParams) (VerificationToken, error)
+
+	UpdateUserMetadata(ctx context.Context, arg UpdateUserMetadataParams) error
+	ListVerificationTokensByUser(ctx context.Context, userID *string) ([]VerificationToken, error)
+	UpdateTeamMetadata(ctx context.Context, arg UpdateTeamMetadataParams) error
 }
 
 // Compile-time check: *Queries implements Store.

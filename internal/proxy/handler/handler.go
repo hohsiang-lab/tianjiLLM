@@ -33,7 +33,7 @@ type Handlers struct {
 	Config           *config.ProxyConfig
 	DB               db.Store
 	Cache            cache.Cache
-	Router           *router.Router
+	Router           router.RouterProvider
 	Callbacks        *callback.Registry
 	Guardrails       *guardrail.Registry
 	PolicyEngine     *router.PolicyEngine
