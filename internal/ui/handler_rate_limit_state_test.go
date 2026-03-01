@@ -1,6 +1,5 @@
-// Package ui — failing tests for the /ui/api/rate-limit-state endpoint.
-// These tests are written BEFORE implementation (TDD / failing-first).
-// They cover FR-010, FR-007, FR-008, SC-004, SC-005.
+// Package ui — tests for the /ui/api/rate-limit-state endpoint.
+// Tests cover FR-010, FR-007, FR-008, SC-004, SC-005.
 package ui
 
 import (
@@ -20,12 +19,26 @@ import (
 // helpers
 // ---------------------------------------------------------------------------
 
+const testMasterKey = "test-master-key-for-ho74"
+
 // newHandlerWithStore creates a UIHandler pre-wired with a ratelimitstate store.
-// (After implementation UIHandler should have a RateLimitStore field.)
 func newHandlerWithStore(store *ratelimitstate.Store) *UIHandler {
-	h := &UIHandler{}
-	h.RateLimitStore = store // field expected after implementation
+	h := &UIHandler{
+		MasterKey:      testMasterKey,
+		RateLimitStore: store,
+	}
 	return h
+}
+
+// withAuthSession injects a valid signed session cookie into the request.
+func withAuthSession(r *http.Request) *http.Request {
+	h := &UIHandler{MasterKey: testMasterKey}
+	value := signSession(h.sessionKey(), "admin", "")
+	r.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: value,
+	})
+	return r
 }
 
 // ---------------------------------------------------------------------------
@@ -57,7 +70,7 @@ func TestRateLimitStateEndpoint_NoData(t *testing.T) {
 	h := newHandlerWithStore(store)
 
 	req := httptest.NewRequest(http.MethodGet, "/ui/api/rate-limit-state", nil)
-	req = withAuthSession(req) // helper that injects a valid session
+	req = withAuthSession(req)
 	rr := httptest.NewRecorder()
 	h.handleRateLimitState(rr, req)
 
@@ -67,7 +80,6 @@ func TestRateLimitStateEndpoint_NoData(t *testing.T) {
 	var body map[string]interface{}
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &body))
 
-	// Must signal "no data" without exposing null/0 as real values.
 	hasData, _ := body["has_data"].(bool)
 	assert.False(t, hasData, "has_data must be false when store is empty (SC-004)")
 }
@@ -114,9 +126,9 @@ func TestRateLimitStateEndpoint_WithData(t *testing.T) {
 	assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
 
 	var body struct {
-		HasData      bool   `json:"has_data"`
-		CapturedAt   string `json:"captured_at"`
-		InputTokens  *struct {
+		HasData     bool   `json:"has_data"`
+		CapturedAt  string `json:"captured_at"`
+		InputTokens *struct {
 			Limit     int64  `json:"limit"`
 			Remaining int64  `json:"remaining"`
 			ResetsAt  string `json:"resets_at"`
@@ -181,7 +193,6 @@ func TestRateLimitStateEndpoint_PartialSnapshot(t *testing.T) {
 	var raw map[string]interface{}
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &raw))
 
-	// output_tokens and requests must be present as null (not absent keys)
 	outputTokens, outputPresent := raw["output_tokens"]
 	assert.True(t, outputPresent, "output_tokens key must be present even when nil (FR-008)")
 	assert.Nil(t, outputTokens, "output_tokens value must be null when header was absent")
@@ -189,22 +200,4 @@ func TestRateLimitStateEndpoint_PartialSnapshot(t *testing.T) {
 	requests, requestsPresent := raw["requests"]
 	assert.True(t, requestsPresent, "requests key must be present even when nil (FR-008)")
 	assert.Nil(t, requests, "requests value must be null when header was absent")
-}
-
-// ---------------------------------------------------------------------------
-// withAuthSession injects a fake valid session into the request context.
-// Implementation must recognise this as an authenticated admin session.
-// ---------------------------------------------------------------------------
-func withAuthSession(r *http.Request) *http.Request {
-	// After implementation, replace this with whatever session-cookie or
-	// context-injection mechanism the UIHandler.sessionAuth middleware uses.
-	// For now we rely on the handler reading a session value from context;
-	// the test helper should set that context value here.
-	//
-	// Placeholder: set a known test cookie that the test UIHandler accepts.
-	r.AddCookie(&http.Cookie{
-		Name:  "tianji_session",
-		Value: "test-valid-session",
-	})
-	return r
 }

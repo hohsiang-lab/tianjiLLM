@@ -16,6 +16,7 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
 	"github.com/praxisllmlab/tianjiLLM/internal/pricing"
+	"github.com/praxisllmlab/tianjiLLM/internal/ratelimitstate"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/pages"
 )
 
@@ -25,7 +26,8 @@ type UIHandler struct {
 	Pool          *pgxpool.Pool
 	Config        *config.ProxyConfig
 	Cache         cache.Cache
-	MasterKey     string
+	MasterKey      string
+	RateLimitStore *ratelimitstate.Store
 	Pricing       *pricing.Calculator
 	syncPricingMu sync.Mutex
 }

@@ -264,6 +264,55 @@ templ UsagePage(data UsagePageData, tab UsageTabContent) {
 						@UsageEndpointActivityTab(t)
 				}
 			</div>
+			<!-- Anthropic Rate Limits Widget -->
+			@AnthropicRateLimitWidget()
+		</div>
+	}
+}
+
+// AnthropicRateLimitWidget renders the rate limit status widget with auto-refresh.
+templ AnthropicRateLimitWidget() {
+	<div class="mt-6">
+		<h3 class="text-base font-semibold mb-3">Anthropic Rate Limits</h3>
+		<div
+			id="anthropic-rate-limit-widget"
+			hx-get="/ui/api/rate-limit-state"
+			hx-trigger="load, every 30s"
+			hx-swap="innerHTML"
+		>
+			<p class="text-sm text-muted-foreground">Loading rate limit data…</p>
+		</div>
+	</div>
+}
+
+// AnthropicRateLimitCards renders per-token rate limit cards (used by HTMX partial).
+templ AnthropicRateLimitCards(entries []RateLimitEntry) {
+	if len(entries) == 0 {
+		<p class="text-sm text-muted-foreground">No Anthropic tokens configured or no rate limit data yet.</p>
+	} else {
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+			for _, e := range entries {
+				<div class="rounded-lg border border-border bg-card p-4 space-y-2">
+					<div class="flex items-center justify-between">
+						<span class="text-sm font-medium truncate">{ e.TokenAlias }</span>
+						<span class="text-xs text-muted-foreground">{ e.LastUpdatedStr }</span>
+					</div>
+					<div class="space-y-1 text-sm">
+						<div class={ "flex justify-between", rateLimitWarningClass(e.InputTokensRemaining, e.InputTokensLimit) }>
+							<span>Input tokens</span>
+							<span>{ fmtRateVal(e.InputTokensRemaining) } / { fmtRateVal(e.InputTokensLimit) }</span>
+						</div>
+						<div class={ "flex justify-between", rateLimitWarningClass(e.OutputTokensRemaining, e.OutputTokensLimit) }>
+							<span>Output tokens</span>
+							<span>{ fmtRateVal(e.OutputTokensRemaining) } / { fmtRateVal(e.OutputTokensLimit) }</span>
+						</div>
+						<div class={ "flex justify-between", rateLimitWarningClass(e.RequestsRemaining, e.RequestsLimit) }>
+							<span>Requests</span>
+							<span>{ fmtRateVal(e.RequestsRemaining) } / { fmtRateVal(e.RequestsLimit) }</span>
+						</div>
+					</div>
+				</div>
+			}
 		</div>
 	}
 }
@@ -720,4 +769,36 @@ templ endpointRequestsChartScript(endpoints []EndpointDailyActivity) {
 			});
 		})();
 	</script>
+}
+
+// --- Rate Limit Widget Data Types and Helpers ---
+
+// RateLimitEntry is passed to the templ widget from the handler.
+type RateLimitEntry struct {
+	TokenAlias            string
+	KeyHash               string
+	InputTokensLimit      int64
+	InputTokensRemaining  int64
+	OutputTokensLimit     int64
+	OutputTokensRemaining int64
+	RequestsLimit         int64
+	RequestsRemaining     int64
+	LastUpdatedStr        string
+}
+
+func fmtRateVal(v int64) string {
+	if v < 0 {
+		return "–"
+	}
+	return strconv.FormatInt(v, 10)
+}
+
+func rateLimitWarningClass(remaining, limit int64) string {
+	if limit <= 0 || remaining < 0 {
+		return ""
+	}
+	if float64(remaining)/float64(limit) < 0.2 {
+		return "text-yellow-600 font-semibold"
+	}
+	return ""
 }

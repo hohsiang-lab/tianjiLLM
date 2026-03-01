@@ -11,7 +11,10 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
@@ -21,6 +24,7 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/pricing"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider/anthropic"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
+	"github.com/praxisllmlab/tianjiLLM/internal/ratelimitstate"
 )
 
 // nativeProxy creates a reverse proxy to a specific provider's base URL.
@@ -118,6 +122,33 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 				state := callback.ParseAnthropicRateLimitHeaders(resp.Header)
 				if h.DiscordAlerter != nil {
 					h.DiscordAlerter.CheckAndAlert(state)
+				}
+				// Store rate limit state per apiKey for Usage page widget.
+				if apiKey != "" {
+					hash := sha256.Sum256([]byte(apiKey))
+					keyHash := hex.EncodeToString(hash[:])
+					snap := &ratelimitstate.Snapshot{
+						CapturedAt: time.Now().UTC(),
+					}
+					if state.InputTokensLimit >= 0 || state.InputTokensRemaining >= 0 {
+						snap.InputTokens = &ratelimitstate.DimensionState{
+							Limit:     state.InputTokensLimit,
+							Remaining: state.InputTokensRemaining,
+						}
+					}
+					if state.OutputTokensLimit >= 0 || state.OutputTokensRemaining >= 0 {
+						snap.OutputTokens = &ratelimitstate.DimensionState{
+							Limit:     state.OutputTokensLimit,
+							Remaining: state.OutputTokensRemaining,
+						}
+					}
+					if state.RequestsLimit >= 0 || state.RequestsRemaining >= 0 {
+						snap.Requests = &ratelimitstate.DimensionState{
+							Limit:     state.RequestsLimit,
+							Remaining: state.RequestsRemaining,
+						}
+					}
+					ratelimitstate.GetOrCreate(keyHash).Set(snap)
 				}
 			}
 
@@ -444,8 +475,15 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion, cacheRe
 	return
 }
 
+// nativeRoundRobinCounter is used for round-robin selection among multiple upstream entries.
+var nativeRoundRobinCounter uint64
+
 // resolveNativeUpstream finds the base URL and API key for a native provider.
+// For providers with multiple entries (e.g. multiple Anthropic OAuth tokens), it uses
+// round-robin selection so rate limit attribution is spread correctly.
 func (h *Handlers) resolveNativeUpstream(providerName string) (string, string) {
+	type entry struct{ base, apiKey string }
+	var entries []entry
 	for _, m := range h.Config.ModelList {
 		parts := strings.SplitN(m.TianjiParams.Model, "/", 2)
 		if len(parts) >= 1 && parts[0] == providerName {
@@ -460,10 +498,15 @@ func (h *Handlers) resolveNativeUpstream(providerName string) (string, string) {
 			if base == "" {
 				base = defaultBaseURL(providerName)
 			}
-			return base, apiKey
+			entries = append(entries, entry{base: base, apiKey: apiKey})
 		}
 	}
-	return "", ""
+	if len(entries) == 0 {
+		return "", ""
+	}
+	idx := atomic.AddUint64(&nativeRoundRobinCounter, 1) % uint64(len(entries))
+	e := entries[idx]
+	return e.base, e.apiKey
 }
 
 func defaultBaseURL(provider string) string {
