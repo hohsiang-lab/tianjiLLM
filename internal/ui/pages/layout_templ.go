@@ -47,7 +47,7 @@ func document(title string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " - TianjiLLM</title><link rel=\"stylesheet\" href=\"/ui/static/css/output.css\"></head><body class=\"h-full bg-background text-foreground antialiased\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " - TianjiLLM</title><link rel=\"stylesheet\" href=\"/ui/static/css/output.css\"><script src=\"/ui/static/js/chart.min.js\"></script></head><body class=\"h-full bg-background text-foreground antialiased\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -55,7 +55,7 @@ func document(title string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<script src=\"/ui/static/js/htmx.min.js\"></script><script src=\"/ui/static/js/chart.min.js\"></script><script>\n\t\t\t\tdocument.addEventListener('htmx:beforeSwap', function(e) {\n\t\t\t\t\te.detail.target.querySelectorAll('canvas').forEach(function(c) {\n\t\t\t\t\t\tvar chart = Chart.getChart(c);\n\t\t\t\t\t\tif (chart) chart.destroy();\n\t\t\t\t\t});\n\t\t\t\t});\n\t\t\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<script src=\"/ui/static/js/htmx.min.js\"></script><script>\n\t\t\t\tdocument.addEventListener('htmx:beforeSwap', function(e) {\n\t\t\t\t\te.detail.target.querySelectorAll('canvas').forEach(function(c) {\n\t\t\t\t\t\tvar chart = Chart.getChart(c);\n\t\t\t\t\t\tif (chart) chart.destroy();\n\t\t\t\t\t});\n\t\t\t\t});\n\t\t\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

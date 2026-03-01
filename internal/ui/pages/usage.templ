@@ -418,10 +418,12 @@ templ UsageTopKeysPartial(keys []TopKey, limit int) {
 templ dailySpendChartScript(data []DailySpend) {
 	@templ.JSONScript("dailySpendData", data)
 	<script>
-		(function() {
+		function initDailySpendChart() {
 			var raw = JSON.parse(document.getElementById('dailySpendData').textContent);
 			var labels = raw.map(function(d) { return d.Date; });
 			var values = raw.map(function(d) { return d.Spend; });
+			var existing = Chart.getChart(document.getElementById('dailySpendChart'));
+			if (existing) { existing.destroy(); }
 			new Chart(document.getElementById('dailySpendChart'), {
 				type: 'bar',
 				data: {
@@ -454,7 +456,12 @@ templ dailySpendChartScript(data []DailySpend) {
 					}
 				}
 			});
-		})();
+		}
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', initDailySpendChart);
+		} else {
+			initDailySpendChart();
+		}
 	</script>
 }
 
