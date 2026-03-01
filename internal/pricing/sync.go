@@ -196,7 +196,11 @@ func SyncFromUpstream(ctx context.Context, pool *pgxpool.Pool, queries *db.Queri
 	calc.ReloadFromDB(dbEntries)
 
 	// Step 6: insert embedded fallback models (insert-only)
-	if embErr := syncEmbeddedFallback(ctx, pool, calc, queries); embErr != nil {
+	existingDB := make(map[string]struct{}, len(dbEntries))
+	for _, e := range dbEntries {
+		existingDB[e.ModelName] = struct{}{}
+	}
+	if embErr := syncEmbeddedFallback(ctx, pool, calc, existingDB); embErr != nil {
 		log.Printf("pricing sync: warning: embedded fallback failed: %v", embErr)
 	}
 
@@ -288,17 +292,7 @@ ON CONFLICT (model_name) DO NOTHING`
 
 // syncEmbeddedFallback inserts embedded-only models into the DB (insert-only).
 // It queries current DB model names, finds embedded models not present, and inserts them.
-func syncEmbeddedFallback(ctx context.Context, pool *pgxpool.Pool, calc *Calculator, queries *db.Queries) error {
-	// Build existing DB model name set
-	dbEntries, err := queries.ListModelPricing(ctx)
-	if err != nil {
-		return fmt.Errorf("syncEmbeddedFallback: list model pricing: %w", err)
-	}
-	existingDB := make(map[string]struct{}, len(dbEntries))
-	for _, e := range dbEntries {
-		existingDB[e.ModelName] = struct{}{}
-	}
-
+func syncEmbeddedFallback(ctx context.Context, pool *pgxpool.Pool, calc *Calculator, existingDB map[string]struct{}) error {
 	toInsert := selectEmbeddedToInsert(calc.embedded, existingDB)
 	if len(toInsert) == 0 {
 		return nil

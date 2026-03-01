@@ -9,7 +9,6 @@ package pricing
 // These are TDD-style failing tests — the feature is not yet implemented.
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -140,10 +139,6 @@ func TestHO83_EmbeddedOnlyModelIsInsertedAfterSync(t *testing.T) {
 		}
 	}
 
-	// Ensure upstream server builds correctly (integration-style scaffolding).
-	upstream := upstreamServerWithout(t, []string{targetModel})
-	_ = upstream
-	_ = context.Background()
 }
 
 // ---- Test 2: DB-existing model is NOT overwritten (insert-only) ----
