@@ -284,3 +284,13 @@ func TestExtractTags_WithTags(t *testing.T) {
 	tags := extractTags(req)
 	assert.Equal(t, []string{"billing", "prod"}, tags)
 }
+
+func TestRegisterAutoRouter(t *testing.T) {
+	r := New(nil, &roundRobinStrategy{}, RouterSettings{})
+	r.RegisterAutoRouter("auto_router/test", func(ctx context.Context, lastUserMessage string) (string, error) {
+		return "gpt-4o", nil
+	})
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	require.NotNil(t, r.autoRouters["auto_router/test"])
+}

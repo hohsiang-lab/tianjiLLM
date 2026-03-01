@@ -49,8 +49,8 @@ func TestNewFromConfig_AllStrategies(t *testing.T) {
 		"lowest-cost", "usage-based", "lowest-tpm-rpm", "priority",
 	}
 	for _, s := range strategies {
-		strat, err := NewFromConfig(s)
-		if err != nil || strat == nil {
+		got, err := NewFromConfig(s)
+		if err != nil || got == nil {
 			t.Errorf("NewFromConfig(%q) failed: %v", s, err)
 		}
 	}
