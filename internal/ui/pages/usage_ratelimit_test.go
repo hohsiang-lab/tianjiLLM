@@ -109,3 +109,49 @@ func TestRateLimitCard_OverageDisabledReason_RendersBadge(t *testing.T) {
 		t.Errorf("no badge element found for OverageDisabledReason='org_level_disabled'.\nRendered HTML:\n%s", html)
 	}
 }
+
+// --- HO-82: Rate Limit utilization 顯示 "—" ---
+
+// TestRateLimitTemplate_ShowsHelpTextWhenUtilizationUnavailable verifies that when
+// Unified5hUtilization and Unified7dUtilization are -1 (missing headers = non-OAuth key),
+// the rendered widget shows the "—" value AND provides an explanatory tooltip or
+// ARIA attribute explaining WHY utilization is unavailable.
+//
+// Root cause of HO-82: non-OAuth API key responses lack utilization headers;
+// parseFloat("") = -1 → fmtUtilPct(-1) = "—". Users see "—" with no explanation.
+//
+// FAILING TEST: The current template renders "—" but does NOT include a `title`
+// attribute or aria-label near the utilization field explaining the unavailability.
+// The fix must add: title="Not available for API keys (requires OAuth token)"
+// or equivalent on the "—" span element.
+func TestRateLimitTemplate_ShowsHelpTextWhenUtilizationUnavailable(t *testing.T) {
+	tok := pages.AnthropicRateLimitWidgetData{
+		TokenKey:             "apikey123abc",
+		UnifiedStatus:        "",
+		Unified5hStatus:      "",
+		Unified5hUtilization: -1, // -1 = header absent (non-OAuth API key)
+		Unified7dStatus:      "",
+		Unified7dUtilization: -1,
+	}
+
+	html := renderToString(t, pages.RateLimitWidget([]pages.AnthropicRateLimitWidgetData{tok}))
+
+	// Basic: "—" must be rendered.
+	if !strings.Contains(html, "—") {
+		t.Fatalf("rendered widget does not contain '—' for unavailable utilization.\nRendered HTML:\n%s", html)
+	}
+
+	// DESIRED (not yet implemented): when utilization == -1, the "—" span must carry
+	// a title attribute with an explanation. This lets users hover to understand why.
+	// Current implementation: <span class="text-xs font-medium">—</span> (no title).
+	// Fixed implementation: <span class="text-xs font-medium" title="Not available for API keys">—</span>
+	//
+	// This assertion will FAIL until the template is updated to add the title attribute.
+	hasTitleOnDash := strings.Contains(html, `title=`) && strings.Contains(html, "—")
+	if !hasTitleOnDash {
+		t.Errorf("Bug HO-82: utilization '—' is displayed without an explanatory title attribute.\n"+
+			"Users with non-OAuth API keys see '—' with no hint about why utilization is unavailable.\n"+
+			"Fix: add title=\"Not available for API keys (requires OAuth token)\" to the '—' span.\n"+
+			"Current rendered HTML:\n%s", html)
+	}
+}

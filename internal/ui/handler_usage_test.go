@@ -14,6 +14,7 @@ import (
 	"context"
 	"net/http/httptest"
 	"strings"
+	"time"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -129,4 +130,59 @@ func TestUsageCostTab_TopModels_ModelNamesNotEmpty(t *testing.T) {
 	assert.NotContains(t, strings.ReplaceAll(html, `"Model":""`, "EMPTY_MODEL"),
 		"EMPTY_MODEL",
 		`TopModel with empty Model string must not appear in chart data (SpendLogs.model stored as empty string — data pipeline bug)`)
+}
+
+// --- HO-80: Daily Spend chart 空白 ---
+
+// TestGetDailySpend_ReturnsNonEmptyData documents that when the cost tab receives
+// daily spend rows from the DB, DailySpend must be non-empty and contain
+// non-zero spend values (not all zeros).
+//
+// Root cause of HO-80: either Chart.js init silently fails after HTMX navigation
+// (window.Chart undefined), or spend values are all 0 (bar height 0).
+// This test pins the data pipeline: fillMissingDates must preserve non-zero
+// spend values that were returned from the DB.
+//
+// If this test FAILS: the data pipeline is zeroing out spend values before they
+// reach the chart → blank chart bars even though there IS real spend data.
+func TestGetDailySpend_ReturnsNonEmptyData(t *testing.T) {
+	d1 := "2025-01-01"
+	d2 := "2025-01-02"
+
+	// Simulate what loadCostTabData builds from DB rows.
+	input := []pages.DailySpend{
+		{Date: d1, Spend: 1.23},
+		{Date: d2, Spend: 4.56},
+	}
+
+	start, _ := time.Parse("2006-01-02", d1)
+	end, _ := time.Parse("2006-01-02", d2)
+	end = end.Add(24 * time.Hour) // exclusive end (matches handler convention)
+
+	result := fillMissingDates(input, start, end)
+
+	// Must have at least as many entries as input (no data is lost).
+	require.NotEmpty(t, result, "fillMissingDates must not return empty when input is non-empty")
+
+	// At least one entry must have a non-zero spend.
+	// If all spends are 0, Chart.js renders bars with height 0 = blank chart (HO-80).
+	var hasNonZero bool
+	for _, d := range result {
+		if d.Spend > 0 {
+			hasNonZero = true
+			break
+		}
+	}
+	assert.True(t, hasNonZero,
+		"DailySpend result must contain at least one non-zero Spend; all-zero = blank chart (HO-80). Got: %+v", result)
+
+	// Original spend values must be preserved exactly.
+	byDate := make(map[string]float64)
+	for _, d := range result {
+		byDate[d.Date] = d.Spend
+	}
+	assert.InDelta(t, 1.23, byDate[d1], 0.001,
+		"Spend for %s must be preserved (want 1.23, got %v)", d1, byDate[d1])
+	assert.InDelta(t, 4.56, byDate[d2], 0.001,
+		"Spend for %s must be preserved (want 4.56, got %v)", d2, byDate[d2])
 }
