@@ -54,7 +54,7 @@ jobs:
       - name: Run tests with coverage
         env:
           TEST_DATABASE_URL: "postgres://tianji:tianji@localhost:5433/tianji?sslmode=disable"
-          COVERAGE_THRESHOLD: "55"
+          COVERAGE_THRESHOLD: "56"
         run: |
           # FR-1: Generate coverage profile, excluding UI packages
           go test -race -coverpkg=./internal/... -coverprofile=coverage.raw ./...

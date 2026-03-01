@@ -49,6 +49,17 @@ type mockStore struct {
 	updateOrgMemberFn    func(ctx context.Context, arg db.UpdateOrgMemberParams) (db.OrganizationMembership, error)
 	deleteOrgMemberFn    func(ctx context.Context, arg db.DeleteOrgMemberParams) error
 
+	// Skills
+	createSkillFn func(ctx context.Context, arg db.CreateSkillParams) (db.SkillsTable, error)
+	getSkillFn    func(ctx context.Context, skillID string) (db.SkillsTable, error)
+	listSkillsFn  func(ctx context.Context, arg db.ListSkillsParams) ([]db.SkillsTable, error)
+	deleteSkillFn func(ctx context.Context, skillID string) error
+
+	// User extended
+	getUserFn              func(ctx context.Context, userID string) (db.UserTable, error)
+	updateUserFn           func(ctx context.Context, arg db.UpdateUserParams) (db.UserTable, error)
+	getUserDailyActivityFn func(ctx context.Context, arg db.GetUserDailyActivityParams) ([]db.GetUserDailyActivityRow, error)
+
 	// Spend
 	getSpendByKeyFn     func(ctx context.Context, arg db.GetSpendByKeyParams) ([]db.GetSpendByKeyRow, error)
 	getSpendByUserFn    func(ctx context.Context, arg db.GetSpendByUserParams) ([]db.GetSpendByUserRow, error)
@@ -469,6 +480,9 @@ func (m *mockStore) CreateProxyModel(ctx context.Context, arg db.CreateProxyMode
 	return db.ProxyModelTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreateSkill(ctx context.Context, arg db.CreateSkillParams) (db.SkillsTable, error) {
+	if m.createSkillFn != nil {
+		return m.createSkillFn(ctx, arg)
+	}
 	m.ni()
 	return db.SkillsTable{}, nil
 }
@@ -559,7 +573,13 @@ func (m *mockStore) DeleteProxyModel(ctx context.Context, modelID string) error 
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeleteSkill(ctx context.Context, skillID string) error { m.ni(); return nil }
+func (m *mockStore) DeleteSkill(ctx context.Context, skillID string) error {
+	if m.deleteSkillFn != nil {
+		return m.deleteSkillFn(ctx, skillID)
+	}
+	m.ni()
+	return nil
+}
 func (m *mockStore) DeleteTag(ctx context.Context, id string) error {
 	if m.deleteTagFn != nil {
 		return m.deleteTagFn(ctx, id)
@@ -755,6 +775,9 @@ func (m *mockStore) GetProxyModel(ctx context.Context, modelID string) (db.Proxy
 	return db.ProxyModelTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetSkill(ctx context.Context, skillID string) (db.SkillsTable, error) {
+	if m.getSkillFn != nil {
+		return m.getSkillFn(ctx, skillID)
+	}
 	m.ni()
 	return db.SkillsTable{}, nil
 }
@@ -790,11 +813,16 @@ func (m *mockStore) GetTeamPermissions(ctx context.Context, teamID string) ([]by
 	return nil, nil
 }
 func (m *mockStore) GetUser(ctx context.Context, userID string) (db.UserTable, error) {
+	if m.getUserFn != nil {
+		return m.getUserFn(ctx, userID)
+	}
 	m.ni()
 	return db.UserTable{}, nil
 }
 func (m *mockStore) GetUserDailyActivity(ctx context.Context, arg db.GetUserDailyActivityParams) ([]db.GetUserDailyActivityRow, error) {
-	m.ni()
+	if m.getUserDailyActivityFn != nil {
+		return m.getUserDailyActivityFn(ctx, arg)
+	}
 	return nil, nil
 }
 func (m *mockStore) GetVerificationTokenBatch(ctx context.Context, dollar_1 []string) ([]db.VerificationToken, error) {
@@ -922,7 +950,9 @@ func (m *mockStore) ListProxyModels(ctx context.Context) ([]db.ProxyModelTable, 
 	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListSkills(ctx context.Context, arg db.ListSkillsParams) ([]db.SkillsTable, error) {
-	m.ni()
+	if m.listSkillsFn != nil {
+		return m.listSkillsFn(ctx, arg)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListTags(ctx context.Context) ([]db.TagTable, error) {
@@ -1045,6 +1075,9 @@ func (m *mockStore) UpdateTeamMemberRole(ctx context.Context, arg db.UpdateTeamM
 	return nil
 }
 func (m *mockStore) UpdateUser(ctx context.Context, arg db.UpdateUserParams) (db.UserTable, error) {
+	if m.updateUserFn != nil {
+		return m.updateUserFn(ctx, arg)
+	}
 	m.ni()
 	return db.UserTable{}, nil
 }
