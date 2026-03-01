@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -105,5 +106,51 @@ func TestAgentDelete_Success(t *testing.T) {
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 	w := httptest.NewRecorder()
 	h.AgentDelete(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestAgentCreate_Success(t *testing.T) {
+	ms := newMockStore()
+	ms.createAgentFn = func(_ context.Context, arg db.CreateAgentParams) (db.AgentsTable, error) {
+		return db.AgentsTable{AgentID: "a-new", AgentName: arg.AgentName}, nil
+	}
+	h := &Handlers{DB: ms}
+
+	body, _ := json.Marshal(map[string]string{"agent_name": "my-bot", "created_by": "alice"})
+	req := httptest.NewRequest(http.MethodPost, "/agent/new", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.AgentCreate(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestAgentCreate_NoDB(t *testing.T) {
+	h := newTestHandlers()
+	body, _ := json.Marshal(map[string]string{"agent_name": "bot"})
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.AgentCreate(w, req)
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestAgentUpdate_Success(t *testing.T) {
+	ms := newMockStore()
+	ms.getAgentFn = func(_ context.Context, agentID string) (db.AgentsTable, error) {
+		return db.AgentsTable{AgentID: agentID, AgentName: "old-name"}, nil
+	}
+	ms.updateAgentFn = func(_ context.Context, arg db.UpdateAgentParams) (db.AgentsTable, error) {
+		return db.AgentsTable{AgentID: arg.AgentID}, nil
+	}
+	h := &Handlers{DB: ms}
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("agent_id", "a1")
+	body, _ := json.Marshal(map[string]string{"agent_name": "new-name"})
+	req := httptest.NewRequest(http.MethodPut, "/agent/a1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	w := httptest.NewRecorder()
+	h.AgentUpdate(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 }

@@ -183,3 +183,18 @@ func TestHealthCheckJob_Unreachable(t *testing.T) {
 	}
 	require.NoError(t, j.Run(context.Background()))
 }
+
+type mockPolicyLoader struct{ err error }
+
+func (m *mockPolicyLoader) Load(_ context.Context) error { return m.err }
+
+func TestPolicyHotReloadJob(t *testing.T) {
+	j := &PolicyHotReloadJob{Engine: &mockPolicyLoader{}}
+	assert.Equal(t, "policy_hot_reload", j.Name())
+	assert.NoError(t, j.Run(context.Background()))
+}
+
+func TestPolicyHotReloadJob_Error(t *testing.T) {
+	j := &PolicyHotReloadJob{Engine: &mockPolicyLoader{err: errors.New("load error")}}
+	assert.Error(t, j.Run(context.Background()))
+}

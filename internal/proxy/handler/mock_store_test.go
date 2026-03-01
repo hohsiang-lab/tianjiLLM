@@ -68,12 +68,29 @@ type mockStore struct {
 	createAgentFn func(ctx context.Context, arg db.CreateAgentParams) (db.AgentsTable, error)
 	getAgentFn    func(ctx context.Context, agentID string) (db.AgentsTable, error)
 	listAgentsFn  func(ctx context.Context, arg db.ListAgentsParams) ([]db.AgentsTable, error)
+	updateAgentFn func(ctx context.Context, arg db.UpdateAgentParams) (db.AgentsTable, error)
 	deleteAgentFn func(ctx context.Context, agentID string) error
 
 	// EndUser
 	createEndUserFn func(ctx context.Context, arg db.CreateEndUserParams) (db.EndUserTable2, error)
 	getEndUserFn    func(ctx context.Context, id string) (db.EndUserTable2, error)
 	deleteEndUserFn func(ctx context.Context, id string) error
+
+	// Plugin (marketplace)
+	createPluginFn       func(ctx context.Context, arg db.CreatePluginParams) (db.ClaudeCodePluginTable, error)
+	getPluginFn          func(ctx context.Context, name string) (db.ClaudeCodePluginTable, error)
+	listPluginsFn        func(ctx context.Context, arg db.ListPluginsParams) ([]db.ClaudeCodePluginTable, error)
+	listEnabledPluginsFn func(ctx context.Context) ([]db.ClaudeCodePluginTable, error)
+	enablePluginFn       func(ctx context.Context, name string) error
+	disablePluginFn      func(ctx context.Context, name string) error
+	deletePluginFn2      func(ctx context.Context, name string) error
+
+	// Prompt template
+	getNextPromptVersionFn func(ctx context.Context, name string) (int32, error)
+	createPromptFn         func(ctx context.Context, arg db.CreatePromptTemplateParams) (db.PromptTemplateTable, error)
+	getPromptFn            func(ctx context.Context, id string) (db.PromptTemplateTable, error)
+	listPromptsFn          func(ctx context.Context) ([]db.PromptTemplateTable, error)
+	deletePromptFn2        func(ctx context.Context, id string) error
 
 	// AccessGroup
 	createAccessGroupFn func(ctx context.Context, arg db.CreateAccessGroupParams) (db.ModelAccessGroup, error)
@@ -420,6 +437,9 @@ func (m *mockStore) CreateMCPServer(ctx context.Context, arg db.CreateMCPServerP
 	return db.MCPServerTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreatePlugin(ctx context.Context, arg db.CreatePluginParams) (db.ClaudeCodePluginTable, error) {
+	if m.createPluginFn != nil {
+		return m.createPluginFn(ctx, arg)
+	}
 	m.ni()
 	return db.ClaudeCodePluginTable{}, nil
 }
@@ -436,6 +456,9 @@ func (m *mockStore) CreatePolicyAttachment(ctx context.Context, arg db.CreatePol
 	return db.PolicyAttachmentTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreatePromptTemplate(ctx context.Context, arg db.CreatePromptTemplateParams) (db.PromptTemplateTable, error) {
+	if m.createPromptFn != nil {
+		return m.createPromptFn(ctx, arg)
+	}
 	m.ni()
 	return db.PromptTemplateTable{}, nil
 }
@@ -504,7 +527,13 @@ func (m *mockStore) DeleteMCPServer(ctx context.Context, id string) error {
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeletePlugin(ctx context.Context, name string) error { m.ni(); return nil }
+func (m *mockStore) DeletePlugin(ctx context.Context, name string) error {
+	if m.deletePluginFn2 != nil {
+		return m.deletePluginFn2(ctx, name)
+	}
+	m.ni()
+	return nil
+}
 func (m *mockStore) DeletePolicy(ctx context.Context, id string) error {
 	if m.deletePolicyFn != nil {
 		return m.deletePolicyFn(ctx, id)
@@ -517,7 +546,13 @@ func (m *mockStore) DeletePolicyAttachment(ctx context.Context, id string) error
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeletePromptTemplate(ctx context.Context, id string) error { m.ni(); return nil }
+func (m *mockStore) DeletePromptTemplate(ctx context.Context, id string) error {
+	if m.deletePromptFn2 != nil {
+		return m.deletePromptFn2(ctx, id)
+	}
+	m.ni()
+	return nil
+}
 func (m *mockStore) DeleteProxyModel(ctx context.Context, modelID string) error {
 	if m.deleteProxyModelFn != nil {
 		return m.deleteProxyModelFn(ctx, modelID)
@@ -531,8 +566,20 @@ func (m *mockStore) DeleteTag(ctx context.Context, id string) error {
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DisablePlugin(ctx context.Context, name string) error { m.ni(); return nil }
-func (m *mockStore) EnablePlugin(ctx context.Context, name string) error  { m.ni(); return nil }
+func (m *mockStore) DisablePlugin(ctx context.Context, name string) error {
+	if m.disablePluginFn != nil {
+		return m.disablePluginFn(ctx, name)
+	}
+	m.ni()
+	return nil
+}
+func (m *mockStore) EnablePlugin(ctx context.Context, name string) error {
+	if m.enablePluginFn != nil {
+		return m.enablePluginFn(ctx, name)
+	}
+	m.ni()
+	return nil
+}
 func (m *mockStore) GetAccessGroup(ctx context.Context, groupID string) (db.ModelAccessGroup, error) {
 	if m.getAccessGroupFn != nil {
 		return m.getAccessGroupFn(ctx, groupID)
@@ -658,10 +705,15 @@ func (m *mockStore) GetMCPServer(ctx context.Context, id string) (db.MCPServerTa
 	return db.MCPServerTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetNextPromptVersion(ctx context.Context, name string) (int32, error) {
-	m.ni()
-	return 0, nil
+	if m.getNextPromptVersionFn != nil {
+		return m.getNextPromptVersionFn(ctx, name)
+	}
+	return 1, nil
 }
 func (m *mockStore) GetPlugin(ctx context.Context, name string) (db.ClaudeCodePluginTable, error) {
+	if m.getPluginFn != nil {
+		return m.getPluginFn(ctx, name)
+	}
 	m.ni()
 	return db.ClaudeCodePluginTable{}, nil
 }
@@ -682,6 +734,9 @@ func (m *mockStore) GetPolicyByName(ctx context.Context, name string) (db.Policy
 	return db.PolicyTable{}, nil
 }
 func (m *mockStore) GetPromptTemplate(ctx context.Context, id string) (db.PromptTemplateTable, error) {
+	if m.getPromptFn != nil {
+		return m.getPromptFn(ctx, id)
+	}
 	m.ni()
 	return db.PromptTemplateTable{}, nil
 }
@@ -799,7 +854,9 @@ func (m *mockStore) ListDistinctKeyAliases(ctx context.Context) ([]*string, erro
 	return nil, nil
 }
 func (m *mockStore) ListEnabledPlugins(ctx context.Context) ([]db.ClaudeCodePluginTable, error) {
-	m.ni()
+	if m.listEnabledPluginsFn != nil {
+		return m.listEnabledPluginsFn(ctx)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListEndUsers(ctx context.Context) ([]db.EndUserTable2, error) {
@@ -831,7 +888,9 @@ func (m *mockStore) ListMCPServers(ctx context.Context) ([]db.MCPServerTable, er
 	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListPlugins(ctx context.Context, arg db.ListPluginsParams) ([]db.ClaudeCodePluginTable, error) {
-	m.ni()
+	if m.listPluginsFn != nil {
+		return m.listPluginsFn(ctx, arg)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListPolicies(ctx context.Context) ([]db.PolicyTable, error) {
@@ -851,7 +910,9 @@ func (m *mockStore) ListPolicyAttachmentsByPolicy(ctx context.Context, policyNam
 	return nil, nil
 }
 func (m *mockStore) ListPromptTemplates(ctx context.Context) ([]db.PromptTemplateTable, error) {
-	m.ni()
+	if m.listPromptsFn != nil {
+		return m.listPromptsFn(ctx)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListProxyModels(ctx context.Context) ([]db.ProxyModelTable, error) {
@@ -927,6 +988,9 @@ func (m *mockStore) UpdateAccessGroup(ctx context.Context, arg db.UpdateAccessGr
 	return nil
 }
 func (m *mockStore) UpdateAgent(ctx context.Context, arg db.UpdateAgentParams) (db.AgentsTable, error) {
+	if m.updateAgentFn != nil {
+		return m.updateAgentFn(ctx, arg)
+	}
 	m.ni()
 	return db.AgentsTable{}, nil
 }

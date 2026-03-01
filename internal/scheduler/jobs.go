@@ -8,7 +8,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
-	"github.com/praxisllmlab/tianjiLLM/internal/policy"
 )
 
 // BudgetResetter is the interface for resetting token budgets.
@@ -58,13 +57,18 @@ func (j *SpendLogCleanupJob) Run(ctx context.Context) error {
 
 // PolicyHotReloadJob reloads policies from DB into the in-memory engine.
 type PolicyHotReloadJob struct {
-	Engine *policy.Engine
+	Engine PolicyLoader
 }
 
 func (j *PolicyHotReloadJob) Name() string { return "policy_hot_reload" }
 
 func (j *PolicyHotReloadJob) Run(ctx context.Context) error {
 	return j.Engine.Load(ctx)
+}
+
+// PolicyLoader can reload policies from storage.
+type PolicyLoader interface {
+	Load(ctx context.Context) error
 }
 
 // SpendArchivalJob archives old spend logs to cold storage.

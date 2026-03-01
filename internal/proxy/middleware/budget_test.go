@@ -1,10 +1,13 @@
 package middleware
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/praxisllmlab/tianjiLLM/internal/db"
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
 	"github.com/stretchr/testify/assert"
 )
@@ -76,4 +79,71 @@ func TestNewBudgetMiddleware_NilChecker(t *testing.T) {
 	if !called {
 		t.Fatal("next handler not called with nil budget checker")
 	}
+}
+
+// mockBudgetChecker implements BudgetChecker for testing.
+type mockBudgetChecker struct {
+	token db.VerificationToken
+	err   error
+}
+
+func (m *mockBudgetChecker) GetVerificationToken(_ context.Context, _ string) (db.VerificationToken, error) {
+	return m.token, m.err
+}
+
+func withTokenHash(r *http.Request, hash string) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), tokenHashKey, hash))
+}
+
+func TestNewBudgetMiddleware_NoTokenInContext(t *testing.T) {
+	checker := &mockBudgetChecker{token: db.VerificationToken{}}
+	mw := NewBudgetMiddleware(checker)
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	mw(next).ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestNewBudgetMiddleware_DBError(t *testing.T) {
+	checker := &mockBudgetChecker{err: errors.New("db error")}
+	mw := NewBudgetMiddleware(checker)
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	req := withTokenHash(httptest.NewRequest(http.MethodGet, "/", nil), "hash123")
+	w := httptest.NewRecorder()
+	mw(next).ServeHTTP(w, req)
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestNewBudgetMiddleware_BudgetExceeded(t *testing.T) {
+	maxBudget := 10.0
+	checker := &mockBudgetChecker{token: db.VerificationToken{MaxBudget: &maxBudget, Spend: 10.0}}
+	mw := NewBudgetMiddleware(checker)
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	req := withTokenHash(httptest.NewRequest(http.MethodGet, "/", nil), "hash123")
+	w := httptest.NewRecorder()
+	mw(next).ServeHTTP(w, req)
+	assert.Equal(t, http.StatusTooManyRequests, w.Code)
+}
+
+func TestNewBudgetMiddleware_Blocked(t *testing.T) {
+	blocked := true
+	checker := &mockBudgetChecker{token: db.VerificationToken{Blocked: &blocked}}
+	mw := NewBudgetMiddleware(checker)
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	req := withTokenHash(httptest.NewRequest(http.MethodGet, "/", nil), "hash123")
+	w := httptest.NewRecorder()
+	mw(next).ServeHTTP(w, req)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestNewBudgetMiddleware_WithinBudget(t *testing.T) {
+	maxBudget := 100.0
+	checker := &mockBudgetChecker{token: db.VerificationToken{MaxBudget: &maxBudget, Spend: 5.0}}
+	mw := NewBudgetMiddleware(checker)
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	req := withTokenHash(httptest.NewRequest(http.MethodGet, "/", nil), "hash123")
+	w := httptest.NewRecorder()
+	mw(next).ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
