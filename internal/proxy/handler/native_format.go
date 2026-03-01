@@ -25,13 +25,15 @@ import (
 
 // nativeProxy creates a reverse proxy to a specific provider's base URL.
 func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerName string) {
-	baseURL, apiKey := h.resolveNativeUpstream(providerName)
-	if baseURL == "" {
+	upstreams := h.resolveAllNativeUpstreams(providerName)
+	upstream := selectUpstream(providerName, upstreams)
+	if upstream.BaseURL == "" {
 		writeJSON(w, http.StatusNotImplemented, model.ErrorResponse{
 			Error: model.ErrorDetail{Message: providerName + " not configured", Type: "not_supported"},
 		})
 		return
 	}
+	baseURL, apiKey := upstream.BaseURL, upstream.APIKey
 
 	target, err := url.Parse(baseURL)
 	if err != nil {
@@ -111,6 +113,13 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 						})
 					}()
 				}
+				// FR-019: parse rate limit headers on non-200 responses (e.g. 429) for anthropic.
+				// Must NOT early return before this — 429 carries the most important rate limit signal.
+				if providerName == "anthropic" && h.RateLimitStore != nil {
+					tokenKey := callback.RateLimitCacheKey(apiKey)
+					rlState := callback.ParseAnthropicOAuthRateLimitHeaders(resp.Header, tokenKey)
+					h.RateLimitStore.Set(tokenKey, rlState)
+				}
 				return nil
 			}
 
@@ -118,6 +127,11 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 				state := callback.ParseAnthropicRateLimitHeaders(resp.Header)
 				if h.DiscordAlerter != nil {
 					h.DiscordAlerter.CheckAndAlert(state)
+				}
+				if h.RateLimitStore != nil {
+					tokenKey := callback.RateLimitCacheKey(apiKey)
+					rlState := callback.ParseAnthropicOAuthRateLimitHeaders(resp.Header, tokenKey)
+					h.RateLimitStore.Set(tokenKey, rlState)
 				}
 			}
 
@@ -442,28 +456,6 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion, cacheRe
 		}
 	}
 	return
-}
-
-// resolveNativeUpstream finds the base URL and API key for a native provider.
-func (h *Handlers) resolveNativeUpstream(providerName string) (string, string) {
-	for _, m := range h.Config.ModelList {
-		parts := strings.SplitN(m.TianjiParams.Model, "/", 2)
-		if len(parts) >= 1 && parts[0] == providerName {
-			apiKey := ""
-			if m.TianjiParams.APIKey != nil {
-				apiKey = *m.TianjiParams.APIKey
-			}
-			base := ""
-			if m.TianjiParams.APIBase != nil {
-				base = *m.TianjiParams.APIBase
-			}
-			if base == "" {
-				base = defaultBaseURL(providerName)
-			}
-			return base, apiKey
-		}
-	}
-	return "", ""
 }
 
 func defaultBaseURL(provider string) string {
