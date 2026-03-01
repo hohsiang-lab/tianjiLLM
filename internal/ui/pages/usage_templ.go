@@ -190,6 +190,16 @@ func modelLabel(model string) string {
 	return model
 }
 
+func filterNonEmptyModels(models []TopModel) []TopModel {
+	var result []TopModel
+	for _, m := range models {
+		if m.Model != "" {
+			result = append(result, m)
+		}
+	}
+	return result
+}
+
 // --- Templates ---
 func UsagePage(data UsagePageData, tab UsageTabContent, rateLimitTokens []AnthropicRateLimitWidgetData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -276,7 +286,7 @@ func UsagePage(data UsagePageData, tab UsageTabContent, rateLimitTokens []Anthro
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.StartDate)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 218, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 228, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -289,7 +299,7 @@ func UsagePage(data UsagePageData, tab UsageTabContent, rateLimitTokens []Anthro
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.EndDate)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 230, Col: 27}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 240, Col: 27}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -312,7 +322,7 @@ func UsagePage(data UsagePageData, tab UsageTabContent, rateLimitTokens []Anthro
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.StartDate)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 241, Col: 67}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 251, Col: 67}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -325,7 +335,7 @@ func UsagePage(data UsagePageData, tab UsageTabContent, rateLimitTokens []Anthro
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.EndDate)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 242, Col: 63}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 252, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -343,7 +353,7 @@ func UsagePage(data UsagePageData, tab UsageTabContent, rateLimitTokens []Anthro
 			var templ_7745c5c3_Var7 templ.SafeURL
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/ui/usage/export?tab=%s&preset=%s&start_date=%s&end_date=%s", data.ActiveTab, data.Preset, data.StartDate, data.EndDate)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 246, Col: 161}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 256, Col: 161}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -452,7 +462,7 @@ func usageTabTrigger(value, label string, data UsagePageData) templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 282, Col: 18}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 292, Col: 18}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -478,7 +488,7 @@ func usageTabTrigger(value, label string, data UsagePageData) templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/ui/usage/tab?tab=%s&preset=%s&start_date=%s&end_date=%s", value, data.Preset, data.StartDate, data.EndDate))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 286, Col: 132}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 296, Col: 132}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -491,7 +501,7 @@ func usageTabTrigger(value, label string, data UsagePageData) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 291, Col: 9}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 301, Col: 9}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -534,7 +544,7 @@ func UsageCostTab(data CostTabData) templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("Project Spend %s - %s", data.StartDate, data.EndDate))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 301, Col: 71}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 311, Col: 71}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -547,7 +557,7 @@ func UsageCostTab(data CostTabData) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(formatCurrency(data.Metrics.TotalSpend))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 306, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 316, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -629,7 +639,7 @@ func UsageCostTab(data CostTabData) templ.Component {
 			var templ_7745c5c3_Var19 string
 			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/ui/usage/top-keys?limit=%d&preset=%s&start_date=%s&end_date=%s", lim, data.Preset, data.StartDate, data.EndDate))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 351, Col: 143}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 361, Col: 143}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 			if templ_7745c5c3_Err != nil {
@@ -642,7 +652,7 @@ func UsageCostTab(data CostTabData) templ.Component {
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(lim))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 355, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 365, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -665,7 +675,7 @@ func UsageCostTab(data CostTabData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if len(data.TopModels) == 0 {
+		if len(filterNonEmptyModels(data.TopModels)) == 0 {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<div class=\"flex items-center justify-center h-[200px] text-muted-foreground text-sm\">No model data</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -683,7 +693,7 @@ func UsageCostTab(data CostTabData) templ.Component {
 				var templ_7745c5c3_Var21 string
 				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(modelLabel(m.Model))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 376, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 386, Col: 32}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 				if templ_7745c5c3_Err != nil {
@@ -698,7 +708,7 @@ func UsageCostTab(data CostTabData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = topModelsChartScript(data.TopModels).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = topModelsChartScript(filterNonEmptyModels(data.TopModels)).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -739,7 +749,7 @@ func metricCard(title, value, colorClass string) templ.Component {
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 391, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 401, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
@@ -774,7 +784,7 @@ func metricCard(title, value, colorClass string) templ.Component {
 		var templ_7745c5c3_Var26 string
 		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 392, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 402, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 		if templ_7745c5c3_Err != nil {
@@ -827,7 +837,7 @@ func UsageTopKeysPartial(keys []TopKey, limit int) templ.Component {
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(k.APIKey)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 412, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 422, Col: 49}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
@@ -841,7 +851,7 @@ func UsageTopKeysPartial(keys []TopKey, limit int) templ.Component {
 					var templ_7745c5c3_Var29 string
 					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(k.KeyAlias)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 416, Col: 20}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 426, Col: 20}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 					if templ_7745c5c3_Err != nil {
@@ -860,7 +870,7 @@ func UsageTopKeysPartial(keys []TopKey, limit int) templ.Component {
 				var templ_7745c5c3_Var30 string
 				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(formatCurrency(k.TotalSpend))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 421, Col: 84}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 431, Col: 84}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 				if templ_7745c5c3_Err != nil {
@@ -1391,7 +1401,7 @@ func rateLimitCard(tok AnthropicRateLimitWidgetData) templ.Component {
 		var templ_7745c5c3_Var42 string
 		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(tok.TokenKey)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 953, Col: 80}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 963, Col: 80}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 		if templ_7745c5c3_Err != nil {
@@ -1432,29 +1442,40 @@ func rateLimitCard(tok AnthropicRateLimitWidgetData) templ.Component {
 			var templ_7745c5c3_Var45 string
 			templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(tok.UnifiedStatus)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 958, Col: 24}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 968, Col: 24}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</span></div><!-- 5h window --><div><div class=\"flex items-center justify-between mb-1\"><span class=\"text-xs text-muted-foreground\">5h utilization</span><div class=\"flex items-center gap-1.5\"><span class=\"text-xs font-medium\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</span></div><!-- 5h window --><div><div class=\"flex items-center justify-between mb-1\"><span class=\"text-xs text-muted-foreground\">5h utilization</span><div class=\"flex items-center gap-1.5\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var46 string
-		templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(fmtUtilPct(tok.Unified5hUtilization))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 967, Col: 77}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "</span> ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
+		if tok.Unified5hUtilization < 0 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "<span class=\"text-xs font-medium\" title=\"Not available for API keys (requires OAuth token)\">—</span> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "<span class=\"text-xs font-medium\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var46 string
+			templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(fmtUtilPct(tok.Unified5hUtilization))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 980, Col: 78}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "</span> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
 		if tok.Unified5hStatus != "" {
 			var templ_7745c5c3_Var47 = []any{"rounded-full px-1.5 py-0 text-xs font-medium", rateLimitStatusClass(tok.Unified5hStatus)}
@@ -1462,7 +1483,7 @@ func rateLimitCard(tok AnthropicRateLimitWidgetData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "<span class=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<span class=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1475,25 +1496,25 @@ func rateLimitCard(tok AnthropicRateLimitWidgetData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var49 string
 			templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(tok.Unified5hStatus)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 969, Col: 133}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 983, Col: 133}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "</div></div><div class=\"h-1.5 w-full rounded-full bg-muted overflow-hidden\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "</div></div><div class=\"h-1.5 w-full rounded-full bg-muted overflow-hidden\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1502,20 +1523,20 @@ func rateLimitCard(tok AnthropicRateLimitWidgetData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "<div role=\"progressbar\" aria-valuenow=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "<div role=\"progressbar\" aria-valuenow=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var51 string
 		templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", max(0, int(tok.Unified5hUtilization*100))))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 976, Col: 81}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 990, Col: 81}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "\" aria-valuemin=\"0\" aria-valuemax=\"100\" class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "\" aria-valuemin=\"0\" aria-valuemax=\"100\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1528,35 +1549,46 @@ func rateLimitCard(tok AnthropicRateLimitWidgetData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "\" style=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "\" style=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var53 string
 		templ_7745c5c3_Var53, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("width:" + utilBarWidth(tok.Unified5hUtilization))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 980, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 994, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "\"></div></div></div><!-- 7d window --><div><div class=\"flex items-center justify-between mb-1\"><span class=\"text-xs text-muted-foreground\">7d utilization</span><div class=\"flex items-center gap-1.5\"><span class=\"text-xs font-medium\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "\"></div></div></div><!-- 7d window --><div><div class=\"flex items-center justify-between mb-1\"><span class=\"text-xs text-muted-foreground\">7d utilization</span><div class=\"flex items-center gap-1.5\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var54 string
-		templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(fmtUtilPct(tok.Unified7dUtilization))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 989, Col: 77}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "</span> ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
+		if tok.Unified7dUtilization < 0 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "<span class=\"text-xs font-medium\" title=\"Not available for API keys (requires OAuth token)\">—</span> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "<span class=\"text-xs font-medium\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var54 string
+			templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(fmtUtilPct(tok.Unified7dUtilization))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 1006, Col: 78}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "</span> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
 		if tok.Unified7dStatus != "" {
 			var templ_7745c5c3_Var55 = []any{"rounded-full px-1.5 py-0 text-xs font-medium", rateLimitStatusClass(tok.Unified7dStatus)}
@@ -1564,7 +1596,7 @@ func rateLimitCard(tok AnthropicRateLimitWidgetData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "<span class=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<span class=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1577,25 +1609,25 @@ func rateLimitCard(tok AnthropicRateLimitWidgetData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var57 string
 			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(tok.Unified7dStatus)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 991, Col: 133}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 1009, Col: 133}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "</div></div><div class=\"h-1.5 w-full rounded-full bg-muted overflow-hidden\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "</div></div><div class=\"h-1.5 w-full rounded-full bg-muted overflow-hidden\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1604,20 +1636,20 @@ func rateLimitCard(tok AnthropicRateLimitWidgetData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<div role=\"progressbar\" aria-valuenow=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "<div role=\"progressbar\" aria-valuenow=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var59 string
 		templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", max(0, int(tok.Unified7dUtilization*100))))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 998, Col: 81}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 1016, Col: 81}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "\" aria-valuemin=\"0\" aria-valuemax=\"100\" class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "\" aria-valuemin=\"0\" aria-valuemax=\"100\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1630,20 +1662,20 @@ func rateLimitCard(tok AnthropicRateLimitWidgetData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "\" style=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "\" style=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var61 string
 		templ_7745c5c3_Var61, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("width:" + utilBarWidth(tok.Unified7dUtilization))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 1002, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 1020, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "\"></div></div></div><div class=\"flex items-center gap-1.5\"><span class=\"text-xs text-muted-foreground\">Overage:</span> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "\"></div></div></div><div class=\"flex items-center gap-1.5\"><span class=\"text-xs text-muted-foreground\">Overage:</span> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1652,7 +1684,7 @@ func rateLimitCard(tok AnthropicRateLimitWidgetData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "<span class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "<span class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1665,20 +1697,20 @@ func rateLimitCard(tok AnthropicRateLimitWidgetData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var64 string
 		templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs(overageBadgeLabel(tok.OverageDisabledReason))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 1008, Col: 158}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 1026, Col: 158}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "</span></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "</span></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1707,7 +1739,7 @@ func rateLimitPollingScript() templ.Component {
 			templ_7745c5c3_Var65 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "<script>\n\t\t(function() {\n\t\t\tfunction escapeHTML(str) {\n\t\t\t\tif (!str) return '';\n\t\t\t\treturn String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');\n\t\t\t}\n\t\t\tfunction updateRateLimitCards() {\n\t\t\t\tfetch('/ui/api/rate-limit-state')\n\t\t\t\t\t.then(function(r) { return r.json(); })\n\t\t\t\t\t.then(function(items) {\n\t\t\t\t\t\tvar container = document.getElementById('rate-limit-cards');\n\t\t\t\t\t\tif (!container) return;\n\t\t\t\t\t\tif (!items || items.length === 0) {\n\t\t\t\t\t\t\tcontainer.innerHTML = '<div class=\"col-span-full text-sm text-muted-foreground py-2\">No OAuth token rate limit data yet. Send a request via an Anthropic OAuth-backed model to populate.</div>';\n\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t}\n\t\t\t\t\t\t\tcontainer.innerHTML = items.map(function(tok) {\n\t\t\t\t\t\t\tvar status = tok.unified_status || '';\n\t\t\t\t\t\t\tvar badgeClass = status === 'allowed' ? 'bg-emerald-100 text-emerald-700'\n\t\t\t\t\t\t\t\t: status === 'rate_limited' ? 'bg-red-100 text-red-700'\n\t\t\t\t\t\t\t\t: status === 'overage' ? 'bg-amber-100 text-amber-700'\n\t\t\t\t\t\t\t\t: 'bg-muted text-muted-foreground';\n\t\t\t\t\t\t\tfunction pct(v) { return v < 0 ? '—' : (v * 100).toFixed(1) + '%'; }\n\t\t\t\t\t\t\tfunction barW(v) { return v < 0 ? '0%' : Math.min(v * 100, 100).toFixed(1) + '%'; }\n\t\t\t\t\t\t\tfunction barC(v) { return v < 0 ? 'bg-gray-200' : v < 0.6 ? 'bg-emerald-500' : v < 0.8 ? 'bg-amber-500' : 'bg-red-500'; }\n\t\t\t\t\t\t\tfunction badge(s) {\n\t\t\t\t\t\t\t\tif (!s) return '';\n\t\t\t\t\t\t\t\tvar c = s === 'allowed' ? 'bg-emerald-100 text-emerald-700'\n\t\t\t\t\t\t\t\t\t: s === 'rate_limited' ? 'bg-red-100 text-red-700'\n\t\t\t\t\t\t\t\t\t: s === 'overage' ? 'bg-amber-100 text-amber-700'\n\t\t\t\t\t\t\t\t\t: 'bg-gray-100 text-gray-600';\n\t\t\t\t\t\t\t\treturn '<span class=\"rounded-full px-1.5 py-0 text-xs font-medium ' + c + '\">' + s + '</span>';\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn '<div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-4 space-y-3\">'\n\t\t\t\t\t\t\t\t+ '<div class=\"flex items-center justify-between gap-2\">'\n\t\t\t\t\t\t\t\t+ '<span class=\"font-mono text-xs text-muted-foreground truncate\">' + escapeHTML(tok.token_key) + '</span>'\n\t\t\t\t\t\t\t\t+ '<span class=\"rounded-full px-2 py-0.5 text-xs font-medium ' + badgeClass + '\">' + (status || 'unknown') + '</span>'\n\t\t\t\t\t\t\t\t+ '</div>'\n\t\t\t\t\t\t\t\t+ '<div><div class=\"flex items-center justify-between mb-1\"><span class=\"text-xs text-muted-foreground\">5h utilization</span><div class=\"flex items-center gap-1.5\"><span class=\"text-xs font-medium\">' + pct(tok.unified_5h_utilization) + '</span>' + badge(tok.unified_5h_status) + '</div></div>'\n\t\t\t\t\t\t\t\t+ '<div class=\"h-1.5 w-full rounded-full bg-muted overflow-hidden\"><div class=\"h-full rounded-full transition-all ' + barC(tok.unified_5h_utilization) + '\" style=\"width:' + barW(tok.unified_5h_utilization) + '\"></div></div></div>'\n\t\t\t\t\t\t\t\t+ '<div><div class=\"flex items-center justify-between mb-1\"><span class=\"text-xs text-muted-foreground\">7d utilization</span><div class=\"flex items-center gap-1.5\"><span class=\"text-xs font-medium\">' + pct(tok.unified_7d_utilization) + '</span>' + badge(tok.unified_7d_status) + '</div></div>'\n\t\t\t\t\t\t\t\t+ '<div class=\"h-1.5 w-full rounded-full bg-muted overflow-hidden\"><div class=\"h-full rounded-full transition-all ' + barC(tok.unified_7d_utilization) + '\" style=\"width:' + barW(tok.unified_7d_utilization) + '\"></div></div></div>'\n\t\t\t\t\t\t\t\t+ (function() {\n\t\t\t\t\t\t\t\tvar op = tok.overage_disabled_reason || '';\n\t\t\t\t\t\t\t\tvar cls = op === 'allowed' ? 'bg-emerald-100 text-emerald-700' : op === 'rejected' ? 'bg-red-100 text-red-700' : op === '' ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-700';\n\t\t\t\t\t\t\t\tvar lbl = op === 'allowed' ? '\\u2705 allowed' : op === 'rejected' ? '\\u274c rejected' : op === '' ? '\\u2014 unknown' : '\\u26a0\\ufe0f disabled';\n\t\t\t\t\t\t\t\treturn '<div class=\"flex items-center gap-1.5\"><span class=\"text-xs text-muted-foreground\">Overage:</span><span class=\"rounded-full px-2 py-0.5 text-xs font-medium ' + cls + '\">' + lbl + '</span></div>';\n\t\t\t\t\t\t\t})()\n\t\t\t\t\t\t\t\t+ '</div>';\n\t\t\t\t\t\t}).join('');\n\t\t\t\t\t})\n\t\t\t\t\t.catch(function(e) { console.warn('[rate-limit-widget] fetch failed:', e); });\n\t\t\t}\n\t\t\tupdateRateLimitCards();\n\t\t\tsetInterval(updateRateLimitCards, 30000);\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "<script>\n\t\t(function() {\n\t\t\tfunction escapeHTML(str) {\n\t\t\t\tif (!str) return '';\n\t\t\t\treturn String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');\n\t\t\t}\n\t\t\tfunction updateRateLimitCards() {\n\t\t\t\tfetch('/ui/api/rate-limit-state')\n\t\t\t\t\t.then(function(r) { return r.json(); })\n\t\t\t\t\t.then(function(items) {\n\t\t\t\t\t\tvar container = document.getElementById('rate-limit-cards');\n\t\t\t\t\t\tif (!container) return;\n\t\t\t\t\t\tif (!items || items.length === 0) {\n\t\t\t\t\t\t\tcontainer.innerHTML = '<div class=\"col-span-full text-sm text-muted-foreground py-2\">No OAuth token rate limit data yet. Send a request via an Anthropic OAuth-backed model to populate.</div>';\n\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t}\n\t\t\t\t\t\t\tcontainer.innerHTML = items.map(function(tok) {\n\t\t\t\t\t\t\tvar status = tok.unified_status || '';\n\t\t\t\t\t\t\tvar badgeClass = status === 'allowed' ? 'bg-emerald-100 text-emerald-700'\n\t\t\t\t\t\t\t\t: status === 'rate_limited' ? 'bg-red-100 text-red-700'\n\t\t\t\t\t\t\t\t: status === 'overage' ? 'bg-amber-100 text-amber-700'\n\t\t\t\t\t\t\t\t: 'bg-muted text-muted-foreground';\n\t\t\t\t\t\t\tfunction pct(v) { return v < 0 ? '—' : (v * 100).toFixed(1) + '%'; }\n\t\t\t\t\t\t\tfunction barW(v) { return v < 0 ? '0%' : Math.min(v * 100, 100).toFixed(1) + '%'; }\n\t\t\t\t\t\t\tfunction barC(v) { return v < 0 ? 'bg-gray-200' : v < 0.6 ? 'bg-emerald-500' : v < 0.8 ? 'bg-amber-500' : 'bg-red-500'; }\n\t\t\t\t\t\t\tfunction badge(s) {\n\t\t\t\t\t\t\t\tif (!s) return '';\n\t\t\t\t\t\t\t\tvar c = s === 'allowed' ? 'bg-emerald-100 text-emerald-700'\n\t\t\t\t\t\t\t\t\t: s === 'rate_limited' ? 'bg-red-100 text-red-700'\n\t\t\t\t\t\t\t\t\t: s === 'overage' ? 'bg-amber-100 text-amber-700'\n\t\t\t\t\t\t\t\t\t: 'bg-gray-100 text-gray-600';\n\t\t\t\t\t\t\t\treturn '<span class=\"rounded-full px-1.5 py-0 text-xs font-medium ' + c + '\">' + s + '</span>';\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn '<div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-4 space-y-3\">'\n\t\t\t\t\t\t\t\t+ '<div class=\"flex items-center justify-between gap-2\">'\n\t\t\t\t\t\t\t\t+ '<span class=\"font-mono text-xs text-muted-foreground truncate\">' + escapeHTML(tok.token_key) + '</span>'\n\t\t\t\t\t\t\t\t+ '<span class=\"rounded-full px-2 py-0.5 text-xs font-medium ' + badgeClass + '\">' + (status || 'unknown') + '</span>'\n\t\t\t\t\t\t\t\t+ '</div>'\n\t\t\t\t\t\t\t\t+ '<div><div class=\"flex items-center justify-between mb-1\"><span class=\"text-xs text-muted-foreground\">5h utilization</span><div class=\"flex items-center gap-1.5\"><span class=\"text-xs font-medium\">' + pct(tok.unified_5h_utilization) + '</span>' + badge(tok.unified_5h_status) + '</div></div>'\n\t\t\t\t\t\t\t\t+ '<div class=\"h-1.5 w-full rounded-full bg-muted overflow-hidden\"><div class=\"h-full rounded-full transition-all ' + barC(tok.unified_5h_utilization) + '\" style=\"width:' + barW(tok.unified_5h_utilization) + '\"></div></div></div>'\n\t\t\t\t\t\t\t\t+ '<div><div class=\"flex items-center justify-between mb-1\"><span class=\"text-xs text-muted-foreground\">7d utilization</span><div class=\"flex items-center gap-1.5\"><span class=\"text-xs font-medium\">' + pct(tok.unified_7d_utilization) + '</span>' + badge(tok.unified_7d_status) + '</div></div>'\n\t\t\t\t\t\t\t\t+ '<div class=\"h-1.5 w-full rounded-full bg-muted overflow-hidden\"><div class=\"h-full rounded-full transition-all ' + barC(tok.unified_7d_utilization) + '\" style=\"width:' + barW(tok.unified_7d_utilization) + '\"></div></div></div>'\n\t\t\t\t\t\t\t\t+ (function() {\n\t\t\t\t\t\t\t\tvar op = tok.overage_disabled_reason || '';\n\t\t\t\t\t\t\t\tvar cls = op === 'allowed' ? 'bg-emerald-100 text-emerald-700' : op === 'rejected' ? 'bg-red-100 text-red-700' : op === '' ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-700';\n\t\t\t\t\t\t\t\tvar lbl = op === 'allowed' ? '\\u2705 allowed' : op === 'rejected' ? '\\u274c rejected' : op === '' ? '\\u2014 unknown' : '\\u26a0\\ufe0f disabled';\n\t\t\t\t\t\t\t\treturn '<div class=\"flex items-center gap-1.5\"><span class=\"text-xs text-muted-foreground\">Overage:</span><span class=\"rounded-full px-2 py-0.5 text-xs font-medium ' + cls + '\">' + lbl + '</span></div>';\n\t\t\t\t\t\t\t})()\n\t\t\t\t\t\t\t\t+ '</div>';\n\t\t\t\t\t\t}).join('');\n\t\t\t\t\t})\n\t\t\t\t\t.catch(function(e) { console.warn('[rate-limit-widget] fetch failed:', e); });\n\t\t\t}\n\t\t\tupdateRateLimitCards();\n\t\t\tsetInterval(updateRateLimitCards, 30000);\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
