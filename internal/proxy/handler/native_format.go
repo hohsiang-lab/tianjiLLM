@@ -111,6 +111,13 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 						})
 					}()
 				}
+				// FR-019: parse rate limit headers on non-200 responses (e.g. 429) for anthropic.
+				// Must NOT early return before this — 429 carries the most important rate limit signal.
+				if providerName == "anthropic" && h.RateLimitStore != nil {
+					tokenKey := apiKey
+					rlState := callback.ParseAnthropicOAuthRateLimitHeaders(resp.Header, tokenKey)
+					h.RateLimitStore.Set(callback.RateLimitCacheKey(tokenKey), rlState)
+				}
 				return nil
 			}
 
