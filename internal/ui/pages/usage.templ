@@ -464,11 +464,14 @@ templ dailySpendChartScript(data []DailySpend) {
 		} else {
 			initDailySpendChart();
 		}
-		document.addEventListener('htmx:afterSwap', function(e) {
-			if (e.detail.target && e.detail.target.querySelector('#dailySpendChart')) {
-				initDailySpendChart();
-			}
-		});
+		if (!window._dailySpendChartListenerAdded) {
+			window._dailySpendChartListenerAdded = true;
+			document.body.addEventListener('htmx:afterSwap', function(e) {
+				if (document.getElementById('dailySpendChart')) {
+					initDailySpendChart();
+				}
+			});
+		}
 	</script>
 }
 
@@ -522,11 +525,14 @@ templ topModelsChartScript(models []TopModel) {
 		} else {
 			initTopModelsChart();
 		}
-		document.addEventListener('htmx:afterSwap', function(e) {
-			if (e.detail.target && e.detail.target.querySelector('#topModelsChart')) {
-				initTopModelsChart();
-			}
-		});
+		if (!window._topModelsChartListenerAdded) {
+			window._topModelsChartListenerAdded = true;
+			document.body.addEventListener('htmx:afterSwap', function(e) {
+				if (document.getElementById('topModelsChart')) {
+					initTopModelsChart();
+				}
+			});
+		}
 	</script>
 }
 
@@ -602,11 +608,14 @@ templ modelRequestsChartScript(models []ModelDailyActivity) {
 		} else {
 			initModelRequestsChart();
 		}
-		document.addEventListener('htmx:afterSwap', function(e) {
-			if (e.detail.target && e.detail.target.querySelector('#modelRequestsChart')) {
-				initModelRequestsChart();
-			}
-		});
+		if (!window._modelRequestsChartListenerAdded) {
+			window._modelRequestsChartListenerAdded = true;
+			document.body.addEventListener('htmx:afterSwap', function(e) {
+				if (document.getElementById('modelRequestsChart')) {
+					initModelRequestsChart();
+				}
+			});
+		}
 	</script>
 }
 
@@ -655,11 +664,14 @@ templ modelTokensChartScript(models []ModelDailyActivity) {
 		} else {
 			initModelTokensChart();
 		}
-		document.addEventListener('htmx:afterSwap', function(e) {
-			if (e.detail.target && e.detail.target.querySelector('#modelTokensChart')) {
-				initModelTokensChart();
-			}
-		});
+		if (!window._modelTokensChartListenerAdded) {
+			window._modelTokensChartListenerAdded = true;
+			document.body.addEventListener('htmx:afterSwap', function(e) {
+				if (document.getElementById('modelTokensChart')) {
+					initModelTokensChart();
+				}
+			});
+		}
 	</script>
 }
 
@@ -728,11 +740,14 @@ templ keyRequestsChartScript(keys []KeyDailyActivity) {
 		} else {
 			initKeyRequestsChart();
 		}
-		document.addEventListener('htmx:afterSwap', function(e) {
-			if (e.detail.target && e.detail.target.querySelector('#keyRequestsChart')) {
-				initKeyRequestsChart();
-			}
-		});
+		if (!window._keyRequestsChartListenerAdded) {
+			window._keyRequestsChartListenerAdded = true;
+			document.body.addEventListener('htmx:afterSwap', function(e) {
+				if (document.getElementById('keyRequestsChart')) {
+					initKeyRequestsChart();
+				}
+			});
+		}
 	</script>
 }
 
@@ -799,11 +814,14 @@ templ endpointRequestsChartScript(endpoints []EndpointDailyActivity) {
 		} else {
 			initEndpointRequestsChart();
 		}
-		document.addEventListener('htmx:afterSwap', function(e) {
-			if (e.detail.target && e.detail.target.querySelector('#endpointRequestsChart')) {
-				initEndpointRequestsChart();
-			}
-		});
+		if (!window._endpointRequestsChartListenerAdded) {
+			window._endpointRequestsChartListenerAdded = true;
+			document.body.addEventListener('htmx:afterSwap', function(e) {
+				if (document.getElementById('endpointRequestsChart')) {
+					initEndpointRequestsChart();
+				}
+			});
+		}
 	</script>
 }
 
