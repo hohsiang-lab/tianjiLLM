@@ -25,7 +25,7 @@ type mockStore struct {
 	// Teams
 	createTeamFn       func(ctx context.Context, arg db.CreateTeamParams) (db.TeamTable, error)
 	listTeamsFn        func(ctx context.Context) ([]db.TeamTable, error)
-	getTeamFn           func(ctx context.Context, teamID string) (db.TeamTable, error)
+	getTeamFn          func(ctx context.Context, teamID string) (db.TeamTable, error)
 	deleteTeamFn       func(ctx context.Context, teamID string) error
 	updateTeamFn       func(ctx context.Context, arg db.UpdateTeamParams) (db.TeamTable, error)
 	addTeamMemberFn    func(ctx context.Context, arg db.AddTeamMemberParams) error
@@ -59,6 +59,13 @@ type mockStore struct {
 
 	// Audit (no-op by default)
 	insertAuditLogFn func(ctx context.Context, arg db.InsertAuditLogParams) (db.AuditLog, error)
+
+	// AccessGroup
+	createAccessGroupFn func(ctx context.Context, arg db.CreateAccessGroupParams) (db.ModelAccessGroup, error)
+	getAccessGroupFn    func(ctx context.Context, groupID string) (db.ModelAccessGroup, error)
+	updateAccessGroupFn func(ctx context.Context, arg db.UpdateAccessGroupParams) error
+	deleteAccessGroupFn func(ctx context.Context, groupID string) error
+	listAccessGroupsFn  func(ctx context.Context) ([]db.ModelAccessGroup, error)
 
 	// Budget
 	createBudgetFn func(ctx context.Context, arg db.CreateBudgetParams) (db.BudgetTable, error)
@@ -350,6 +357,9 @@ func (m *mockStore) BulkUpdateVerificationTokens(ctx context.Context, arg db.Bul
 	return nil
 }
 func (m *mockStore) CreateAccessGroup(ctx context.Context, arg db.CreateAccessGroupParams) (db.ModelAccessGroup, error) {
+	if m.createAccessGroupFn != nil {
+		return m.createAccessGroupFn(ctx, arg)
+	}
 	m.ni()
 	return db.ModelAccessGroup{}, nil
 }
@@ -425,8 +435,14 @@ func (m *mockStore) CreateTag(ctx context.Context, arg db.CreateTagParams) (db.T
 	}
 	return db.TagTable{}, fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeleteAccessGroup(ctx context.Context, groupID string) error { m.ni(); return nil }
-func (m *mockStore) DeleteAgent(ctx context.Context, agentID string) error       { m.ni(); return nil }
+func (m *mockStore) DeleteAccessGroup(ctx context.Context, groupID string) error {
+	if m.deleteAccessGroupFn != nil {
+		return m.deleteAccessGroupFn(ctx, groupID)
+	}
+	m.ni()
+	return nil
+}
+func (m *mockStore) DeleteAgent(ctx context.Context, agentID string) error { m.ni(); return nil }
 func (m *mockStore) DeleteBudget(ctx context.Context, budgetID string) error {
 	if m.deleteBudgetFn != nil {
 		return m.deleteBudgetFn(ctx, budgetID)
@@ -486,6 +502,9 @@ func (m *mockStore) DeleteTag(ctx context.Context, id string) error {
 func (m *mockStore) DisablePlugin(ctx context.Context, name string) error { m.ni(); return nil }
 func (m *mockStore) EnablePlugin(ctx context.Context, name string) error  { m.ni(); return nil }
 func (m *mockStore) GetAccessGroup(ctx context.Context, groupID string) (db.ModelAccessGroup, error) {
+	if m.getAccessGroupFn != nil {
+		return m.getAccessGroupFn(ctx, groupID)
+	}
 	m.ni()
 	return db.ModelAccessGroup{}, nil
 }
@@ -854,6 +873,9 @@ func (m *mockStore) UnblockTeam(ctx context.Context, teamID string) error {
 	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) UpdateAccessGroup(ctx context.Context, arg db.UpdateAccessGroupParams) error {
+	if m.updateAccessGroupFn != nil {
+		return m.updateAccessGroupFn(ctx, arg)
+	}
 	m.ni()
 	return nil
 }
