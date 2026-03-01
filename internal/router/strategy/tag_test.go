@@ -70,3 +70,10 @@ func TestHasAnyTag(t *testing.T) {
 	assert.False(t, hasAnyTag([]string{"a"}, []string{"b", "c"}))
 	assert.False(t, hasAnyTag(nil, []string{"a"}))
 }
+
+func TestTagBased_Pick(t *testing.T) {
+	tb := NewTagBased(NewShuffle())
+	deployments := makeTagDeployments()
+	result := tb.Pick(deployments)
+	require.NotNil(t, result)
+}
