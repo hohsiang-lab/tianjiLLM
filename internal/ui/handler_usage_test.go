@@ -1,21 +1,21 @@
 package ui
 
-// HO-81: Unit tests for the Cost Tab / Top Public Model Names handler behaviour.
+// HO-81: Unit tests for the Cost Tab / Top Public Model Names handler behavior.
 // These tests run without a real DB by verifying:
 //   1. loadCostTabData with DB=nil returns empty TopModels (and template renders empty state)
 //   2. The rendered HTML of UsageCostTab contains expected elements
 //
 // NOTE: The full integration test (with real DB) is covered by the E2E tests
 // in test/e2e/usage_ho81_test.go. These unit tests specifically document and
-// pin the expected handler behaviour so regressions are caught early.
+// pin the expected handler behavior so regressions are caught early.
 
 import (
 	"bytes"
 	"context"
 	"net/http/httptest"
 	"strings"
-	"time"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
@@ -121,7 +121,7 @@ func TestUsageCostTab_TopModels_ModelNamesNotEmpty(t *testing.T) {
 
 	// If model name is empty, the chart would render blank bars.
 	// The handler should filter out or reject empty model names.
-	// This test documents the EXPECTED behaviour (should not happen),
+	// This test documents the EXPECTED behavior (should not happen),
 	// and acts as a canary: if the handler allows empty model names,
 	// the bug is in the data pipeline upstream.
 	//

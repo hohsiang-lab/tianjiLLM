@@ -209,7 +209,7 @@ func TestParseRateLimitHeaders_MissingUtilizationHeaders(t *testing.T) {
 		}
 	} else {
 		// Fix not yet applied: document the gap.
-		t.Logf("NOTE HO-82: AnthropicOAuthRateLimitState lacks UtilizationAvailable flag. "+
+		t.Logf("NOTE HO-82: AnthropicOAuthRateLimitState lacks UtilizationAvailable flag. " +
 			"Currently using -1 sentinel. Fix: add explicit bool to distinguish missing vs zero utilization.")
 	}
 }

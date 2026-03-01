@@ -1,7 +1,6 @@
 package pages
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 )
@@ -167,11 +166,6 @@ func formatNumber(v int64) string {
 		result += p
 	}
 	return result
-}
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }
 
 // modelLabel returns the model name or a fallback for empty strings.
