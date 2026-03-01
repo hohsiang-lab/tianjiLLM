@@ -214,6 +214,13 @@ func (h *Handlers) handleNonStreamingCompletion(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// FR-019: parse Anthropic OAuth unified rate limit headers (HO-82)
+	if h.RateLimitStore != nil && apiKey != "" {
+		tokenKey := callback.RateLimitCacheKey(apiKey)
+		rlState := callback.ParseAnthropicOAuthRateLimitHeaders(resp.Header, tokenKey)
+		h.RateLimitStore.Set(tokenKey, rlState)
+	}
+
 	result, err := p.TransformResponse(r.Context(), resp)
 	if err != nil {
 		h.logFailure(r.Context(), req, p, startTime, fmt.Errorf("transform response: %w", err))
@@ -281,6 +288,13 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	defer resp.Body.Close()
+
+	// FR-019: parse Anthropic OAuth unified rate limit headers (HO-82)
+	if h.RateLimitStore != nil && apiKey != "" {
+		tokenKey := callback.RateLimitCacheKey(apiKey)
+		rlState := callback.ParseAnthropicOAuthRateLimitHeaders(resp.Header, tokenKey)
+		h.RateLimitStore.Set(tokenKey, rlState)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
