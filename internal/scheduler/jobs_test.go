@@ -7,82 +7,150 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/praxisllmlab/tianjiLLM/internal/db"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestJobNames(t *testing.T) {
-	tests := []struct {
-		job  Job
-		want string
-	}{
-		{&BudgetResetJob{}, "budget_reset"},
-		{&SpendLogCleanupJob{}, "spend_log_cleanup"},
-		{&PolicyHotReloadJob{}, "policy_hot_reload"},
-		{&SpendArchivalJob{}, "spend_archival"},
-		{&SpendBatchWriteJob{}, "spend_batch_write"},
-		{&CredentialRefreshJob{}, "credential_refresh"},
-		{&KeyRotationJob{}, "key_rotation"},
-		{&HealthCheckJob{}, "health_check"},
-	}
-	for _, tt := range tests {
-		if got := tt.job.Name(); got != tt.want {
-			t.Errorf("%T.Name() = %q, want %q", tt.job, got, tt.want)
-		}
-	}
+// --- mock implementations ---
+
+type mockBudgetResetter struct{ err error }
+
+func (m *mockBudgetResetter) ResetBudgetForExpiredTokens(_ context.Context) error { return m.err }
+
+type mockSpendLogDeleter struct{ err error }
+
+func (m *mockSpendLogDeleter) DeleteOldSpendLogs(_ context.Context, _ pgtype.Timestamptz) error {
+	return m.err
 }
 
-// mockFlusher implements SpendFlusher for testing.
+type mockCredentialLister struct {
+	creds []db.CredentialTable
+	err   error
+}
+
+func (m *mockCredentialLister) ListCredentials(_ context.Context) ([]db.CredentialTable, error) {
+	return m.creds, m.err
+}
+
+type mockExpiredTokenLister struct {
+	tokens []db.VerificationToken
+	err    error
+}
+
+func (m *mockExpiredTokenLister) ListExpiredTokens(_ context.Context) ([]db.VerificationToken, error) {
+	return m.tokens, m.err
+}
+
+type mockArchiver struct{ err error }
+
+func (m *mockArchiver) Archive(_ context.Context, _, _ time.Time) error { return m.err }
+
 type mockFlusher struct{ flushed bool }
 
 func (m *mockFlusher) Flush() { m.flushed = true }
 
-func TestSpendBatchWriteJob_Run(t *testing.T) {
-	f := &mockFlusher{}
-	j := &SpendBatchWriteJob{Flusher: f}
-	err := j.Run(context.Background())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !f.flushed {
-		t.Error("expected Flush() to be called")
-	}
+type mockKeyFetcher struct {
+	key string
+	err error
 }
-
-// mockKeyFetcher/Swapper for ProviderKeyRotationJob.
-type mockKeyFetcher struct{ key string }
 
 func (m *mockKeyFetcher) FetchKey(_ context.Context, _ string) (string, error) {
-	return m.key, nil
+	return m.key, m.err
 }
 
-type mockKeySwapper struct{ swapped map[string]string }
+type mockKeySwapper struct{ swapped []string }
 
-func (m *mockKeySwapper) SwapKey(cred, key string) {
-	if m.swapped == nil {
-		m.swapped = make(map[string]string)
-	}
-	m.swapped[cred] = key
+func (m *mockKeySwapper) SwapKey(cred, _ string) { m.swapped = append(m.swapped, cred) }
+
+// --- tests ---
+
+func TestBudgetResetJob(t *testing.T) {
+	j := &BudgetResetJob{DB: &mockBudgetResetter{}}
+	assert.Equal(t, "budget_reset", j.Name())
+	assert.NoError(t, j.Run(context.Background()))
 }
 
-func TestProviderKeyRotationJob_Run(t *testing.T) {
-	fetcher := &mockKeyFetcher{key: "new-secret-key"}
+func TestBudgetResetJob_Error(t *testing.T) {
+	j := &BudgetResetJob{DB: &mockBudgetResetter{err: errors.New("db error")}}
+	assert.Error(t, j.Run(context.Background()))
+}
+
+func TestSpendLogCleanupJob(t *testing.T) {
+	j := &SpendLogCleanupJob{DB: &mockSpendLogDeleter{}, Retention: 90 * 24 * time.Hour}
+	assert.Equal(t, "spend_log_cleanup", j.Name())
+	assert.NoError(t, j.Run(context.Background()))
+}
+
+func TestSpendLogCleanupJob_Error(t *testing.T) {
+	j := &SpendLogCleanupJob{DB: &mockSpendLogDeleter{err: errors.New("db error")}, Retention: 90 * 24 * time.Hour}
+	assert.Error(t, j.Run(context.Background()))
+}
+
+func TestCredentialRefreshJob(t *testing.T) {
+	j := &CredentialRefreshJob{DB: &mockCredentialLister{creds: []db.CredentialTable{{CredentialName: "openai"}}}}
+	assert.Equal(t, "credential_refresh", j.Name())
+	assert.NoError(t, j.Run(context.Background()))
+}
+
+func TestCredentialRefreshJob_Error(t *testing.T) {
+	j := &CredentialRefreshJob{DB: &mockCredentialLister{err: errors.New("db error")}}
+	assert.Error(t, j.Run(context.Background()))
+}
+
+func TestKeyRotationJob(t *testing.T) {
+	j := &KeyRotationJob{DB: &mockExpiredTokenLister{tokens: []db.VerificationToken{{Token: "tok1"}}}}
+	assert.Equal(t, "key_rotation", j.Name())
+	assert.NoError(t, j.Run(context.Background()))
+}
+
+func TestKeyRotationJob_Error(t *testing.T) {
+	j := &KeyRotationJob{DB: &mockExpiredTokenLister{err: errors.New("db error")}}
+	assert.Error(t, j.Run(context.Background()))
+}
+
+func TestSpendArchivalJob(t *testing.T) {
+	j := &SpendArchivalJob{Archiver: &mockArchiver{}, Retention: 30 * 24 * time.Hour}
+	assert.Equal(t, "spend_archival", j.Name())
+	assert.NoError(t, j.Run(context.Background()))
+}
+
+func TestSpendBatchWriteJob(t *testing.T) {
+	mf := &mockFlusher{}
+	j := &SpendBatchWriteJob{Flusher: mf}
+	assert.Equal(t, "spend_batch_write", j.Name())
+	require.NoError(t, j.Run(context.Background()))
+	assert.True(t, mf.flushed)
+}
+
+func TestProviderKeyRotationJob(t *testing.T) {
 	swapper := &mockKeySwapper{}
 	j := &ProviderKeyRotationJob{
-		Fetcher:     fetcher,
+		Fetcher:     &mockKeyFetcher{key: "new-key-123"},
 		Swapper:     swapper,
 		Credentials: []string{"openai", "anthropic"},
 	}
-	err := j.Run(context.Background())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if swapper.swapped["openai"] != "new-secret-key" {
-		t.Errorf("expected key to be swapped for openai")
-	}
+	assert.Equal(t, "provider_key_rotation", j.Name())
+	require.NoError(t, j.Run(context.Background()))
+	assert.Equal(t, []string{"openai", "anthropic"}, swapper.swapped)
 }
 
-func TestHealthCheckJob_Run(t *testing.T) {
-	// Use a test server that responds with 200.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestProviderKeyRotationJob_FetchError(t *testing.T) {
+	swapper := &mockKeySwapper{}
+	j := &ProviderKeyRotationJob{
+		Fetcher:     &mockKeyFetcher{err: errors.New("vault unavailable")},
+		Swapper:     swapper,
+		Credentials: []string{"openai"},
+	}
+	// Should not error — logs and continues
+	require.NoError(t, j.Run(context.Background()))
+	assert.Empty(t, swapper.swapped)
+}
+
+func TestHealthCheckJob(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
@@ -91,49 +159,27 @@ func TestHealthCheckJob_Run(t *testing.T) {
 		Endpoints: []string{srv.URL},
 		Client:    srv.Client(),
 	}
-	err := j.Run(context.Background())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	assert.Equal(t, "health_check", j.Name())
+	require.NoError(t, j.Run(context.Background()))
 }
 
-func TestHealthCheckJob_Run_BadEndpoint(t *testing.T) {
+func TestHealthCheckJob_ServerError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
 	j := &HealthCheckJob{
-		Endpoints: []string{"http://invalid.endpoint.example.com"},
+		Endpoints: []string{srv.URL},
+		Client:    srv.Client(),
+	}
+	require.NoError(t, j.Run(context.Background()))
+}
+
+func TestHealthCheckJob_Unreachable(t *testing.T) {
+	j := &HealthCheckJob{
+		Endpoints: []string{"http://127.0.0.1:1"},
 		Client:    &http.Client{Timeout: 100 * time.Millisecond},
 	}
-	err := j.Run(context.Background())
-	// Should not return error even if endpoint is unreachable
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, j.Run(context.Background()))
 }
-
-type mockArchiver struct{ err error }
-
-func (m *mockArchiver) Archive(ctx context.Context, from, to time.Time) error {
-	return m.err
-}
-
-func TestSpendArchivalJob_Run_Success(t *testing.T) {
-	j := &SpendArchivalJob{Archiver: &mockArchiver{}, Retention: 24 * time.Hour}
-	if err := j.Run(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestSpendArchivalJob_Run_Error(t *testing.T) {
-	j := &SpendArchivalJob{Archiver: &mockArchiver{err: errTest}, Retention: time.Hour}
-	if err := j.Run(context.Background()); err == nil {
-		t.Fatal("expected error")
-	}
-}
-
-func TestProviderKeyRotationJob_Name(t *testing.T) {
-	j := &ProviderKeyRotationJob{}
-	if j.Name() != "provider_key_rotation" {
-		t.Fatalf("got %q", j.Name())
-	}
-}
-
-var errTest = errors.New("test error")

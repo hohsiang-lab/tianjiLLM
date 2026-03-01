@@ -7,6 +7,7 @@ import (
 
 	libscim "github.com/elimity-com/scim"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
+	"github.com/scim2/filter-parser/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -252,5 +253,67 @@ func TestGroupHandler_Replace(t *testing.T) {
 	}
 	res, err := h.Replace(req, "g1", attrs)
 	require.NoError(t, err)
+	assert.Equal(t, "g1", res.ID)
+}
+
+func TestUserHandler_Patch_Active(t *testing.T) {
+	h := &UserHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("PATCH", "/Users/u1", nil)
+
+	p, err := filter.ParsePath([]byte("active"))
+	require.NoError(t, err)
+	ops := []libscim.PatchOperation{
+		{Op: libscim.PatchOperationReplace, Path: &p, Value: true},
+	}
+	res, patchErr := h.Patch(req, "u1", ops)
+	require.NoError(t, patchErr)
+	assert.Equal(t, "u1", res.ID)
+}
+
+func TestUserHandler_Patch_DisplayName(t *testing.T) {
+	h := &UserHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("PATCH", "/Users/u1", nil)
+
+	p, err := filter.ParsePath([]byte("displayName"))
+	require.NoError(t, err)
+	ops := []libscim.PatchOperation{
+		{Op: libscim.PatchOperationReplace, Path: &p, Value: "Alice"},
+	}
+	res, patchErr := h.Patch(req, "u1", ops)
+	require.NoError(t, patchErr)
+	assert.Equal(t, "u1", res.ID)
+}
+
+func TestGroupHandler_Patch_DisplayName(t *testing.T) {
+	h := &GroupHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("PATCH", "/Groups/g1", nil)
+
+	p, err := filter.ParsePath([]byte("displayName"))
+	require.NoError(t, err)
+	ops := []libscim.PatchOperation{
+		{Op: libscim.PatchOperationReplace, Path: &p, Value: "New Name"},
+	}
+	res, patchErr := h.Patch(req, "g1", ops)
+	require.NoError(t, patchErr)
+	assert.Equal(t, "g1", res.ID)
+}
+
+func TestGroupHandler_Patch_Members_Add(t *testing.T) {
+	ms := newMockSCIMDB()
+	ms.getUserFn = func(_ context.Context, userID string) (db.UserTable, error) {
+		return db.UserTable{UserID: userID}, nil
+	}
+	h := &GroupHandler{DB: ms}
+	req := httptest.NewRequest("PATCH", "/Groups/g1", nil)
+
+	p, err := filter.ParsePath([]byte("members"))
+	require.NoError(t, err)
+	ops := []libscim.PatchOperation{
+		{Op: libscim.PatchOperationAdd, Path: &p, Value: []any{
+			map[string]any{"value": "u1"},
+		}},
+	}
+	res, patchErr := h.Patch(req, "g1", ops)
+	require.NoError(t, patchErr)
 	assert.Equal(t, "g1", res.ID)
 }

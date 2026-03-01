@@ -11,10 +11,30 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/policy"
 )
 
+// BudgetResetter is the interface for resetting token budgets.
+type BudgetResetter interface {
+	ResetBudgetForExpiredTokens(ctx context.Context) error
+}
+
+// SpendLogDeleter deletes old spend logs.
+type SpendLogDeleter interface {
+	DeleteOldSpendLogs(ctx context.Context, cutoff pgtype.Timestamptz) error
+}
+
+// CredentialLister lists credentials from DB.
+type CredentialLister interface {
+	ListCredentials(ctx context.Context) ([]db.CredentialTable, error)
+}
+
+// ExpiredTokenLister lists expired tokens from DB.
+type ExpiredTokenLister interface {
+	ListExpiredTokens(ctx context.Context) ([]db.VerificationToken, error)
+}
+
 // BudgetResetJob resets spend for all keys whose budget_reset_at has passed.
 // Uses a single batch UPDATE for efficiency.
 type BudgetResetJob struct {
-	DB *db.Queries
+	DB BudgetResetter
 }
 
 func (j *BudgetResetJob) Name() string { return "budget_reset" }
@@ -25,7 +45,7 @@ func (j *BudgetResetJob) Run(ctx context.Context) error {
 
 // SpendLogCleanupJob deletes spend log entries older than the retention period.
 type SpendLogCleanupJob struct {
-	DB        *db.Queries
+	DB        SpendLogDeleter
 	Retention time.Duration // e.g., 90 days
 }
 
@@ -85,7 +105,7 @@ func (j *SpendBatchWriteJob) Run(_ context.Context) error {
 
 // CredentialRefreshJob reloads provider credentials from DB.
 type CredentialRefreshJob struct {
-	DB *db.Queries
+	DB CredentialLister
 }
 
 func (j *CredentialRefreshJob) Name() string { return "credential_refresh" }
@@ -101,7 +121,7 @@ func (j *CredentialRefreshJob) Run(ctx context.Context) error {
 
 // KeyRotationJob checks for keys that need rotation based on expiry.
 type KeyRotationJob struct {
-	DB *db.Queries
+	DB ExpiredTokenLister
 }
 
 func (j *KeyRotationJob) Name() string { return "key_rotation" }
