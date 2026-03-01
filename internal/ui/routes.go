@@ -59,6 +59,8 @@ func (h *UIHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/usage/export", h.handleUsageExport)
 		// Rate limit state API
 		r.Get("/api/rate-limit-state", h.handleRateLimitState)
+		// Rate limit widget HTML endpoint (HTMX polling)
+		r.Get("/anthropic-rate-limit-widget", h.handleAnthropicRateLimitWidget)
 
 		// Teams
 		r.Get("/teams", h.handleTeams)

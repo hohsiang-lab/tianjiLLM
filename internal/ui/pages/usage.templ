@@ -276,7 +276,7 @@ templ AnthropicRateLimitWidget() {
 		<h3 class="text-base font-semibold mb-3">Anthropic Rate Limits</h3>
 		<div
 			id="anthropic-rate-limit-widget"
-			hx-get="/ui/api/rate-limit-state"
+			hx-get="/ui/anthropic-rate-limit-widget"
 			hx-trigger="load, every 30s"
 			hx-swap="innerHTML"
 		>

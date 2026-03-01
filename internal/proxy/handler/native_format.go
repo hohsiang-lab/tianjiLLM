@@ -85,6 +85,54 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 			}
 		},
 		ModifyResponse: func(resp *http.Response) error {
+			// Always parse Anthropic rate limit headers regardless of status code (fixes 429 tracking).
+			if providerName == "anthropic" {
+				state := callback.ParseAnthropicRateLimitHeaders(resp.Header)
+				if resp.StatusCode == http.StatusOK && h.DiscordAlerter != nil {
+					h.DiscordAlerter.CheckAndAlert(state)
+				}
+				// Store rate limit state per apiKey for Usage page widget.
+				if apiKey != "" {
+					hash := sha256.Sum256([]byte(apiKey))
+					keyHash := hex.EncodeToString(hash[:])
+					snap := &ratelimitstate.Snapshot{
+						CapturedAt: time.Now().UTC(),
+					}
+					parseReset := func(raw string) time.Time {
+						if raw == "" {
+							return time.Time{}
+						}
+						t, err := time.Parse(time.RFC3339, raw)
+						if err != nil {
+							return time.Time{}
+						}
+						return t
+					}
+					if state.InputTokensLimit >= 0 || state.InputTokensRemaining >= 0 {
+						snap.InputTokens = &ratelimitstate.DimensionState{
+							Limit:     state.InputTokensLimit,
+							Remaining: state.InputTokensRemaining,
+							ResetsAt:  parseReset(state.InputTokensReset),
+						}
+					}
+					if state.OutputTokensLimit >= 0 || state.OutputTokensRemaining >= 0 {
+						snap.OutputTokens = &ratelimitstate.DimensionState{
+							Limit:     state.OutputTokensLimit,
+							Remaining: state.OutputTokensRemaining,
+							ResetsAt:  parseReset(state.OutputTokensReset),
+						}
+					}
+					if state.RequestsLimit >= 0 || state.RequestsRemaining >= 0 {
+						snap.Requests = &ratelimitstate.DimensionState{
+							Limit:     state.RequestsLimit,
+							Remaining: state.RequestsRemaining,
+							ResetsAt:  parseReset(state.RequestsReset),
+						}
+					}
+					ratelimitstate.GetOrCreate(keyHash).Set(snap)
+				}
+			}
+
 			if resp.StatusCode != http.StatusOK {
 				if h.DB != nil {
 					body, _ := io.ReadAll(resp.Body)
@@ -116,40 +164,6 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 					}()
 				}
 				return nil
-			}
-
-			if providerName == "anthropic" {
-				state := callback.ParseAnthropicRateLimitHeaders(resp.Header)
-				if h.DiscordAlerter != nil {
-					h.DiscordAlerter.CheckAndAlert(state)
-				}
-				// Store rate limit state per apiKey for Usage page widget.
-				if apiKey != "" {
-					hash := sha256.Sum256([]byte(apiKey))
-					keyHash := hex.EncodeToString(hash[:])
-					snap := &ratelimitstate.Snapshot{
-						CapturedAt: time.Now().UTC(),
-					}
-					if state.InputTokensLimit >= 0 || state.InputTokensRemaining >= 0 {
-						snap.InputTokens = &ratelimitstate.DimensionState{
-							Limit:     state.InputTokensLimit,
-							Remaining: state.InputTokensRemaining,
-						}
-					}
-					if state.OutputTokensLimit >= 0 || state.OutputTokensRemaining >= 0 {
-						snap.OutputTokens = &ratelimitstate.DimensionState{
-							Limit:     state.OutputTokensLimit,
-							Remaining: state.OutputTokensRemaining,
-						}
-					}
-					if state.RequestsLimit >= 0 || state.RequestsRemaining >= 0 {
-						snap.Requests = &ratelimitstate.DimensionState{
-							Limit:     state.RequestsLimit,
-							Remaining: state.RequestsRemaining,
-						}
-					}
-					ratelimitstate.GetOrCreate(keyHash).Set(snap)
-				}
 			}
 
 			if h.Callbacks == nil {

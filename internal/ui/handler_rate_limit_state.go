@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/ratelimitstate"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/pages"
 )
 
 // dimensionJSON is the JSON shape for one rate limit dimension.
@@ -96,4 +97,43 @@ func (h *UIHandler) handleRateLimitState(w http.ResponseWriter, r *http.Request)
 		return entries[i].KeyHash < entries[j].KeyHash
 	})
 	_ = json.NewEncoder(w).Encode(entries)
+}
+
+// handleAnthropicRateLimitWidget handles GET /ui/anthropic-rate-limit-widget.
+// Returns HTML rendered by AnthropicRateLimitCards templ component for HTMX polling.
+func (h *UIHandler) handleAnthropicRateLimitWidget(w http.ResponseWriter, r *http.Request) {
+	// Auth check.
+	if _, ok := getSessionFromRequest(r, h.sessionKey()); !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	all := ratelimitstate.ListAll()
+	entries := make([]pages.RateLimitEntry, 0, len(all))
+	for keyHash, store := range all {
+		snap, ok := store.Get()
+		if !ok || snap == nil {
+			continue
+		}
+		e := pages.RateLimitEntry{
+			KeyHash:        keyHash,
+			LastUpdatedStr: snap.CapturedAt.Format("15:04:05"),
+		}
+		if snap.InputTokens != nil {
+			e.InputTokensLimit = snap.InputTokens.Limit
+			e.InputTokensRemaining = snap.InputTokens.Remaining
+		}
+		if snap.OutputTokens != nil {
+			e.OutputTokensLimit = snap.OutputTokens.Limit
+			e.OutputTokensRemaining = snap.OutputTokens.Remaining
+		}
+		if snap.Requests != nil {
+			e.RequestsLimit = snap.Requests.Limit
+			e.RequestsRemaining = snap.Requests.Remaining
+		}
+		entries = append(entries, e)
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	render(r.Context(), w, pages.AnthropicRateLimitCards(entries))
 }
