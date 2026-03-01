@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -218,7 +219,7 @@ func TestEngine_Evaluate_NoAttachments(t *testing.T) {
 	e := &Engine{
 		policies: make(map[string]db.PolicyTable),
 	}
-	result, err := e.Evaluate(nil, MatchRequest{KeyID: "k1"})
+	result, err := e.Evaluate(context.Background(), MatchRequest{KeyID: "k1"})
 	require.NoError(t, err)
 	assert.Empty(t, result.Guardrails)
 	assert.Empty(t, result.Policies)

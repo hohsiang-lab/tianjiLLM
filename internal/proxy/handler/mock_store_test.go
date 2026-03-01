@@ -58,6 +58,14 @@ type mockStore struct {
 	// Key ext
 
 	// EndUser ext
+
+	// Misc / team ext
+	listErrorLogsFn        func(ctx context.Context, arg db.ListErrorLogsParams) ([]db.ErrorLog, error)
+	listHealthChecksFn     func(ctx context.Context, arg db.ListHealthChecksParams) ([]db.HealthCheckTable, error)
+	listAvailableTeamsFn   func(ctx context.Context) ([]db.TeamTable, error)
+	resetTeamSpendFn       func(ctx context.Context, teamID string) error
+	getTeamDailyActivityFn func(ctx context.Context, arg db.GetTeamDailyActivityParams) ([]db.GetTeamDailyActivityRow, error)
+
 	listEndUsersFn   func(ctx context.Context) ([]db.EndUserTable2, error)
 	blockEndUserFn   func(ctx context.Context, id string) (db.EndUserTable2, error)
 	unblockEndUserFn func(ctx context.Context, id string) (db.EndUserTable2, error)
@@ -833,7 +841,9 @@ func (m *mockStore) GetTeamCallback(ctx context.Context, teamID string) (interfa
 	return nil, nil
 }
 func (m *mockStore) GetTeamDailyActivity(ctx context.Context, arg db.GetTeamDailyActivityParams) ([]db.GetTeamDailyActivityRow, error) {
-	m.ni()
+	if m.getTeamDailyActivityFn != nil {
+		return m.getTeamDailyActivityFn(ctx, arg)
+	}
 	return nil, nil
 }
 func (m *mockStore) GetTeamPermissions(ctx context.Context, teamID string) ([]byte, error) {
@@ -886,7 +896,9 @@ func (m *mockStore) ListAuditLogs(ctx context.Context, arg db.ListAuditLogsParam
 	return nil, nil
 }
 func (m *mockStore) ListAvailableTeams(ctx context.Context) ([]db.TeamTable, error) {
-	m.ni()
+	if m.listAvailableTeamsFn != nil {
+		return m.listAvailableTeamsFn(ctx)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListBudgets(ctx context.Context) ([]db.BudgetTable, error) {
@@ -926,7 +938,9 @@ func (m *mockStore) ListEndUsers(ctx context.Context) ([]db.EndUserTable2, error
 	return nil, nil
 }
 func (m *mockStore) ListErrorLogs(ctx context.Context, arg db.ListErrorLogsParams) ([]db.ErrorLog, error) {
-	m.ni()
+	if m.listErrorLogsFn != nil {
+		return m.listErrorLogsFn(ctx, arg)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListGuardrailConfigs(ctx context.Context) ([]db.GuardrailConfigTable, error) {
@@ -936,7 +950,9 @@ func (m *mockStore) ListGuardrailConfigs(ctx context.Context) ([]db.GuardrailCon
 	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListHealthChecks(ctx context.Context, arg db.ListHealthChecksParams) ([]db.HealthCheckTable, error) {
-	m.ni()
+	if m.listHealthChecksFn != nil {
+		return m.listHealthChecksFn(ctx, arg)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListIPWhitelist(ctx context.Context) ([]db.IPWhitelistTable, error) {
@@ -1028,7 +1044,12 @@ func (m *mockStore) ResetAllTeamSpend(ctx context.Context) error {
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) ResetTeamSpend(ctx context.Context, teamID string) error { m.ni(); return nil }
+func (m *mockStore) ResetTeamSpend(ctx context.Context, teamID string) error {
+	if m.resetTeamSpendFn != nil {
+		return m.resetTeamSpendFn(ctx, teamID)
+	}
+	return nil
+}
 func (m *mockStore) ResetVerificationTokenSpend(ctx context.Context, token string) error {
 	if m.resetVerificationTokenSpendFn != nil {
 		return m.resetVerificationTokenSpendFn(ctx, token)
