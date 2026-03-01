@@ -126,8 +126,14 @@ func TestHandleRateLimitState_SentinelUtilization(t *testing.T) {
 		t.Fatalf("expected 1 item, got %d", len(items))
 	}
 
-	u5h := items[0]["unified_5h_utilization"].(float64)
-	u7d := items[0]["unified_7d_utilization"].(float64)
+	u5h, ok5h := items[0]["unified_5h_utilization"].(float64)
+	if !ok5h {
+		t.Fatalf("unified_5h_utilization is not float64: %T", items[0]["unified_5h_utilization"])
+	}
+	u7d, ok7d := items[0]["unified_7d_utilization"].(float64)
+	if !ok7d {
+		t.Fatalf("unified_7d_utilization is not float64: %T", items[0]["unified_7d_utilization"])
+	}
 
 	if u5h != -1 {
 		t.Errorf("unified_5h_utilization = %v, want -1 (sentinel for absent header)", u5h)
