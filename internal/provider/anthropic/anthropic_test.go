@@ -260,7 +260,8 @@ func TestTransformContentPart_ImageURL(t *testing.T) {
 	}
 	result := transformContentPart(part)
 	assert.Equal(t, "image", result["type"])
-	src := result["source"].(map[string]any)
+	src, ok := result["source"].(map[string]any)
+	require.True(t, ok, "source should be a map")
 	assert.Equal(t, "url", src["type"])
 	assert.Equal(t, "https://example.com/img.png", src["url"])
 }

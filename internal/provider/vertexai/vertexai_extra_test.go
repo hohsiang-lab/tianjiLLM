@@ -39,8 +39,6 @@ func TestTransformStreamChunk_VertexAI(t *testing.T) {
 
 func TestTransformRequest_WithAPIKey(t *testing.T) {
 	p := New("proj", "us-central1")
-	req := &struct{ Model string }{Model: "gemini-pro"}
-	_ = req
 	// Just verify New() works without panic
 	require.NotNil(t, p)
 }

@@ -3,6 +3,7 @@ package awspolly
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -47,7 +48,7 @@ func TestTransformResponse_Success(t *testing.T) {
 	result, err := p.TransformResponse(context.Background(), resp)
 	require.NoError(t, err)
 	require.Len(t, result.Choices, 1)
-	assert.Contains(t, result.Choices[0].Message.Content.(string), "audio:")
+	assert.Contains(t, fmt.Sprintf("%v", result.Choices[0].Message.Content), "audio:")
 }
 
 func TestTransformResponse_Error(t *testing.T) {

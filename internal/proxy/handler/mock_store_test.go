@@ -65,7 +65,6 @@ type mockStore struct {
 	getAccessGroupFn    func(ctx context.Context, groupID string) (db.ModelAccessGroup, error)
 	updateAccessGroupFn func(ctx context.Context, arg db.UpdateAccessGroupParams) error
 	deleteAccessGroupFn func(ctx context.Context, groupID string) error
-	listAccessGroupsFn  func(ctx context.Context) ([]db.ModelAccessGroup, error)
 
 	// Budget
 	createBudgetFn func(ctx context.Context, arg db.CreateBudgetParams) (db.BudgetTable, error)

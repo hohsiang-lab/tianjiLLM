@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -31,7 +32,8 @@ func TestTransformRequest(t *testing.T) {
 	prompts, ok := body["text_prompts"].([]any)
 	require.True(t, ok)
 	require.Len(t, prompts, 1)
-	p0 := prompts[0].(map[string]any)
+	p0, ok := prompts[0].(map[string]any)
+	require.True(t, ok, "prompt should be a map")
 	assert.Equal(t, "a futuristic city", p0["text"])
 }
 
@@ -55,7 +57,7 @@ func TestTransformResponse_Success(t *testing.T) {
 	result, err := p.TransformResponse(context.Background(), resp)
 	require.NoError(t, err)
 	require.Len(t, result.Choices, 1)
-	assert.Contains(t, result.Choices[0].Message.Content.(string), "image:base64")
+	assert.Contains(t, fmt.Sprintf("%v", result.Choices[0].Message.Content), "image:base64")
 }
 
 func TestTransformResponse_NoArtifacts(t *testing.T) {

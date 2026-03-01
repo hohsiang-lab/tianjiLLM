@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -59,7 +60,7 @@ func TestTransformResponse_WithB64(t *testing.T) {
 	result, err := p.TransformResponse(context.Background(), resp)
 	require.NoError(t, err)
 	require.Len(t, result.Choices, 1)
-	assert.Contains(t, result.Choices[0].Message.Content.(string), "image:base64")
+	assert.Contains(t, fmt.Sprintf("%v", result.Choices[0].Message.Content), "image:base64")
 }
 
 func TestTransformResponse_Empty(t *testing.T) {
