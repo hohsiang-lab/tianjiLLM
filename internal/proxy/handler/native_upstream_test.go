@@ -95,7 +95,7 @@ func TestSelectUpstream_RoundRobin(t *testing.T) {
 
 	seen := make(map[string]int)
 	for i := 0; i < 6; i++ {
-		u := selectUpstream("anthropic", upstreams)
+		u := selectUpstream("test-anthropic-rr", upstreams)
 		seen[u.APIKey]++
 	}
 
@@ -124,7 +124,7 @@ func TestSelectUpstream_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			results[idx] = selectUpstream("anthropic", upstreams)
+			results[idx] = selectUpstream("test-anthropic-rr", upstreams)
 		}(i)
 	}
 	wg.Wait()

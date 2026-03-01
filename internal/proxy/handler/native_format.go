@@ -458,28 +458,6 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion, cacheRe
 	return
 }
 
-// resolveNativeUpstream finds the base URL and API key for a native provider.
-func (h *Handlers) resolveNativeUpstream(providerName string) (string, string) {
-	for _, m := range h.Config.ModelList {
-		parts := strings.SplitN(m.TianjiParams.Model, "/", 2)
-		if len(parts) >= 1 && parts[0] == providerName {
-			apiKey := ""
-			if m.TianjiParams.APIKey != nil {
-				apiKey = *m.TianjiParams.APIKey
-			}
-			base := ""
-			if m.TianjiParams.APIBase != nil {
-				base = *m.TianjiParams.APIBase
-			}
-			if base == "" {
-				base = defaultBaseURL(providerName)
-			}
-			return base, apiKey
-		}
-	}
-	return "", ""
-}
-
 func defaultBaseURL(provider string) string {
 	switch provider {
 	case "openai":

@@ -12,14 +12,14 @@ import (
 // FR-008: returns JSON array of per-token rate limit state. Empty array when no data.
 func (h *UIHandler) handleRateLimitState(w http.ResponseWriter, r *http.Request) {
 	type tokenState struct {
-		TokenKey              string    `json:"token_key"`
-		UpdatedAt             time.Time `json:"updated_at"`
-		RequestsLimit         int       `json:"requests_limit"`
-		RequestsRemaining     int       `json:"requests_remaining"`
-		TokensLimit           int       `json:"tokens_limit"`
-		TokensRemaining       int       `json:"tokens_remaining"`
-		RequestsResetAt       string    `json:"requests_reset_at"`
-		TokensResetAt         string    `json:"tokens_reset_at"`
+		TokenKey          string    `json:"token_key"`
+		UpdatedAt         time.Time `json:"updated_at"`
+		RequestsLimit     int       `json:"requests_limit"`
+		RequestsRemaining int       `json:"requests_remaining"`
+		TokensLimit       int       `json:"tokens_limit"`
+		TokensRemaining   int       `json:"tokens_remaining"`
+		RequestsResetAt   string    `json:"requests_reset_at"`
+		TokensResetAt     string    `json:"tokens_reset_at"`
 		// Unified OAuth fields
 		UnifiedStatus         string  `json:"unified_status"`
 		Unified5hStatus       string  `json:"unified_5h_status"`
