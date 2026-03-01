@@ -134,6 +134,7 @@ type mockStore struct {
 
 	// Prompt template
 	getNextPromptVersionFn func(ctx context.Context, name string) (int32, error)
+	getPromptVersionsFn    func(ctx context.Context, name string) ([]db.PromptTemplateTable, error)
 	createPromptFn         func(ctx context.Context, arg db.CreatePromptTemplateParams) (db.PromptTemplateTable, error)
 	getPromptFn            func(ctx context.Context, id string) (db.PromptTemplateTable, error)
 	listPromptsFn          func(ctx context.Context) ([]db.PromptTemplateTable, error)
@@ -809,7 +810,9 @@ func (m *mockStore) GetPromptTemplateByNameVersion(ctx context.Context, arg db.G
 	return db.PromptTemplateTable{}, nil
 }
 func (m *mockStore) GetPromptVersions(ctx context.Context, name string) ([]db.PromptTemplateTable, error) {
-	m.ni()
+	if m.getPromptVersionsFn != nil {
+		return m.getPromptVersionsFn(ctx, name)
+	}
 	return nil, nil
 }
 func (m *mockStore) GetProxyModel(ctx context.Context, modelID string) (db.ProxyModelTable, error) {

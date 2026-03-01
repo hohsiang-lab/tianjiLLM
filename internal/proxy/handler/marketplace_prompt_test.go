@@ -184,3 +184,42 @@ func TestPromptDelete_Success(t *testing.T) {
 	h.PromptDelete(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
+
+func TestPromptUpdate_Success(t *testing.T) {
+	ms := newMockStore()
+	ms.getPromptFn = func(_ context.Context, id string) (db.PromptTemplateTable, error) {
+		return db.PromptTemplateTable{ID: id, Name: "my-prompt", Template: "Hello"}, nil
+	}
+	ms.createPromptFn = func(_ context.Context, arg db.CreatePromptTemplateParams) (db.PromptTemplateTable, error) {
+		return db.PromptTemplateTable{Name: arg.Name, Version: arg.Version}, nil
+	}
+	h := &Handlers{DB: ms}
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", "p1")
+	body, _ := json.Marshal(map[string]string{"template": "Hello updated"})
+	req := httptest.NewRequest(http.MethodPut, "/prompt/p1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	w := httptest.NewRecorder()
+	h.PromptUpdate(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestPromptVersions_Success(t *testing.T) {
+	ms := newMockStore()
+	ms.getPromptFn = func(_ context.Context, id string) (db.PromptTemplateTable, error) {
+		return db.PromptTemplateTable{ID: id, Name: "p1"}, nil
+	}
+	ms.getPromptVersionsFn = func(_ context.Context, name string) ([]db.PromptTemplateTable, error) {
+		return []db.PromptTemplateTable{{Name: name, Version: 1}, {Name: name, Version: 2}}, nil
+	}
+	h := &Handlers{DB: ms}
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", "p1")
+	req := httptest.NewRequest(http.MethodGet, "/prompt/p1/versions", nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	w := httptest.NewRecorder()
+	h.PromptVersions(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
