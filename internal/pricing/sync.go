@@ -195,6 +195,15 @@ func SyncFromUpstream(ctx context.Context, pool *pgxpool.Pool, queries *db.Queri
 	}
 	calc.ReloadFromDB(dbEntries)
 
+	// Step 6: insert embedded fallback models (insert-only)
+	existingDB := make(map[string]struct{}, len(dbEntries))
+	for _, e := range dbEntries {
+		existingDB[e.ModelName] = struct{}{}
+	}
+	if embErr := syncEmbeddedFallback(ctx, pool, calc, existingDB); embErr != nil {
+		log.Printf("pricing sync: warning: embedded fallback failed: %v", embErr)
+	}
+
 	return len(entries), nil
 }
 
@@ -265,5 +274,67 @@ func validateUpstreamData(raw map[string]json.RawMessage) error {
 	if count < minModelCount {
 		return fmt.Errorf("upstream returned only %d models, expected at least %d (possible corruption)", count, minModelCount)
 	}
+	return nil
+}
+
+// insertEmbeddedFallback inserts embedded models that are not yet in the DB.
+// Uses INSERT ... ON CONFLICT DO NOTHING (insert-only, never overwrites admin data).
+const insertEmbeddedFallbackSQL = `INSERT INTO "ModelPricing" (
+    model_name, input_cost_per_token, output_cost_per_token,
+    max_input_tokens, max_output_tokens, max_tokens,
+    mode, provider, source_url, synced_at
+) VALUES (
+    $1, $2, $3,
+    $4, $5, $6,
+    $7, $8, $9, NOW()
+)
+ON CONFLICT (model_name) DO NOTHING`
+
+// syncEmbeddedFallback inserts embedded-only models into the DB (insert-only).
+// It queries current DB model names, finds embedded models not present, and inserts them.
+func syncEmbeddedFallback(ctx context.Context, pool *pgxpool.Pool, calc *Calculator, existingDB map[string]struct{}) error {
+	toInsert := selectEmbeddedToInsert(calc.embedded, existingDB)
+	if len(toInsert) == 0 {
+		return nil
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("syncEmbeddedFallback: begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	batch := &pgx.Batch{}
+	for _, name := range toInsert {
+		info := calc.embedded[name]
+		batch.Queue(insertEmbeddedFallbackSQL,
+			name,
+			info.InputCostPerToken,
+			info.OutputCostPerToken,
+			int32(info.MaxInputTokens),
+			int32(info.MaxOutputTokens),
+			int32(info.MaxTokens),
+			info.Mode,
+			info.Provider,
+			"embedded",
+		)
+	}
+
+	br := tx.SendBatch(ctx, batch)
+	for i := 0; i < batch.Len(); i++ {
+		if _, execErr := br.Exec(); execErr != nil {
+			_ = br.Close()
+			return fmt.Errorf("syncEmbeddedFallback: insert item %d: %w", i, execErr)
+		}
+	}
+	if closeErr := br.Close(); closeErr != nil {
+		return fmt.Errorf("syncEmbeddedFallback: close batch: %w", closeErr)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("syncEmbeddedFallback: commit: %w", err)
+	}
+
+	log.Printf("pricing sync: inserted %d embedded fallback models into DB", len(toInsert))
 	return nil
 }
