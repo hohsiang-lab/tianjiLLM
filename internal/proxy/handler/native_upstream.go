@@ -48,10 +48,3 @@ func selectUpstream(upstreams []nativeUpstream) nativeUpstream {
 	return upstreams[idx%uint64(len(upstreams))]
 }
 
-// maskKey returns a display-safe truncated version of an API key.
-func maskKey(key string) string {
-	if len(key) <= 8 {
-		return "***"
-	}
-	return key[:6] + "..." + key[len(key)-4:]
-}
