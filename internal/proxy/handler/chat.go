@@ -551,6 +551,10 @@ func (h *Handlers) recordErrorLog(ctx context.Context, req *model.ChatCompletion
 		modelName = req.Model
 	}
 
+	var teamID *string
+	if tid, ok := ctx.Value(middleware.ContextKeyTeamID).(string); ok && tid != "" {
+		teamID = &tid
+	}
 	go func() {
 		_ = h.DB.InsertErrorLog(context.Background(), db.InsertErrorLogParams{
 			RequestID:    chiMiddleware.GetReqID(ctx),
@@ -560,6 +564,7 @@ func (h *Handlers) recordErrorLog(ctx context.Context, req *model.ChatCompletion
 			StatusCode:   500,
 			ErrorType:    "provider_error",
 			ErrorMessage: err.Error(),
+			TeamID:       teamID,
 		})
 	}()
 }

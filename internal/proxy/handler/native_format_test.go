@@ -130,7 +130,7 @@ func TestNativeProxy_ErrorLog_Written(t *testing.T) {
 	// InsertErrorLog args order: requestID, apiKeyHash, model, provider,
 	// statusCode, errorType, errorMessage, traceback  (8 total).
 	args := spy.firstArgs(t)
-	require.Len(t, args, 8, "InsertErrorLog must receive exactly 8 args")
+	require.Len(t, args, 9, "InsertErrorLog must receive exactly 9 args")
 
 	// Compare as interface{} — avoids errcheck on unchecked type assertions.
 	assert.Equal(t, "anthropic", args[3], "provider")
@@ -234,7 +234,7 @@ func TestRecordErrorLog_UsesChiRequestID(t *testing.T) {
 	spy.waitExec(t, 2*time.Second)
 
 	args := spy.firstArgs(t)
-	require.Len(t, args, 8)
+	require.Len(t, args, 9)
 	// args[0] is RequestID; compare as interface{} to avoid errcheck on type assertions.
 	assert.Equal(t, wantID, args[0],
 		"RequestID must equal chi request ID, not a pointer address")
@@ -259,7 +259,7 @@ func TestRecordErrorLog_NoRequestID_EmptyString(t *testing.T) {
 	spy.waitExec(t, 2*time.Second)
 
 	args := spy.firstArgs(t)
-	require.Len(t, args, 8)
+	require.Len(t, args, 9)
 	assert.Equal(t, "", args[0],
 		"RequestID must be empty string when chi request ID is absent from context")
 }

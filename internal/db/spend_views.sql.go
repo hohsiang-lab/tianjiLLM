@@ -38,6 +38,7 @@ SELECT COUNT(*) FROM (
       AND ($6::text IS NULL OR el.request_id = $6)
       AND ($3::text IS NULL OR el.api_key_hash = $3)
       AND ($7::text IS NULL OR $7 = 'failed')
+      AND ($4::text IS NULL OR el.team_id = $4)
   )
 ) AS combined
 `
@@ -1069,7 +1070,7 @@ UNION ALL
     0::int8             AS prompt_tokens,
     0::int8             AS completion_tokens,
     ''                  AS cache_hit,
-    NULL::text          AS team_id,
+    el.team_id,
     NULL::text          AS end_user,
     el.status_code      AS error_status_code,
     el.error_type
@@ -1081,6 +1082,7 @@ UNION ALL
     AND ($8::text IS NULL OR el.request_id = $8)
     AND ($5::text IS NULL OR el.api_key_hash = $5)
     AND ($9::text IS NULL OR $9 = 'failed')
+    AND ($6::text IS NULL OR el.team_id = $6)
 )
 ORDER BY ts DESC
 LIMIT $2 OFFSET $1

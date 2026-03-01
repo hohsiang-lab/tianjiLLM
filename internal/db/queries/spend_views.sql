@@ -164,7 +164,7 @@ UNION ALL
     0::int8             AS prompt_tokens,
     0::int8             AS completion_tokens,
     ''                  AS cache_hit,
-    NULL::text          AS team_id,
+    el.team_id,
     NULL::text          AS end_user,
     el.status_code      AS error_status_code,
     el.error_type
@@ -176,6 +176,7 @@ UNION ALL
     AND (sqlc.narg(filter_request_id)::text IS NULL OR el.request_id = sqlc.narg(filter_request_id))
     AND (sqlc.narg(filter_api_key)::text IS NULL OR el.api_key_hash = sqlc.narg(filter_api_key))
     AND (sqlc.narg(filter_status)::text IS NULL OR sqlc.narg(filter_status) = 'failed')
+    AND (sqlc.narg(filter_team_id)::text IS NULL OR el.team_id = sqlc.narg(filter_team_id))
 )
 ORDER BY ts DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
@@ -207,6 +208,7 @@ SELECT COUNT(*) FROM (
       AND (sqlc.narg(filter_request_id)::text IS NULL OR el.request_id = sqlc.narg(filter_request_id))
       AND (sqlc.narg(filter_api_key)::text IS NULL OR el.api_key_hash = sqlc.narg(filter_api_key))
       AND (sqlc.narg(filter_status)::text IS NULL OR sqlc.narg(filter_status) = 'failed')
+      AND (sqlc.narg(filter_team_id)::text IS NULL OR el.team_id = sqlc.narg(filter_team_id))
   )
 ) AS combined;
 
