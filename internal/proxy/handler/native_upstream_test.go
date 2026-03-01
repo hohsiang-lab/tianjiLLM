@@ -177,7 +177,6 @@ func TestRateLimitParsed_On429Response(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.AnthropicMessages(rr, req)
 
-
 	cacheKey := callback.RateLimitCacheKey(apiKey)
 	state, ok := store.Get(cacheKey)
 	require.True(t, ok, "RateLimitStore should have an entry for the token after 429 response")

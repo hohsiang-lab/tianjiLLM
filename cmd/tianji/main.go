@@ -412,8 +412,8 @@ func main() {
 		SSOHandler:      ssoHandler,
 		AgentRegistry:   agentRegistry,
 		EventDispatcher: eventDispatcher,
-		DiscordAlerter:   discordAlerter,
-		RateLimitStore:   rateLimitStore,
+		DiscordAlerter:  discordAlerter,
+		RateLimitStore:  rateLimitStore,
 	}
 
 	// Init scheduler
@@ -441,13 +441,13 @@ func main() {
 
 	// Init admin dashboard UI
 	uiHandler := &ui.UIHandler{
-		DB:        queries,
-		Pool:      dbPool,
-		Config:    cfg,
-		Cache:     cacheBackend,
-		MasterKey:       cfg.GeneralSettings.MasterKey,
-		Pricing:         pricingCalc,
-		RateLimitStore:  rateLimitStore,
+		DB:             queries,
+		Pool:           dbPool,
+		Config:         cfg,
+		Cache:          cacheBackend,
+		MasterKey:      cfg.GeneralSettings.MasterKey,
+		Pricing:        pricingCalc,
+		RateLimitStore: rateLimitStore,
 	}
 
 	// Create server

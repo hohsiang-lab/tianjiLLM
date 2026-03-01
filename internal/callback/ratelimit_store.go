@@ -26,8 +26,8 @@ type AnthropicOAuthRateLimitState struct {
 	TokensResetAt     string
 
 	// Unified OAuth headers (present for OAuth tokens).
-	UnifiedStatus         string  // "allowed", "rate_limited", "overage", etc.
-	UnifiedReset          string  // raw unix timestamp string
+	UnifiedStatus         string // "allowed", "rate_limited", "overage", etc.
+	UnifiedReset          string // raw unix timestamp string
 	Unified5hStatus       string
 	Unified5hReset        string
 	Unified5hUtilization  float64 // fraction [0,1]; -1 = missing or unparseable
