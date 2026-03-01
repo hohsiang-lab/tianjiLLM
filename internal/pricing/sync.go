@@ -41,11 +41,17 @@ type openRouterPricing struct {
 const upsertModelPricingSQL = `INSERT INTO "ModelPricing" (
     model_name, input_cost_per_token, output_cost_per_token,
     max_input_tokens, max_output_tokens, max_tokens,
-    mode, provider, source_url, synced_at
+    mode, provider, source_url,
+    cache_read_input_token_cost, cache_creation_input_token_cost,
+    cache_read_input_token_cost_above_200k, cache_creation_input_token_cost_above_200k,
+    synced_at
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6,
-    $7, $8, $9, NOW()
+    $7, $8, $9,
+    $10, $11,
+    $12, $13,
+    NOW()
 )
 ON CONFLICT (model_name) DO UPDATE SET
     input_cost_per_token  = EXCLUDED.input_cost_per_token,
@@ -56,18 +62,26 @@ ON CONFLICT (model_name) DO UPDATE SET
     mode                  = EXCLUDED.mode,
     provider              = EXCLUDED.provider,
     source_url            = EXCLUDED.source_url,
+    cache_read_input_token_cost             = EXCLUDED.cache_read_input_token_cost,
+    cache_creation_input_token_cost         = EXCLUDED.cache_creation_input_token_cost,
+    cache_read_input_token_cost_above_200k  = EXCLUDED.cache_read_input_token_cost_above_200k,
+    cache_creation_input_token_cost_above_200k = EXCLUDED.cache_creation_input_token_cost_above_200k,
     synced_at             = NOW(),
     updated_at            = NOW()`
 
 // upstreamModelEntry holds the fields we care about from the upstream JSON.
 type upstreamModelEntry struct {
-	InputCostPerToken  float64 `json:"input_cost_per_token"`
-	OutputCostPerToken float64 `json:"output_cost_per_token"`
-	MaxInputTokens     int     `json:"max_input_tokens"`
-	MaxOutputTokens    int     `json:"max_output_tokens"`
-	MaxTokens          int     `json:"max_tokens"`
-	Mode               string  `json:"mode"`
-	LiteLLMProvider    string  `json:"litellm_provider"`
+	InputCostPerToken                    float64 `json:"input_cost_per_token"`
+	OutputCostPerToken                   float64 `json:"output_cost_per_token"`
+	MaxInputTokens                       int     `json:"max_input_tokens"`
+	MaxOutputTokens                      int     `json:"max_output_tokens"`
+	MaxTokens                            int     `json:"max_tokens"`
+	Mode                                 string  `json:"mode"`
+	LiteLLMProvider                      string  `json:"litellm_provider"`
+	CacheReadInputTokenCost              float64 `json:"cache_read_input_token_cost"`
+	CacheCreationInputTokenCost          float64 `json:"cache_creation_input_token_cost"`
+	CacheReadInputTokenCostAbove200k     float64 `json:"cache_read_input_token_cost_above_200k_tokens"`
+	CacheCreationInputTokenCostAbove200k float64 `json:"cache_creation_input_token_cost_above_200k_tokens"`
 }
 
 var syncHTTPClient = &http.Client{Timeout: 30 * time.Second}
@@ -170,6 +184,10 @@ func SyncFromUpstream(ctx context.Context, pool *pgxpool.Pool, queries *db.Queri
 			e.info.Mode,
 			e.info.LiteLLMProvider,
 			upstreamURL,
+			e.info.CacheReadInputTokenCost,
+			e.info.CacheCreationInputTokenCost,
+			e.info.CacheReadInputTokenCostAbove200k,
+			e.info.CacheCreationInputTokenCostAbove200k,
 		)
 	}
 
@@ -282,11 +300,17 @@ func validateUpstreamData(raw map[string]json.RawMessage) error {
 const insertEmbeddedFallbackSQL = `INSERT INTO "ModelPricing" (
     model_name, input_cost_per_token, output_cost_per_token,
     max_input_tokens, max_output_tokens, max_tokens,
-    mode, provider, source_url, synced_at
+    mode, provider, source_url,
+    cache_read_input_token_cost, cache_creation_input_token_cost,
+    cache_read_input_token_cost_above_200k, cache_creation_input_token_cost_above_200k,
+    synced_at
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6,
-    $7, $8, $9, NOW()
+    $7, $8, $9,
+    $10, $11,
+    $12, $13,
+    NOW()
 )
 ON CONFLICT (model_name) DO NOTHING`
 
@@ -317,6 +341,10 @@ func syncEmbeddedFallback(ctx context.Context, pool *pgxpool.Pool, calc *Calcula
 			info.Mode,
 			info.Provider,
 			"embedded",
+			info.CacheReadCostPerToken,
+			info.CacheCreationCostPerToken,
+			info.CacheReadCostPerTokenAbove200k,
+			info.CacheCreationCostPerTokenAbove200k,
 		)
 	}
 

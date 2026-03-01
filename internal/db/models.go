@@ -288,18 +288,22 @@ type ModelAccessGroup struct {
 }
 
 type ModelPricing struct {
-	ModelName          string             `json:"model_name"`
-	InputCostPerToken  float64            `json:"input_cost_per_token"`
-	OutputCostPerToken float64            `json:"output_cost_per_token"`
-	MaxInputTokens     int32              `json:"max_input_tokens"`
-	MaxOutputTokens    int32              `json:"max_output_tokens"`
-	MaxTokens          int32              `json:"max_tokens"`
-	Mode               string             `json:"mode"`
-	Provider           string             `json:"provider"`
-	SourceUrl          string             `json:"source_url"`
-	SyncedAt           pgtype.Timestamptz `json:"synced_at"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	ModelName                         string             `json:"model_name"`
+	InputCostPerToken                 float64            `json:"input_cost_per_token"`
+	OutputCostPerToken                float64            `json:"output_cost_per_token"`
+	MaxInputTokens                    int32              `json:"max_input_tokens"`
+	MaxOutputTokens                   int32              `json:"max_output_tokens"`
+	MaxTokens                         int32              `json:"max_tokens"`
+	Mode                              string             `json:"mode"`
+	Provider                          string             `json:"provider"`
+	SourceUrl                         string             `json:"source_url"`
+	CacheReadInputTokenCost           float64            `json:"cache_read_input_token_cost"`
+	CacheCreationInputTokenCost       float64            `json:"cache_creation_input_token_cost"`
+	CacheReadInputTokenCostAbove200k  float64            `json:"cache_read_input_token_cost_above_200k"`
+	CacheCreationInputTokenCostAbove200k float64         `json:"cache_creation_input_token_cost_above_200k"`
+	SyncedAt                          pgtype.Timestamptz `json:"synced_at"`
+	CreatedAt                         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type OrganizationMembership struct {

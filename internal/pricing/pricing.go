@@ -78,13 +78,17 @@ func (c *Calculator) ReloadFromDB(entries []db.ModelPricing) {
 	newModels := make(map[string]ModelInfo, len(entries))
 	for _, e := range entries {
 		newModels[e.ModelName] = ModelInfo{
-			InputCostPerToken:  e.InputCostPerToken,
-			OutputCostPerToken: e.OutputCostPerToken,
-			MaxInputTokens:     int(e.MaxInputTokens),
-			MaxOutputTokens:    int(e.MaxOutputTokens),
-			MaxTokens:          int(e.MaxTokens),
-			Mode:               e.Mode,
-			Provider:           e.Provider,
+			InputCostPerToken:                  e.InputCostPerToken,
+			OutputCostPerToken:                 e.OutputCostPerToken,
+			MaxInputTokens:                     int(e.MaxInputTokens),
+			MaxOutputTokens:                    int(e.MaxOutputTokens),
+			MaxTokens:                          int(e.MaxTokens),
+			Mode:                               e.Mode,
+			Provider:                           e.Provider,
+			CacheReadCostPerToken:              e.CacheReadInputTokenCost,
+			CacheCreationCostPerToken:          e.CacheCreationInputTokenCost,
+			CacheReadCostPerTokenAbove200k:     e.CacheReadInputTokenCostAbove200k,
+			CacheCreationCostPerTokenAbove200k: e.CacheCreationInputTokenCostAbove200k,
 		}
 	}
 	c.mu.Lock()
