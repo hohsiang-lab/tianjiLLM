@@ -25,7 +25,7 @@ func TestSchemaFilesEmbed(t *testing.T) {
 		}
 	}
 
-	assert.Len(t, sqlFiles, 12, "expected exactly 12 .up.sql files in embedded schema FS")
+	assert.Len(t, sqlFiles, 13, "expected exactly 13 .up.sql files in embedded schema FS")
 }
 
 // TestSchemaFilesOrder verifies that the iofs source resolves versions 1-11 in order.
@@ -50,14 +50,14 @@ func TestSchemaFilesOrder(t *testing.T) {
 		v = next
 	}
 
-	assert.Len(t, versions, 12, "expected 12 migration versions")
+	assert.Len(t, versions, 13, "expected 13 migration versions")
 
 	// Verify versions are sorted (ascending).
 	assert.True(t, sort.SliceIsSorted(versions, func(i, j int) bool {
 		return versions[i] < versions[j]
 	}), "migration versions must be in ascending order")
 
-	assert.Equal(t, uint(12), versions[len(versions)-1], "last migration version must be 12")
+	assert.Equal(t, uint(13), versions[len(versions)-1], "last migration version must be 13")
 }
 
 // TestRunMigrationsNilPool verifies that RunMigrations with a nil pool returns a
