@@ -244,8 +244,12 @@ func (h *UIHandler) loadCostTabData(r *http.Request, base pages.UsagePageData, t
 	})
 	if err == nil {
 		for _, row := range modelRows {
+			modelName := row.Model
+			if modelName == "" {
+				modelName = "(unknown model)"
+			}
 			data.TopModels = append(data.TopModels, pages.TopModel{
-				Model:        row.Model,
+				Model:        modelName,
 				TotalSpend:   float64(row.TotalSpend),
 				TotalTokens:  row.TotalTokens,
 				RequestCount: row.RequestCount,
