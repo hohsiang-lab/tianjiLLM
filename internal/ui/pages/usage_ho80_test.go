@@ -5,7 +5,7 @@ package pages_test
 // Root Cause: chart.min.js is loaded AFTER { children... } in layout.templ,
 // so the dailySpendChartScript IIFE executes before Chart is defined → ReferenceError.
 //
-// These tests document the expected behaviour AFTER the fix.
+// These tests document the expected behavior AFTER the fix.
 // They are intentionally FAILING on the current (unfixed) codebase.
 
 import (
@@ -49,7 +49,7 @@ func costTabPage(t *testing.T, dailySpend []pages.DailySpend) string {
 // TestDailySpendChart_ScriptOrder_ChartJsBeforeIIFE verifies that chart.min.js
 // appears in HTML BEFORE the inline IIFE that calls `new Chart(...)`.
 //
-// Current behaviour (BUG): chart.min.js is appended after { children... }, so its
+// Current behavior (BUG): chart.min.js is appended after { children... }, so its
 // position in the HTML is AFTER the IIFE → Chart undefined → ReferenceError.
 func TestDailySpendChart_ScriptOrder_ChartJsBeforeIIFE(t *testing.T) {
 	spend := []pages.DailySpend{
@@ -80,7 +80,7 @@ func TestDailySpendChart_ScriptOrder_ChartJsBeforeIIFE(t *testing.T) {
 
 // TestDailySpendChart_ChartJsBeforeFirstCanvas verifies that chart.min.js appears
 // before the first <canvas in the document. This ensures the library is available
-// when the IIFE that initialises the chart runs (AC3: tab-switch stability).
+// when the IIFE that initializes the chart runs (AC3: tab-switch stability).
 func TestDailySpendChart_ChartJsBeforeFirstCanvas(t *testing.T) {
 	spend := []pages.DailySpend{{Date: "2026-02-17", Spend: 2.0}}
 	html := costTabPage(t, spend)
