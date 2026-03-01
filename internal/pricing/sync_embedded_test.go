@@ -10,50 +10,10 @@ package pricing
 
 import (
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
 // ---- helpers ----
-
-// upstreamServerWithout returns an httptest.Server that serves 60 generic models
-// but does NOT include any of the given model names.
-func upstreamServerWithout(t *testing.T, excludeNames []string) *httptest.Server {
-	t.Helper()
-	excluded := make(map[string]struct{}, len(excludeNames))
-	for _, n := range excludeNames {
-		excluded[n] = struct{}{}
-	}
-	names := make([]string, 0, 60)
-	i := 0
-	for len(names) < 60 {
-		candidate := "upstream-only-" + string(rune('a'+i%26)) + string(rune('0'+i/26%10))
-		i++
-		if _, skip := excluded[candidate]; !skip {
-			names = append(names, candidate)
-		}
-	}
-	m := make(map[string]any, len(names))
-	for j, name := range names {
-		m[name] = map[string]any{
-			"input_cost_per_token":  float64(j+1) * 0.0001,
-			"output_cost_per_token": float64(j+1) * 0.0002,
-			"max_input_tokens":      4096,
-			"max_output_tokens":     2048,
-			"max_tokens":            6144,
-			"mode":                  "chat",
-			"litellm_provider":      "test",
-		}
-	}
-	body, _ := json.Marshal(m)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(body)
-	}))
-	t.Cleanup(srv.Close)
-	return srv
-}
 
 // newCalcWithEmbedded creates a fresh Calculator with the embedded JSON pre-loaded.
 func newCalcWithEmbedded() *Calculator {
