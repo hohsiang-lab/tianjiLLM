@@ -431,11 +431,15 @@ templ UsageTopKeysPartial(keys []TopKey, limit int) {
 templ dailySpendChartScript(data []DailySpend) {
 	@templ.JSONScript("dailySpendData", data)
 	<script>
-		(function() {
+		function initDailySpendChart() {
+			var canvas = document.getElementById('dailySpendChart');
+			if (!canvas) return;
+			var existing = Chart.getChart(canvas);
+			if (existing) existing.destroy();
 			var raw = JSON.parse(document.getElementById('dailySpendData').textContent);
 			var labels = raw.map(function(d) { return d.Date; });
 			var values = raw.map(function(d) { return d.Spend; });
-			new Chart(document.getElementById('dailySpendChart'), {
+			new Chart(canvas, {
 				type: 'bar',
 				data: {
 					labels: labels,
@@ -467,18 +471,35 @@ templ dailySpendChartScript(data []DailySpend) {
 					}
 				}
 			});
-		})();
+		}
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', initDailySpendChart);
+		} else {
+			initDailySpendChart();
+		}
+		if (!window._dailySpendChartListenerAdded) {
+			window._dailySpendChartListenerAdded = true;
+			document.body.addEventListener('htmx:afterSwap', function(e) {
+				if (document.getElementById('dailySpendChart')) {
+					initDailySpendChart();
+				}
+			});
+		}
 	</script>
 }
 
 templ topModelsChartScript(models []TopModel) {
 	@templ.JSONScript("topModelsData", models)
 	<script>
-		(function() {
+		function initTopModelsChart() {
+			var canvas = document.getElementById('topModelsChart');
+			if (!canvas) return;
+			var existing = Chart.getChart(canvas);
+			if (existing) existing.destroy();
 			var raw = JSON.parse(document.getElementById('topModelsData').textContent);
 			var labels = raw.map(function(d) { return d.Model || "(unknown model)"; });
 			var values = raw.map(function(d) { return d.TotalSpend; });
-			new Chart(document.getElementById('topModelsChart'), {
+			new Chart(canvas, {
 				type: 'bar',
 				data: {
 					labels: labels,
@@ -511,7 +532,20 @@ templ topModelsChartScript(models []TopModel) {
 					}
 				}
 			});
-		})();
+		}
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', initTopModelsChart);
+		} else {
+			initTopModelsChart();
+		}
+		if (!window._topModelsChartListenerAdded) {
+			window._topModelsChartListenerAdded = true;
+			document.body.addEventListener('htmx:afterSwap', function(e) {
+				if (document.getElementById('topModelsChart')) {
+					initTopModelsChart();
+				}
+			});
+		}
 	</script>
 }
 
@@ -543,7 +577,11 @@ templ UsageModelActivityTab(data ModelActivityData) {
 templ modelRequestsChartScript(models []ModelDailyActivity) {
 	@templ.JSONScript("modelRequestsData", models)
 	<script>
-		(function() {
+		function initModelRequestsChart() {
+			var canvas = document.getElementById('modelRequestsChart');
+			if (!canvas) return;
+			var existing = Chart.getChart(canvas);
+			if (existing) existing.destroy();
 			var raw = JSON.parse(document.getElementById('modelRequestsData').textContent);
 			var colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];
 			var allDates = {};
@@ -564,7 +602,7 @@ templ modelRequestsChartScript(models []ModelDailyActivity) {
 					pointRadius: 2
 				};
 			});
-			new Chart(document.getElementById('modelRequestsChart'), {
+			new Chart(canvas, {
 				type: 'line',
 				data: { labels: labels, datasets: datasets },
 				options: {
@@ -577,14 +615,31 @@ templ modelRequestsChartScript(models []ModelDailyActivity) {
 					}
 				}
 			});
-		})();
+		}
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', initModelRequestsChart);
+		} else {
+			initModelRequestsChart();
+		}
+		if (!window._modelRequestsChartListenerAdded) {
+			window._modelRequestsChartListenerAdded = true;
+			document.body.addEventListener('htmx:afterSwap', function(e) {
+				if (document.getElementById('modelRequestsChart')) {
+					initModelRequestsChart();
+				}
+			});
+		}
 	</script>
 }
 
 templ modelTokensChartScript(models []ModelDailyActivity) {
 	@templ.JSONScript("modelTokensData", models)
 	<script>
-		(function() {
+		function initModelTokensChart() {
+			var canvas = document.getElementById('modelTokensChart');
+			if (!canvas) return;
+			var existing = Chart.getChart(canvas);
+			if (existing) existing.destroy();
 			var raw = JSON.parse(document.getElementById('modelTokensData').textContent);
 			var colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];
 			var allDates = {};
@@ -603,7 +658,7 @@ templ modelTokensChartScript(models []ModelDailyActivity) {
 					barPercentage: 0.7
 				};
 			});
-			new Chart(document.getElementById('modelTokensChart'), {
+			new Chart(canvas, {
 				type: 'bar',
 				data: { labels: labels, datasets: datasets },
 				options: {
@@ -616,7 +671,20 @@ templ modelTokensChartScript(models []ModelDailyActivity) {
 					}
 				}
 			});
-		})();
+		}
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', initModelTokensChart);
+		} else {
+			initModelTokensChart();
+		}
+		if (!window._modelTokensChartListenerAdded) {
+			window._modelTokensChartListenerAdded = true;
+			document.body.addEventListener('htmx:afterSwap', function(e) {
+				if (document.getElementById('modelTokensChart')) {
+					initModelTokensChart();
+				}
+			});
+		}
 	</script>
 }
 
@@ -641,7 +709,11 @@ templ UsageKeyActivityTab(data KeyActivityData) {
 templ keyRequestsChartScript(keys []KeyDailyActivity) {
 	@templ.JSONScript("keyRequestsData", keys)
 	<script>
-		(function() {
+		function initKeyRequestsChart() {
+			var canvas = document.getElementById('keyRequestsChart');
+			if (!canvas) return;
+			var existing = Chart.getChart(canvas);
+			if (existing) existing.destroy();
 			var raw = JSON.parse(document.getElementById('keyRequestsData').textContent);
 			var colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];
 			var allDates = {};
@@ -662,7 +734,7 @@ templ keyRequestsChartScript(keys []KeyDailyActivity) {
 					pointRadius: 2
 				};
 			});
-			new Chart(document.getElementById('keyRequestsChart'), {
+			new Chart(canvas, {
 				type: 'line',
 				data: { labels: labels, datasets: datasets },
 				options: {
@@ -675,7 +747,20 @@ templ keyRequestsChartScript(keys []KeyDailyActivity) {
 					}
 				}
 			});
-		})();
+		}
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', initKeyRequestsChart);
+		} else {
+			initKeyRequestsChart();
+		}
+		if (!window._keyRequestsChartListenerAdded) {
+			window._keyRequestsChartListenerAdded = true;
+			document.body.addEventListener('htmx:afterSwap', function(e) {
+				if (document.getElementById('keyRequestsChart')) {
+					initKeyRequestsChart();
+				}
+			});
+		}
 	</script>
 }
 
@@ -700,7 +785,11 @@ templ UsageEndpointActivityTab(data EndpointActivityData) {
 templ endpointRequestsChartScript(endpoints []EndpointDailyActivity) {
 	@templ.JSONScript("endpointRequestsData", endpoints)
 	<script>
-		(function() {
+		function initEndpointRequestsChart() {
+			var canvas = document.getElementById('endpointRequestsChart');
+			if (!canvas) return;
+			var existing = Chart.getChart(canvas);
+			if (existing) existing.destroy();
 			var raw = JSON.parse(document.getElementById('endpointRequestsData').textContent);
 			var colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];
 			var allDates = {};
@@ -719,7 +808,7 @@ templ endpointRequestsChartScript(endpoints []EndpointDailyActivity) {
 					barPercentage: 0.7
 				};
 			});
-			new Chart(document.getElementById('endpointRequestsChart'), {
+			new Chart(canvas, {
 				type: 'bar',
 				data: { labels: labels, datasets: datasets },
 				options: {
@@ -732,7 +821,20 @@ templ endpointRequestsChartScript(endpoints []EndpointDailyActivity) {
 					}
 				}
 			});
-		})();
+		}
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', initEndpointRequestsChart);
+		} else {
+			initEndpointRequestsChart();
+		}
+		if (!window._endpointRequestsChartListenerAdded) {
+			window._endpointRequestsChartListenerAdded = true;
+			document.body.addEventListener('htmx:afterSwap', function(e) {
+				if (document.getElementById('endpointRequestsChart')) {
+					initEndpointRequestsChart();
+				}
+			});
+		}
 	</script>
 }
 
