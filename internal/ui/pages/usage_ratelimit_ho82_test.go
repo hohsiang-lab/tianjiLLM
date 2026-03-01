@@ -19,11 +19,11 @@ import (
 func TestOverageBadgeLabel_EmptyString(t *testing.T) {
 	tok := pages.AnthropicRateLimitWidgetData{
 		TokenKey:              "abc123def456",
-		UnifiedStatus:        "allowed",
-		Unified5hStatus:      "allowed",
-		Unified5hUtilization: 0.3,
-		Unified7dStatus:      "allowed",
-		Unified7dUtilization: 0.5,
+		UnifiedStatus:         "allowed",
+		Unified5hStatus:       "allowed",
+		Unified5hUtilization:  0.3,
+		Unified7dStatus:       "allowed",
+		Unified7dUtilization:  0.5,
 		OverageDisabledReason: "",
 	}
 
@@ -43,11 +43,11 @@ func TestOverageBadgeLabel_EmptyString(t *testing.T) {
 func TestOverageBadgeLabel_Disabled(t *testing.T) {
 	tok := pages.AnthropicRateLimitWidgetData{
 		TokenKey:              "abc123def456",
-		UnifiedStatus:        "overage",
-		Unified5hStatus:      "overage",
-		Unified5hUtilization: 0.9,
-		Unified7dStatus:      "overage",
-		Unified7dUtilization: 0.85,
+		UnifiedStatus:         "overage",
+		Unified5hStatus:       "overage",
+		Unified5hUtilization:  0.9,
+		Unified7dStatus:       "overage",
+		Unified7dUtilization:  0.85,
 		OverageDisabledReason: "disabled",
 	}
 
@@ -62,11 +62,11 @@ func TestOverageBadgeLabel_Disabled(t *testing.T) {
 func TestOverageBadgeLabel_Allowed(t *testing.T) {
 	tok := pages.AnthropicRateLimitWidgetData{
 		TokenKey:              "abc123def456",
-		UnifiedStatus:        "allowed",
-		Unified5hStatus:      "allowed",
-		Unified5hUtilization: 0.2,
-		Unified7dStatus:      "allowed",
-		Unified7dUtilization: 0.15,
+		UnifiedStatus:         "allowed",
+		Unified5hStatus:       "allowed",
+		Unified5hUtilization:  0.2,
+		Unified7dStatus:       "allowed",
+		Unified7dUtilization:  0.15,
 		OverageDisabledReason: "allowed",
 	}
 
@@ -81,11 +81,11 @@ func TestOverageBadgeLabel_Allowed(t *testing.T) {
 func TestOverageBadgeLabel_Rejected(t *testing.T) {
 	tok := pages.AnthropicRateLimitWidgetData{
 		TokenKey:              "abc123def456",
-		UnifiedStatus:        "rate_limited",
-		Unified5hStatus:      "rate_limited",
-		Unified5hUtilization: 1.0,
-		Unified7dStatus:      "rate_limited",
-		Unified7dUtilization: 0.99,
+		UnifiedStatus:         "rate_limited",
+		Unified5hStatus:       "rate_limited",
+		Unified5hUtilization:  1.0,
+		Unified7dStatus:       "rate_limited",
+		Unified7dUtilization:  0.99,
 		OverageDisabledReason: "rejected",
 	}
 
@@ -103,7 +103,7 @@ func TestOverageBadgeLabel_Rejected(t *testing.T) {
 // When absent, utilization is -1 and UI must show "—".
 func TestRateLimitWidget_5hUtilization_NegativeOne(t *testing.T) {
 	tok := pages.AnthropicRateLimitWidgetData{
-		TokenKey:              "abc123def456",
+		TokenKey:             "abc123def456",
 		UnifiedStatus:        "allowed",
 		Unified5hStatus:      "",
 		Unified5hUtilization: -1,
@@ -125,7 +125,7 @@ func TestRateLimitWidget_5hUtilization_NegativeOne(t *testing.T) {
 // TestRateLimitWidget_7dUtilization_NegativeOne verifies same for 7d utilization.
 func TestRateLimitWidget_7dUtilization_NegativeOne(t *testing.T) {
 	tok := pages.AnthropicRateLimitWidgetData{
-		TokenKey:              "abc123def456",
+		TokenKey:             "abc123def456",
 		UnifiedStatus:        "allowed",
 		Unified5hUtilization: 0.3,
 		Unified7dUtilization: -1,

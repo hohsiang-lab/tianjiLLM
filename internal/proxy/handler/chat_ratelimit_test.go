@@ -103,7 +103,6 @@ func TestChatCompletion_AnthropicOAuth_PopulatesRateLimitStore_NonStreaming(t *t
 		Messages: []model.Message{
 			{Role: "user", Content: "Hello"},
 		},
-		
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 
