@@ -1,7 +1,6 @@
 package pages
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 )
@@ -167,19 +166,6 @@ func formatNumber(v int64) string {
 		result += p
 	}
 	return result
-}
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}
-
-// modelLabel returns the model name or a fallback for empty strings.
-func modelLabel(model string) string {
-	if model == "" {
-		return "(unknown model)"
-	}
-	return model
 }
 
 // --- Templates ---
@@ -373,7 +359,7 @@ templ UsageCostTab(data CostTabData) {
 				} else {
 					<ul class="sr-only">
 						for _, m := range data.TopModels {
-							<li>{ modelLabel(m.Model) }</li>
+							<li>{ m.Model }</li>
 						}
 					</ul>
 					<div style="height: 200px;">
