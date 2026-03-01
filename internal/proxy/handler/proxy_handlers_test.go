@@ -2,11 +2,12 @@ package handler
 
 import (
 	"context"
-	"github.com/praxisllmlab/tianjiLLM/internal/model"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/model"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
