@@ -169,3 +169,55 @@ func TestMapParams(t *testing.T) {
 		t.Fatal("expected maxTokens in result")
 	}
 }
+
+func TestTransformStreamChunk_Delegates(t *testing.T) {
+	p := New()
+	// Should call ParseStreamEvent - passing empty JSON returns nil,nil,nil
+	data := []byte("{}")
+	chunk, done, err := p.TransformStreamChunk(context.Background(), data)
+	require.NoError(t, err)
+	assert.False(t, done)
+	assert.Nil(t, chunk)
+}
+
+func TestTransformResponse_ErrorStatus(t *testing.T) {
+	p := New()
+	body := `{"message":"access denied"}`
+	resp := &http.Response{
+		StatusCode: http.StatusForbidden,
+		Body:       io.NopCloser(bytes.NewReader([]byte(body))),
+	}
+	_, err := p.TransformResponse(context.Background(), resp)
+	require.Error(t, err)
+	var tianjiErr *model.TianjiError
+	require.ErrorAs(t, err, &tianjiErr)
+	assert.Equal(t, "bedrock", tianjiErr.Provider)
+	assert.Equal(t, "access denied", tianjiErr.Message)
+}
+
+func TestTransformRequest_WithTools(t *testing.T) {
+	p := New()
+	req := &model.ChatCompletionRequest{
+		Model: "anthropic.claude-v2",
+		Messages: []model.Message{
+			{Role: "user", Content: "Call a tool"},
+		},
+		Tools: []model.Tool{
+			{
+				Type: "function",
+				Function: model.ToolFunction{
+					Name:        "search",
+					Description: "Search the web",
+					Parameters:  map[string]any{"type": "object"},
+				},
+			},
+		},
+	}
+	httpReq, err := p.TransformRequest(context.Background(), req, "")
+	require.NoError(t, err)
+	body, _ := io.ReadAll(httpReq.Body)
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal(body, &parsed))
+	_, hasTools := parsed["toolConfig"]
+	assert.True(t, hasTools)
+}

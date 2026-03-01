@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -107,3 +108,32 @@ func TestHealthCheckJob_Run_BadEndpoint(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+type mockArchiver struct{ err error }
+
+func (m *mockArchiver) Archive(ctx context.Context, from, to time.Time) error {
+	return m.err
+}
+
+func TestSpendArchivalJob_Run_Success(t *testing.T) {
+	j := &SpendArchivalJob{Archiver: &mockArchiver{}, Retention: 24 * time.Hour}
+	if err := j.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSpendArchivalJob_Run_Error(t *testing.T) {
+	j := &SpendArchivalJob{Archiver: &mockArchiver{err: errTest}, Retention: time.Hour}
+	if err := j.Run(context.Background()); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestProviderKeyRotationJob_Name(t *testing.T) {
+	j := &ProviderKeyRotationJob{}
+	if j.Name() != "provider_key_rotation" {
+		t.Fatalf("got %q", j.Name())
+	}
+}
+
+var errTest = errors.New("test error")

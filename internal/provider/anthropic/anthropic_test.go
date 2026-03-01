@@ -246,3 +246,27 @@ func TestTransformStreamChunk_MessageStop(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, done)
 }
+
+func TestTransformContentPart_Text(t *testing.T) {
+	part := map[string]any{"type": "text", "text": "hello"}
+	result := transformContentPart(part)
+	assert.Equal(t, "text", result["type"])
+}
+
+func TestTransformContentPart_ImageURL(t *testing.T) {
+	part := map[string]any{
+		"type":      "image_url",
+		"image_url": map[string]any{"url": "https://example.com/img.png"},
+	}
+	result := transformContentPart(part)
+	assert.Equal(t, "image", result["type"])
+	src := result["source"].(map[string]any)
+	assert.Equal(t, "url", src["type"])
+	assert.Equal(t, "https://example.com/img.png", src["url"])
+}
+
+func TestTransformContentPart_Unknown(t *testing.T) {
+	part := map[string]any{"type": "unknown", "data": "x"}
+	result := transformContentPart(part)
+	assert.Equal(t, part, result)
+}

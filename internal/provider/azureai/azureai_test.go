@@ -1,4 +1,4 @@
-package sap
+package azureai
 
 import (
 	"net/http"
@@ -10,24 +10,23 @@ import (
 )
 
 func TestProviderRegistered(t *testing.T) {
-	p, err := provider.Get("sap")
+	p, err := provider.Get("azure_ai")
 	require.NoError(t, err)
 	assert.NotNil(t, p)
 }
 
 func TestGetSupportedParams(t *testing.T) {
-	p, _ := provider.Get("sap")
+	p, _ := provider.Get("azure_ai")
 	params := p.GetSupportedParams()
 	assert.NotEmpty(t, params)
+	assert.Contains(t, params, "model")
 }
 
 func TestSetupHeaders_WithKey(t *testing.T) {
 	p := &Provider{}
 	req, _ := http.NewRequest(http.MethodPost, "https://example.com", nil)
-	p.SetupHeaders(req, "sap-key")
-	assert.Equal(t, "Bearer sap-key", req.Header.Get("Authorization"))
-	assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
-	assert.Equal(t, "default", req.Header.Get("AI-Resource-Group"))
+	p.SetupHeaders(req, "azure-key")
+	assert.Equal(t, "Bearer azure-key", req.Header.Get("Authorization"))
 }
 
 func TestSetupHeaders_NoKey(t *testing.T) {
@@ -35,5 +34,4 @@ func TestSetupHeaders_NoKey(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "https://example.com", nil)
 	p.SetupHeaders(req, "")
 	assert.Empty(t, req.Header.Get("Authorization"))
-	assert.Equal(t, "default", req.Header.Get("AI-Resource-Group"))
 }

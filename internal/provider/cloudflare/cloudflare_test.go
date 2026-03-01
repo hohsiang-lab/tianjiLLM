@@ -121,3 +121,17 @@ func TestTransformResponse_Error(t *testing.T) {
 	assert.Equal(t, "cloudflare", tianjiErr.Provider)
 	assert.Equal(t, "authentication error", tianjiErr.Message)
 }
+
+func TestTransformStreamChunk(t *testing.T) {
+	p := &Provider{}
+	// Empty data line → parsed as empty or error
+	_, _, _ = p.TransformStreamChunk(context.Background(), []byte("data: [DONE]"))
+}
+
+func TestMapParams_Passthrough(t *testing.T) {
+	p := &Provider{}
+	in := map[string]any{"temperature": 0.7, "stream": true}
+	out := p.MapParams(in)
+	assert.Equal(t, 0.7, out["temperature"])
+	assert.Equal(t, true, out["stream"])
+}

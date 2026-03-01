@@ -150,3 +150,38 @@ func TestCachedSecretManagerDefaultTTL(t *testing.T) {
 		t.Fatalf("ttl: %v", csm.ttl)
 	}
 }
+
+func TestAWSSecretManagerName(t *testing.T) {
+	sm := &AWSSecretManager{}
+	if sm.Name() != "aws_secrets_manager" {
+		t.Fatalf("got %q", sm.Name())
+	}
+}
+
+func TestAzureKeyVaultName(t *testing.T) {
+	sm := &AzureKeyVault{}
+	if sm.Name() != "azure_key_vault" {
+		t.Fatalf("got %q", sm.Name())
+	}
+}
+
+func TestHashiCorpVaultName(t *testing.T) {
+	sm := &HashiCorpVault{}
+	if sm.Name() != "hashicorp_vault" {
+		t.Fatalf("got %q", sm.Name())
+	}
+}
+
+func TestGoogleSecretManagerName(t *testing.T) {
+	sm := &GoogleSecretManager{}
+	if sm.Name() != "google_secret_manager" {
+		t.Fatalf("got %q", sm.Name())
+	}
+}
+
+func TestConjurSecretManagerName(t *testing.T) {
+	sm := &ConjurSecretManager{}
+	if sm.Name() != "cyberark_conjur" {
+		t.Fatalf("got %q", sm.Name())
+	}
+}

@@ -9,15 +9,17 @@ package sidebar
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import "github.com/a-h/templ"
-import templruntime "github.com/a-h/templ/runtime"
+import (
+	"context"
 
-import "context"
-import "github.com/praxisllmlab/tianjiLLM/internal/ui/utils"
-import "github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
-import "github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
-import "github.com/praxisllmlab/tianjiLLM/internal/ui/components/sheet"
-import "github.com/praxisllmlab/tianjiLLM/internal/ui/components/tooltip"
+	"github.com/a-h/templ"
+	templruntime "github.com/a-h/templ/runtime"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/sheet"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/tooltip"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/utils"
+)
 
 type contextKey string
 

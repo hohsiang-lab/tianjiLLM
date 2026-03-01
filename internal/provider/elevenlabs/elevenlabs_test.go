@@ -114,3 +114,17 @@ func TestGetSupportedParams(t *testing.T) {
 	assert.Contains(t, params, "model")
 	assert.Contains(t, params, "messages")
 }
+
+func TestTransformStreamChunk(t *testing.T) {
+	p := &Provider{}
+	chunk, done, err := p.TransformStreamChunk(context.Background(), nil)
+	assert.Nil(t, chunk)
+	assert.True(t, done)
+	assert.Error(t, err)
+}
+
+func TestMapParams(t *testing.T) {
+	p := &Provider{}
+	in := map[string]any{"voice": "Rachel"}
+	assert.Equal(t, in, p.MapParams(in))
+}

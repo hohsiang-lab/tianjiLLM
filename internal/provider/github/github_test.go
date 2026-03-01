@@ -1,4 +1,4 @@
-package sap
+package github
 
 import (
 	"net/http"
@@ -10,13 +10,13 @@ import (
 )
 
 func TestProviderRegistered(t *testing.T) {
-	p, err := provider.Get("sap")
+	p, err := provider.Get("github")
 	require.NoError(t, err)
 	assert.NotNil(t, p)
 }
 
 func TestGetSupportedParams(t *testing.T) {
-	p, _ := provider.Get("sap")
+	p, _ := provider.Get("github")
 	params := p.GetSupportedParams()
 	assert.NotEmpty(t, params)
 }
@@ -24,10 +24,9 @@ func TestGetSupportedParams(t *testing.T) {
 func TestSetupHeaders_WithKey(t *testing.T) {
 	p := &Provider{}
 	req, _ := http.NewRequest(http.MethodPost, "https://example.com", nil)
-	p.SetupHeaders(req, "sap-key")
-	assert.Equal(t, "Bearer sap-key", req.Header.Get("Authorization"))
+	p.SetupHeaders(req, "ghp_token")
+	assert.Equal(t, "Bearer ghp_token", req.Header.Get("Authorization"))
 	assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
-	assert.Equal(t, "default", req.Header.Get("AI-Resource-Group"))
 }
 
 func TestSetupHeaders_NoKey(t *testing.T) {
@@ -35,5 +34,4 @@ func TestSetupHeaders_NoKey(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "https://example.com", nil)
 	p.SetupHeaders(req, "")
 	assert.Empty(t, req.Header.Get("Authorization"))
-	assert.Equal(t, "default", req.Header.Get("AI-Resource-Group"))
 }

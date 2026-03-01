@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
@@ -59,4 +61,19 @@ func TestModelBudgetLimiter_Reset(t *testing.T) {
 	m.ResetSpend()
 	assert.NoError(t, m.Check("gpt-4"))
 	assert.Equal(t, 0.0, m.GetSpend("gpt-4"))
+}
+
+func TestNewBudgetMiddleware_NilChecker(t *testing.T) {
+	mw := NewBudgetMiddleware(nil)
+	called := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	mw(next).ServeHTTP(rec, req)
+	if !called {
+		t.Fatal("next handler not called with nil budget checker")
+	}
 }
