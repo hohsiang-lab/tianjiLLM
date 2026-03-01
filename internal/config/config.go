@@ -11,6 +11,9 @@ type ProxyConfig struct {
 	PassThroughEndpoints []PassThroughEndpoint `yaml:"pass_through_endpoints,omitempty"`
 	AssistantSettings    *AssistantSettings    `yaml:"assistant_settings,omitempty"`
 
+	// Metrics configuration.
+	Metrics MetricsConfig `yaml:"metrics,omitempty"`
+
 	// MCP server configurations.
 	MCPServers map[string]MCPServerConfig `yaml:"mcp_servers,omitempty"`
 
@@ -401,4 +404,11 @@ type SearchToolTianjiParams struct {
 // SearchToolInfo holds metadata about a search tool.
 type SearchToolInfo struct {
 	Description string `yaml:"description,omitempty"`
+}
+
+// MetricsConfig controls the Prometheus metrics exporter.
+type MetricsConfig struct {
+	Enabled       bool `yaml:"enabled"`
+	RequireAuth   bool `yaml:"require_auth"`
+	PerKeyMetrics bool `yaml:"per_key_metrics"`
 }
