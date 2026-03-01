@@ -391,6 +391,15 @@ func main() {
 	eventDispatcher := hook.NewManagementEventDispatcher(cfg.GeneralSettings.ManagementWebhookURL)
 
 	discordAlerter := callback.NewDiscordRateLimitAlerter(cfg.DiscordWebhookURL, cfg.RatelimitAlertThreshold)
+	rateLimitStore := callback.NewInMemoryRateLimitStore()
+	// FR-015: prune stale entries every minute.
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			rateLimitStore.Prune(5 * time.Minute)
+		}
+	}()
 
 	handlers := &handler.Handlers{
 		Config:          cfg,
@@ -403,7 +412,8 @@ func main() {
 		SSOHandler:      ssoHandler,
 		AgentRegistry:   agentRegistry,
 		EventDispatcher: eventDispatcher,
-		DiscordAlerter:  discordAlerter,
+		DiscordAlerter:   discordAlerter,
+		RateLimitStore:   rateLimitStore,
 	}
 
 	// Init scheduler
@@ -435,8 +445,9 @@ func main() {
 		Pool:      dbPool,
 		Config:    cfg,
 		Cache:     cacheBackend,
-		MasterKey: cfg.GeneralSettings.MasterKey,
-		Pricing:   pricingCalc,
+		MasterKey:       cfg.GeneralSettings.MasterKey,
+		Pricing:         pricingCalc,
+		RateLimitStore:  rateLimitStore,
 	}
 
 	// Create server

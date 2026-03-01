@@ -25,13 +25,15 @@ import (
 
 // nativeProxy creates a reverse proxy to a specific provider's base URL.
 func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerName string) {
-	baseURL, apiKey := h.resolveNativeUpstream(providerName)
-	if baseURL == "" {
+	upstreams := h.resolveAllNativeUpstreams(providerName)
+	upstream := selectUpstream(upstreams)
+	if upstream.BaseURL == "" {
 		writeJSON(w, http.StatusNotImplemented, model.ErrorResponse{
 			Error: model.ErrorDetail{Message: providerName + " not configured", Type: "not_supported"},
 		})
 		return
 	}
+	baseURL, apiKey := upstream.BaseURL, upstream.APIKey
 
 	target, err := url.Parse(baseURL)
 	if err != nil {

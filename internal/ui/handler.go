@@ -15,6 +15,7 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/cache"
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
+	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/pricing"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/pages"
 )
@@ -26,8 +27,9 @@ type UIHandler struct {
 	Config        *config.ProxyConfig
 	Cache         cache.Cache
 	MasterKey     string
-	Pricing       *pricing.Calculator
-	syncPricingMu sync.Mutex
+	Pricing        *pricing.Calculator
+	RateLimitStore callback.RateLimitStore
+	syncPricingMu  sync.Mutex
 }
 
 func (h *UIHandler) masterKeyHash() string {

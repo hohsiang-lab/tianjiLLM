@@ -101,6 +101,9 @@ func (h *UIHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/access-groups/{id}/add-key", h.handleAccessGroupAddKey)
 		r.Post("/access-groups/{id}/remove-key", h.handleAccessGroupRemoveKey)
 
+		// Rate limit state API (FR-009)
+		r.Get("/api/rate-limit-state", h.handleRateLimitState)
+
 		// Guardrails
 		r.Get("/guardrails", h.handleGuardrails)
 		r.Get("/guardrails/table", h.handleGuardrailsTable)

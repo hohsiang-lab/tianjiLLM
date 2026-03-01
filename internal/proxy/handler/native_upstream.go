@@ -15,8 +15,7 @@ type nativeUpstream struct {
 var globalRoundRobinCounter atomic.Uint64
 
 // resolveAllNativeUpstreams returns all upstream entries matching the given providerName.
-// FR-017: resolveNativeUpstream currently returns only the first match; this returns all.
-// TODO: implement — wire into nativeProxy for actual round-robin usage.
+// FR-017: unlike resolveNativeUpstream which returns only the first match, this returns all.
 func (h *Handlers) resolveAllNativeUpstreams(providerName string) []nativeUpstream {
 	var results []nativeUpstream
 	for _, m := range h.Config.ModelList {
@@ -41,11 +40,18 @@ func (h *Handlers) resolveAllNativeUpstreams(providerName string) []nativeUpstre
 
 // selectUpstream implements a goroutine-safe round-robin selection from the given upstreams slice.
 // FR-018: uses atomic.Uint64 counter; no mutex required.
-// TODO: implement — replace nativeProxy's direct resolveNativeUpstream call with this.
 func selectUpstream(upstreams []nativeUpstream) nativeUpstream {
 	if len(upstreams) == 0 {
 		return nativeUpstream{}
 	}
 	idx := globalRoundRobinCounter.Add(1) - 1
 	return upstreams[idx%uint64(len(upstreams))]
+}
+
+// maskKey returns a display-safe truncated version of an API key.
+func maskKey(key string) string {
+	if len(key) <= 8 {
+		return "***"
+	}
+	return key[:6] + "..." + key[len(key)-4:]
 }

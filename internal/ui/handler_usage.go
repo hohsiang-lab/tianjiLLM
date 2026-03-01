@@ -98,7 +98,8 @@ func (h *UIHandler) handleUsage(w http.ResponseWriter, r *http.Request) {
 		tabContent = h.loadCostTabData(r, base, tsStart, tsEnd)
 	}
 
-	render(r.Context(), w, pages.UsagePage(base, tabContent))
+	rlTokens := h.buildRateLimitWidgetData()
+	render(r.Context(), w, pages.UsagePage(base, tabContent, rlTokens))
 }
 
 func (h *UIHandler) handleUsageTab(w http.ResponseWriter, r *http.Request) {

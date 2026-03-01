@@ -183,7 +183,7 @@ func toJSON(v any) string {
 }
 
 // --- Templates ---
-func UsagePage(data UsagePageData, tab UsageTabContent) templ.Component {
+func UsagePage(data UsagePageData, tab UsageTabContent, rateLimitTokens []AnthropicRateLimitWidgetData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -341,7 +341,15 @@ func UsagePage(data UsagePageData, tab UsageTabContent) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" class=\"inline-flex items-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground\">Export Data</a></div></div><!-- Tab Bar --><div class=\"border-b border-border\"><div class=\"flex gap-0 -mb-px\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" class=\"inline-flex items-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground\">Export Data</a></div></div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = RateLimitWidget(rateLimitTokens).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<!-- Tab Bar --><div class=\"border-b border-border\"><div class=\"flex gap-0 -mb-px\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -361,7 +369,7 @@ func UsagePage(data UsagePageData, tab UsageTabContent) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</div></div><!-- Tab Content --><div id=\"usage-content\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div></div><!-- Tab Content --><div id=\"usage-content\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -387,7 +395,7 @@ func UsagePage(data UsagePageData, tab UsageTabContent) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -429,20 +437,20 @@ func usageTabTrigger(value, label string, data UsagePageData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<button data-tab=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<button data-tab=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 273, Col: 18}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 274, Col: 18}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -455,33 +463,33 @@ func usageTabTrigger(value, label string, data UsagePageData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" hx-get=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" hx-get=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/ui/usage/tab?tab=%s&preset=%s&start_date=%s&end_date=%s", value, data.Preset, data.StartDate, data.EndDate))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 277, Col: 132}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 278, Col: 132}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" hx-target=\"#usage-content\" hx-swap=\"innerHTML\" onclick=\"document.querySelectorAll('.usage-tab').forEach(function(b){b.className=b.className.replace('border-primary text-foreground','border-transparent text-muted-foreground hover:text-foreground hover:border-border')});this.className=this.className.replace('border-transparent text-muted-foreground hover:text-foreground hover:border-border','border-primary text-foreground')\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" hx-target=\"#usage-content\" hx-swap=\"innerHTML\" onclick=\"document.querySelectorAll('.usage-tab').forEach(function(b){b.className=b.className.replace('border-primary text-foreground','border-transparent text-muted-foreground hover:text-foreground hover:border-border')});this.className=this.className.replace('border-transparent text-muted-foreground hover:text-foreground hover:border-border','border-primary text-foreground')\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 282, Col: 9}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 283, Col: 9}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</button>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</button>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -511,33 +519,33 @@ func UsageCostTab(data CostTabData) templ.Component {
 			templ_7745c5c3_Var14 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<!-- Project Spend Summary --><div class=\"mb-6\"><h3 class=\"text-sm font-medium text-muted-foreground mb-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<!-- Project Spend Summary --><div class=\"mb-6\"><h3 class=\"text-sm font-medium text-muted-foreground mb-1\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("Project Spend %s - %s", data.StartDate, data.EndDate))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 292, Col: 71}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 293, Col: 71}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</h3><div class=\"flex items-baseline gap-6\"><div><span class=\"text-xs text-muted-foreground\">Total Spend</span><p class=\"text-3xl font-bold tracking-tight\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</h3><div class=\"flex items-baseline gap-6\"><div><span class=\"text-xs text-muted-foreground\">Total Spend</span><p class=\"text-3xl font-bold tracking-tight\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(formatCurrency(data.Metrics.TotalSpend))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 297, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 298, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</p></div><div><span class=\"text-xs text-muted-foreground\">Max Budget</span><p class=\"text-lg font-semibold text-muted-foreground\">No limit</p></div></div></div><!-- Usage Metrics Cards --><div class=\"mb-6\"><h3 class=\"text-sm font-semibold mb-3\">Usage Metrics</h3><div class=\"grid grid-cols-5 gap-3\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</p></div><div><span class=\"text-xs text-muted-foreground\">Max Budget</span><p class=\"text-lg font-semibold text-muted-foreground\">No limit</p></div></div></div><!-- Usage Metrics Cards --><div class=\"mb-6\"><h3 class=\"text-sm font-semibold mb-3\">Usage Metrics</h3><div class=\"grid grid-cols-5 gap-3\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -561,17 +569,17 @@ func UsageCostTab(data CostTabData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</div></div><!-- Daily Spend Chart --><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-6 mb-6\"><h3 class=\"text-sm font-semibold mb-4\">Daily Spend</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</div></div><!-- Daily Spend Chart --><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-6 mb-6\"><h3 class=\"text-sm font-semibold mb-4\">Daily Spend</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(data.DailySpend) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<div class=\"flex items-center justify-center h-[260px] text-muted-foreground text-sm\">No spend data for selected period</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<div class=\"flex items-center justify-center h-[260px] text-muted-foreground text-sm\">No spend data for selected period</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<div style=\"height: 260px;\"><canvas id=\"dailySpendChart\"></canvas></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<div style=\"height: 260px;\"><canvas id=\"dailySpendChart\"></canvas></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -580,7 +588,7 @@ func UsageCostTab(data CostTabData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</div><!-- Bottom Row: Top Keys + Top Models --><div class=\"grid grid-cols-2 gap-4\"><!-- Top Virtual Keys --><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs\"><div class=\"p-6 pb-3\"><div class=\"flex items-center justify-between mb-3\"><h3 class=\"text-sm font-semibold\">Top Virtual Keys</h3><div class=\"flex rounded-md border border-input overflow-hidden text-xs\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</div><!-- Bottom Row: Top Keys + Top Models --><div class=\"grid grid-cols-2 gap-4\"><!-- Top Virtual Keys --><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs\"><div class=\"p-6 pb-3\"><div class=\"flex items-center justify-between mb-3\"><h3 class=\"text-sm font-semibold\">Top Virtual Keys</h3><div class=\"flex rounded-md border border-input overflow-hidden text-xs\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -593,7 +601,7 @@ func UsageCostTab(data CostTabData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<button class=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<button class=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -606,38 +614,38 @@ func UsageCostTab(data CostTabData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" hx-get=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\" hx-get=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var19 string
 			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/ui/usage/top-keys?limit=%d&preset=%s&start_date=%s&end_date=%s", lim, data.Preset, data.StartDate, data.EndDate))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 342, Col: 143}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 343, Col: 143}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\" hx-target=\"#top-keys\" hx-swap=\"innerHTML\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\" hx-target=\"#top-keys\" hx-swap=\"innerHTML\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(lim))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 346, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 347, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</div></div></div><div id=\"top-keys\" class=\"px-6 pb-6\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</div></div></div><div id=\"top-keys\" class=\"px-6 pb-6\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -645,17 +653,17 @@ func UsageCostTab(data CostTabData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</div></div><!-- Top Models --><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs\"><div class=\"p-6 pb-3\"><h3 class=\"text-sm font-semibold mb-3\">Top Public Model Names</h3></div><div class=\"px-6 pb-6\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div></div><!-- Top Models --><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs\"><div class=\"p-6 pb-3\"><h3 class=\"text-sm font-semibold mb-3\">Top Public Model Names</h3></div><div class=\"px-6 pb-6\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(data.TopModels) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<div class=\"flex items-center justify-center h-[200px] text-muted-foreground text-sm\">No model data</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<div class=\"flex items-center justify-center h-[200px] text-muted-foreground text-sm\">No model data</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<div style=\"height: 200px;\"><canvas id=\"topModelsChart\"></canvas></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<div style=\"height: 200px;\"><canvas id=\"topModelsChart\"></canvas></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -664,7 +672,7 @@ func UsageCostTab(data CostTabData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -693,20 +701,20 @@ func metricCard(title, value, colorClass string) templ.Component {
 			templ_7745c5c3_Var21 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-4\"><p class=\"text-sm text-muted-foreground mb-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-4\"><p class=\"text-sm text-muted-foreground mb-1\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var22 string
 		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 377, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 378, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -715,7 +723,7 @@ func metricCard(title, value, colorClass string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<p class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<p class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -728,20 +736,20 @@ func metricCard(title, value, colorClass string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var25 string
 		templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 378, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 379, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -771,30 +779,30 @@ func UsageTopKeysPartial(keys []TopKey, limit int) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if len(keys) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<div class=\"py-8 text-center text-muted-foreground text-sm\">No key data for selected period</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<div class=\"py-8 text-center text-muted-foreground text-sm\">No key data for selected period</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<table class=\"w-full text-sm\"><thead><tr class=\"border-b border-border\"><th class=\"text-left py-2 text-xs font-medium text-muted-foreground\">Key ID</th><th class=\"text-left py-2 text-xs font-medium text-muted-foreground\">Key Alias</th><th class=\"text-right py-2 text-xs font-medium text-muted-foreground\">Spend (USD)</th></tr></thead> <tbody>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<table class=\"w-full text-sm\"><thead><tr class=\"border-b border-border\"><th class=\"text-left py-2 text-xs font-medium text-muted-foreground\">Key ID</th><th class=\"text-left py-2 text-xs font-medium text-muted-foreground\">Key Alias</th><th class=\"text-right py-2 text-xs font-medium text-muted-foreground\">Spend (USD)</th></tr></thead> <tbody>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, k := range keys {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<tr class=\"border-b border-border/50\"><td class=\"py-2.5\"><span class=\"font-mono text-xs\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<tr class=\"border-b border-border/50\"><td class=\"py-2.5\"><span class=\"font-mono text-xs\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(k.APIKey)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 398, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 399, Col: 49}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</span></td><td class=\"py-2.5 text-sm\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</span></td><td class=\"py-2.5 text-sm\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -802,37 +810,37 @@ func UsageTopKeysPartial(keys []TopKey, limit int) templ.Component {
 					var templ_7745c5c3_Var28 string
 					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(k.KeyAlias)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 402, Col: 20}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 403, Col: 20}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<span class=\"text-muted-foreground\">–</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<span class=\"text-muted-foreground\">–</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "</td><td class=\"py-2.5 text-right font-mono text-sm\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</td><td class=\"py-2.5 text-right font-mono text-sm\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var29 string
 				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(formatCurrency(k.TotalSpend))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 407, Col: 84}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 408, Col: 84}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</td></tr>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</tbody></table>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "</tbody></table>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -867,7 +875,7 @@ func dailySpendChartScript(data []DailySpend) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<script>\n\t\t(function() {\n\t\t\tvar raw = JSON.parse(document.getElementById('dailySpendData').textContent);\n\t\t\tvar labels = raw.map(function(d) { return d.Date; });\n\t\t\tvar values = raw.map(function(d) { return d.Spend; });\n\t\t\tnew Chart(document.getElementById('dailySpendChart'), {\n\t\t\t\ttype: 'bar',\n\t\t\t\tdata: {\n\t\t\t\t\tlabels: labels,\n\t\t\t\t\tdatasets: [{\n\t\t\t\t\t\tlabel: 'Spend (USD)',\n\t\t\t\t\t\tdata: values,\n\t\t\t\t\t\tbackgroundColor: '#3B82F6',\n\t\t\t\t\t\tborderRadius: 4,\n\t\t\t\t\t\tbarPercentage: 0.7\n\t\t\t\t\t}]\n\t\t\t\t},\n\t\t\t\toptions: {\n\t\t\t\t\tresponsive: true,\n\t\t\t\t\tmaintainAspectRatio: false,\n\t\t\t\t\tplugins: { legend: { display: false } },\n\t\t\t\t\tscales: {\n\t\t\t\t\t\tx: {\n\t\t\t\t\t\t\tgrid: { display: false },\n\t\t\t\t\t\t\tticks: { font: { size: 11 }, color: '#737373' }\n\t\t\t\t\t\t},\n\t\t\t\t\t\ty: {\n\t\t\t\t\t\t\tgrid: { color: '#e5e5e5' },\n\t\t\t\t\t\t\tticks: {\n\t\t\t\t\t\t\t\tfont: { size: 11 },\n\t\t\t\t\t\t\t\tcolor: '#737373',\n\t\t\t\t\t\t\t\tcallback: function(v) { return '$' + v.toFixed(2); }\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<script>\n\t\t(function() {\n\t\t\tvar raw = JSON.parse(document.getElementById('dailySpendData').textContent);\n\t\t\tvar labels = raw.map(function(d) { return d.Date; });\n\t\t\tvar values = raw.map(function(d) { return d.Spend; });\n\t\t\tnew Chart(document.getElementById('dailySpendChart'), {\n\t\t\t\ttype: 'bar',\n\t\t\t\tdata: {\n\t\t\t\t\tlabels: labels,\n\t\t\t\t\tdatasets: [{\n\t\t\t\t\t\tlabel: 'Spend (USD)',\n\t\t\t\t\t\tdata: values,\n\t\t\t\t\t\tbackgroundColor: '#3B82F6',\n\t\t\t\t\t\tborderRadius: 4,\n\t\t\t\t\t\tbarPercentage: 0.7\n\t\t\t\t\t}]\n\t\t\t\t},\n\t\t\t\toptions: {\n\t\t\t\t\tresponsive: true,\n\t\t\t\t\tmaintainAspectRatio: false,\n\t\t\t\t\tplugins: { legend: { display: false } },\n\t\t\t\t\tscales: {\n\t\t\t\t\t\tx: {\n\t\t\t\t\t\t\tgrid: { display: false },\n\t\t\t\t\t\t\tticks: { font: { size: 11 }, color: '#737373' }\n\t\t\t\t\t\t},\n\t\t\t\t\t\ty: {\n\t\t\t\t\t\t\tgrid: { color: '#e5e5e5' },\n\t\t\t\t\t\t\tticks: {\n\t\t\t\t\t\t\t\tfont: { size: 11 },\n\t\t\t\t\t\t\t\tcolor: '#737373',\n\t\t\t\t\t\t\t\tcallback: function(v) { return '$' + v.toFixed(2); }\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -900,7 +908,7 @@ func topModelsChartScript(models []TopModel) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<script>\n\t\t(function() {\n\t\t\tvar raw = JSON.parse(document.getElementById('topModelsData').textContent);\n\t\t\tvar labels = raw.map(function(d) { return d.Model; });\n\t\t\tvar values = raw.map(function(d) { return d.TotalSpend; });\n\t\t\tnew Chart(document.getElementById('topModelsChart'), {\n\t\t\t\ttype: 'bar',\n\t\t\t\tdata: {\n\t\t\t\t\tlabels: labels,\n\t\t\t\t\tdatasets: [{\n\t\t\t\t\t\tlabel: 'Spend (USD)',\n\t\t\t\t\t\tdata: values,\n\t\t\t\t\t\tbackgroundColor: '#06B6D4',\n\t\t\t\t\t\tborderRadius: 4,\n\t\t\t\t\t\tbarPercentage: 0.6\n\t\t\t\t\t}]\n\t\t\t\t},\n\t\t\t\toptions: {\n\t\t\t\t\tresponsive: true,\n\t\t\t\t\tmaintainAspectRatio: false,\n\t\t\t\t\tindexAxis: 'y',\n\t\t\t\t\tplugins: { legend: { display: false } },\n\t\t\t\t\tscales: {\n\t\t\t\t\t\tx: {\n\t\t\t\t\t\t\tgrid: { color: '#e5e5e5' },\n\t\t\t\t\t\t\tticks: {\n\t\t\t\t\t\t\t\tfont: { size: 11 },\n\t\t\t\t\t\t\t\tcolor: '#737373',\n\t\t\t\t\t\t\t\tcallback: function(v) { return '$' + v.toFixed(2); }\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t},\n\t\t\t\t\t\ty: {\n\t\t\t\t\t\t\tgrid: { display: false },\n\t\t\t\t\t\t\tticks: { font: { size: 11 }, color: '#737373' }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<script>\n\t\t(function() {\n\t\t\tvar raw = JSON.parse(document.getElementById('topModelsData').textContent);\n\t\t\tvar labels = raw.map(function(d) { return d.Model; });\n\t\t\tvar values = raw.map(function(d) { return d.TotalSpend; });\n\t\t\tnew Chart(document.getElementById('topModelsChart'), {\n\t\t\t\ttype: 'bar',\n\t\t\t\tdata: {\n\t\t\t\t\tlabels: labels,\n\t\t\t\t\tdatasets: [{\n\t\t\t\t\t\tlabel: 'Spend (USD)',\n\t\t\t\t\t\tdata: values,\n\t\t\t\t\t\tbackgroundColor: '#06B6D4',\n\t\t\t\t\t\tborderRadius: 4,\n\t\t\t\t\t\tbarPercentage: 0.6\n\t\t\t\t\t}]\n\t\t\t\t},\n\t\t\t\toptions: {\n\t\t\t\t\tresponsive: true,\n\t\t\t\t\tmaintainAspectRatio: false,\n\t\t\t\t\tindexAxis: 'y',\n\t\t\t\t\tplugins: { legend: { display: false } },\n\t\t\t\t\tscales: {\n\t\t\t\t\t\tx: {\n\t\t\t\t\t\t\tgrid: { color: '#e5e5e5' },\n\t\t\t\t\t\t\tticks: {\n\t\t\t\t\t\t\t\tfont: { size: 11 },\n\t\t\t\t\t\t\t\tcolor: '#737373',\n\t\t\t\t\t\t\t\tcallback: function(v) { return '$' + v.toFixed(2); }\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t},\n\t\t\t\t\t\ty: {\n\t\t\t\t\t\t\tgrid: { display: false },\n\t\t\t\t\t\t\tticks: { font: { size: 11 }, color: '#737373' }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -931,12 +939,12 @@ func UsageModelActivityTab(data ModelActivityData) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if len(data.Models) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<div class=\"flex items-center justify-center h-[300px] text-muted-foreground text-sm\">No model activity data for selected period</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<div class=\"flex items-center justify-center h-[300px] text-muted-foreground text-sm\">No model activity data for selected period</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<div class=\"space-y-6\"><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-6\"><h3 class=\"text-sm font-semibold mb-4\">Requests by Model</h3><div style=\"height: 300px;\"><canvas id=\"modelRequestsChart\"></canvas></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<div class=\"space-y-6\"><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-6\"><h3 class=\"text-sm font-semibold mb-4\">Requests by Model</h3><div style=\"height: 300px;\"><canvas id=\"modelRequestsChart\"></canvas></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -944,7 +952,7 @@ func UsageModelActivityTab(data ModelActivityData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "</div><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-6\"><h3 class=\"text-sm font-semibold mb-4\">Tokens by Model</h3><div style=\"height: 300px;\"><canvas id=\"modelTokensChart\"></canvas></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "</div><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-6\"><h3 class=\"text-sm font-semibold mb-4\">Tokens by Model</h3><div style=\"height: 300px;\"><canvas id=\"modelTokensChart\"></canvas></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -952,7 +960,7 @@ func UsageModelActivityTab(data ModelActivityData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "</div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "</div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -986,7 +994,7 @@ func modelRequestsChartScript(models []ModelDailyActivity) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "<script>\n\t\t(function() {\n\t\t\tvar raw = JSON.parse(document.getElementById('modelRequestsData').textContent);\n\t\t\tvar colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];\n\t\t\tvar allDates = {};\n\t\t\traw.forEach(function(m) {\n\t\t\t\tm.DailyData.forEach(function(d) { allDates[d.Date] = true; });\n\t\t\t});\n\t\t\tvar labels = Object.keys(allDates).sort();\n\t\t\tvar datasets = raw.map(function(m, i) {\n\t\t\t\tvar dateMap = {};\n\t\t\t\tm.DailyData.forEach(function(d) { dateMap[d.Date] = d.RequestCount; });\n\t\t\t\treturn {\n\t\t\t\t\tlabel: m.Model,\n\t\t\t\t\tdata: labels.map(function(d) { return dateMap[d] || 0; }),\n\t\t\t\t\tborderColor: colors[i % colors.length],\n\t\t\t\t\tbackgroundColor: colors[i % colors.length] + '33',\n\t\t\t\t\tfill: true,\n\t\t\t\t\ttension: 0.3,\n\t\t\t\t\tpointRadius: 2\n\t\t\t\t};\n\t\t\t});\n\t\t\tnew Chart(document.getElementById('modelRequestsChart'), {\n\t\t\t\ttype: 'line',\n\t\t\t\tdata: { labels: labels, datasets: datasets },\n\t\t\t\toptions: {\n\t\t\t\t\tresponsive: true,\n\t\t\t\t\tmaintainAspectRatio: false,\n\t\t\t\t\tplugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },\n\t\t\t\t\tscales: {\n\t\t\t\t\t\tx: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#737373' } },\n\t\t\t\t\t\ty: { grid: { color: '#e5e5e5' }, ticks: { font: { size: 11 }, color: '#737373' } }\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<script>\n\t\t(function() {\n\t\t\tvar raw = JSON.parse(document.getElementById('modelRequestsData').textContent);\n\t\t\tvar colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];\n\t\t\tvar allDates = {};\n\t\t\traw.forEach(function(m) {\n\t\t\t\tm.DailyData.forEach(function(d) { allDates[d.Date] = true; });\n\t\t\t});\n\t\t\tvar labels = Object.keys(allDates).sort();\n\t\t\tvar datasets = raw.map(function(m, i) {\n\t\t\t\tvar dateMap = {};\n\t\t\t\tm.DailyData.forEach(function(d) { dateMap[d.Date] = d.RequestCount; });\n\t\t\t\treturn {\n\t\t\t\t\tlabel: m.Model,\n\t\t\t\t\tdata: labels.map(function(d) { return dateMap[d] || 0; }),\n\t\t\t\t\tborderColor: colors[i % colors.length],\n\t\t\t\t\tbackgroundColor: colors[i % colors.length] + '33',\n\t\t\t\t\tfill: true,\n\t\t\t\t\ttension: 0.3,\n\t\t\t\t\tpointRadius: 2\n\t\t\t\t};\n\t\t\t});\n\t\t\tnew Chart(document.getElementById('modelRequestsChart'), {\n\t\t\t\ttype: 'line',\n\t\t\t\tdata: { labels: labels, datasets: datasets },\n\t\t\t\toptions: {\n\t\t\t\t\tresponsive: true,\n\t\t\t\t\tmaintainAspectRatio: false,\n\t\t\t\t\tplugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },\n\t\t\t\t\tscales: {\n\t\t\t\t\t\tx: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#737373' } },\n\t\t\t\t\t\ty: { grid: { color: '#e5e5e5' }, ticks: { font: { size: 11 }, color: '#737373' } }\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1019,7 +1027,7 @@ func modelTokensChartScript(models []ModelDailyActivity) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<script>\n\t\t(function() {\n\t\t\tvar raw = JSON.parse(document.getElementById('modelTokensData').textContent);\n\t\t\tvar colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];\n\t\t\tvar allDates = {};\n\t\t\traw.forEach(function(m) {\n\t\t\t\tm.DailyData.forEach(function(d) { allDates[d.Date] = true; });\n\t\t\t});\n\t\t\tvar labels = Object.keys(allDates).sort();\n\t\t\tvar datasets = raw.map(function(m, i) {\n\t\t\t\tvar dateMap = {};\n\t\t\t\tm.DailyData.forEach(function(d) { dateMap[d.Date] = d.TotalTokens; });\n\t\t\t\treturn {\n\t\t\t\t\tlabel: m.Model,\n\t\t\t\t\tdata: labels.map(function(d) { return dateMap[d] || 0; }),\n\t\t\t\t\tbackgroundColor: colors[i % colors.length],\n\t\t\t\t\tborderRadius: 4,\n\t\t\t\t\tbarPercentage: 0.7\n\t\t\t\t};\n\t\t\t});\n\t\t\tnew Chart(document.getElementById('modelTokensChart'), {\n\t\t\t\ttype: 'bar',\n\t\t\t\tdata: { labels: labels, datasets: datasets },\n\t\t\t\toptions: {\n\t\t\t\t\tresponsive: true,\n\t\t\t\t\tmaintainAspectRatio: false,\n\t\t\t\t\tplugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },\n\t\t\t\t\tscales: {\n\t\t\t\t\t\tx: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#737373' }, stacked: true },\n\t\t\t\t\t\ty: { grid: { color: '#e5e5e5' }, ticks: { font: { size: 11 }, color: '#737373' }, stacked: true }\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<script>\n\t\t(function() {\n\t\t\tvar raw = JSON.parse(document.getElementById('modelTokensData').textContent);\n\t\t\tvar colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];\n\t\t\tvar allDates = {};\n\t\t\traw.forEach(function(m) {\n\t\t\t\tm.DailyData.forEach(function(d) { allDates[d.Date] = true; });\n\t\t\t});\n\t\t\tvar labels = Object.keys(allDates).sort();\n\t\t\tvar datasets = raw.map(function(m, i) {\n\t\t\t\tvar dateMap = {};\n\t\t\t\tm.DailyData.forEach(function(d) { dateMap[d.Date] = d.TotalTokens; });\n\t\t\t\treturn {\n\t\t\t\t\tlabel: m.Model,\n\t\t\t\t\tdata: labels.map(function(d) { return dateMap[d] || 0; }),\n\t\t\t\t\tbackgroundColor: colors[i % colors.length],\n\t\t\t\t\tborderRadius: 4,\n\t\t\t\t\tbarPercentage: 0.7\n\t\t\t\t};\n\t\t\t});\n\t\t\tnew Chart(document.getElementById('modelTokensChart'), {\n\t\t\t\ttype: 'bar',\n\t\t\t\tdata: { labels: labels, datasets: datasets },\n\t\t\t\toptions: {\n\t\t\t\t\tresponsive: true,\n\t\t\t\t\tmaintainAspectRatio: false,\n\t\t\t\t\tplugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },\n\t\t\t\t\tscales: {\n\t\t\t\t\t\tx: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#737373' }, stacked: true },\n\t\t\t\t\t\ty: { grid: { color: '#e5e5e5' }, ticks: { font: { size: 11 }, color: '#737373' }, stacked: true }\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1050,12 +1058,12 @@ func UsageKeyActivityTab(data KeyActivityData) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if len(data.Keys) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<div class=\"flex items-center justify-center h-[300px] text-muted-foreground text-sm\">No key activity data for selected period</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "<div class=\"flex items-center justify-center h-[300px] text-muted-foreground text-sm\">No key activity data for selected period</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "<div class=\"space-y-6\"><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-6\"><h3 class=\"text-sm font-semibold mb-4\">Requests by Key</h3><div style=\"height: 300px;\"><canvas id=\"keyRequestsChart\"></canvas></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "<div class=\"space-y-6\"><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-6\"><h3 class=\"text-sm font-semibold mb-4\">Requests by Key</h3><div style=\"height: 300px;\"><canvas id=\"keyRequestsChart\"></canvas></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1063,7 +1071,7 @@ func UsageKeyActivityTab(data KeyActivityData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "</div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "</div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1097,7 +1105,7 @@ func keyRequestsChartScript(keys []KeyDailyActivity) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<script>\n\t\t(function() {\n\t\t\tvar raw = JSON.parse(document.getElementById('keyRequestsData').textContent);\n\t\t\tvar colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];\n\t\t\tvar allDates = {};\n\t\t\traw.forEach(function(k) {\n\t\t\t\tk.DailyData.forEach(function(d) { allDates[d.Date] = true; });\n\t\t\t});\n\t\t\tvar labels = Object.keys(allDates).sort();\n\t\t\tvar datasets = raw.map(function(k, i) {\n\t\t\t\tvar dateMap = {};\n\t\t\t\tk.DailyData.forEach(function(d) { dateMap[d.Date] = d.RequestCount; });\n\t\t\t\treturn {\n\t\t\t\t\tlabel: k.APIKey,\n\t\t\t\t\tdata: labels.map(function(d) { return dateMap[d] || 0; }),\n\t\t\t\t\tborderColor: colors[i % colors.length],\n\t\t\t\t\tbackgroundColor: colors[i % colors.length] + '33',\n\t\t\t\t\tfill: true,\n\t\t\t\t\ttension: 0.3,\n\t\t\t\t\tpointRadius: 2\n\t\t\t\t};\n\t\t\t});\n\t\t\tnew Chart(document.getElementById('keyRequestsChart'), {\n\t\t\t\ttype: 'line',\n\t\t\t\tdata: { labels: labels, datasets: datasets },\n\t\t\t\toptions: {\n\t\t\t\t\tresponsive: true,\n\t\t\t\t\tmaintainAspectRatio: false,\n\t\t\t\t\tplugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },\n\t\t\t\t\tscales: {\n\t\t\t\t\t\tx: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#737373' } },\n\t\t\t\t\t\ty: { grid: { color: '#e5e5e5' }, ticks: { font: { size: 11 }, color: '#737373' } }\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<script>\n\t\t(function() {\n\t\t\tvar raw = JSON.parse(document.getElementById('keyRequestsData').textContent);\n\t\t\tvar colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];\n\t\t\tvar allDates = {};\n\t\t\traw.forEach(function(k) {\n\t\t\t\tk.DailyData.forEach(function(d) { allDates[d.Date] = true; });\n\t\t\t});\n\t\t\tvar labels = Object.keys(allDates).sort();\n\t\t\tvar datasets = raw.map(function(k, i) {\n\t\t\t\tvar dateMap = {};\n\t\t\t\tk.DailyData.forEach(function(d) { dateMap[d.Date] = d.RequestCount; });\n\t\t\t\treturn {\n\t\t\t\t\tlabel: k.APIKey,\n\t\t\t\t\tdata: labels.map(function(d) { return dateMap[d] || 0; }),\n\t\t\t\t\tborderColor: colors[i % colors.length],\n\t\t\t\t\tbackgroundColor: colors[i % colors.length] + '33',\n\t\t\t\t\tfill: true,\n\t\t\t\t\ttension: 0.3,\n\t\t\t\t\tpointRadius: 2\n\t\t\t\t};\n\t\t\t});\n\t\t\tnew Chart(document.getElementById('keyRequestsChart'), {\n\t\t\t\ttype: 'line',\n\t\t\t\tdata: { labels: labels, datasets: datasets },\n\t\t\t\toptions: {\n\t\t\t\t\tresponsive: true,\n\t\t\t\t\tmaintainAspectRatio: false,\n\t\t\t\t\tplugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },\n\t\t\t\t\tscales: {\n\t\t\t\t\t\tx: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#737373' } },\n\t\t\t\t\t\ty: { grid: { color: '#e5e5e5' }, ticks: { font: { size: 11 }, color: '#737373' } }\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1128,12 +1136,12 @@ func UsageEndpointActivityTab(data EndpointActivityData) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if len(data.Endpoints) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<div class=\"flex items-center justify-center h-[300px] text-muted-foreground text-sm\">No endpoint activity data for selected period</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "<div class=\"flex items-center justify-center h-[300px] text-muted-foreground text-sm\">No endpoint activity data for selected period</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "<div class=\"space-y-6\"><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-6\"><h3 class=\"text-sm font-semibold mb-4\">Requests by Endpoint</h3><div style=\"height: 300px;\"><canvas id=\"endpointRequestsChart\"></canvas></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "<div class=\"space-y-6\"><div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-6\"><h3 class=\"text-sm font-semibold mb-4\">Requests by Endpoint</h3><div style=\"height: 300px;\"><canvas id=\"endpointRequestsChart\"></canvas></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1141,7 +1149,7 @@ func UsageEndpointActivityTab(data EndpointActivityData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "</div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "</div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1175,7 +1183,448 @@ func endpointRequestsChartScript(endpoints []EndpointDailyActivity) templ.Compon
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "<script>\n\t\t(function() {\n\t\t\tvar raw = JSON.parse(document.getElementById('endpointRequestsData').textContent);\n\t\t\tvar colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];\n\t\t\tvar allDates = {};\n\t\t\traw.forEach(function(e) {\n\t\t\t\te.DailyData.forEach(function(d) { allDates[d.Date] = true; });\n\t\t\t});\n\t\t\tvar labels = Object.keys(allDates).sort();\n\t\t\tvar datasets = raw.map(function(e, i) {\n\t\t\t\tvar dateMap = {};\n\t\t\t\te.DailyData.forEach(function(d) { dateMap[d.Date] = d.RequestCount; });\n\t\t\t\treturn {\n\t\t\t\t\tlabel: e.CallType,\n\t\t\t\t\tdata: labels.map(function(d) { return dateMap[d] || 0; }),\n\t\t\t\t\tbackgroundColor: colors[i % colors.length],\n\t\t\t\t\tborderRadius: 4,\n\t\t\t\t\tbarPercentage: 0.7\n\t\t\t\t};\n\t\t\t});\n\t\t\tnew Chart(document.getElementById('endpointRequestsChart'), {\n\t\t\t\ttype: 'bar',\n\t\t\t\tdata: { labels: labels, datasets: datasets },\n\t\t\t\toptions: {\n\t\t\t\t\tresponsive: true,\n\t\t\t\t\tmaintainAspectRatio: false,\n\t\t\t\t\tplugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },\n\t\t\t\t\tscales: {\n\t\t\t\t\t\tx: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#737373' }, stacked: true },\n\t\t\t\t\t\ty: { grid: { color: '#e5e5e5' }, ticks: { font: { size: 11 }, color: '#737373' }, stacked: true }\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<script>\n\t\t(function() {\n\t\t\tvar raw = JSON.parse(document.getElementById('endpointRequestsData').textContent);\n\t\t\tvar colors = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];\n\t\t\tvar allDates = {};\n\t\t\traw.forEach(function(e) {\n\t\t\t\te.DailyData.forEach(function(d) { allDates[d.Date] = true; });\n\t\t\t});\n\t\t\tvar labels = Object.keys(allDates).sort();\n\t\t\tvar datasets = raw.map(function(e, i) {\n\t\t\t\tvar dateMap = {};\n\t\t\t\te.DailyData.forEach(function(d) { dateMap[d.Date] = d.RequestCount; });\n\t\t\t\treturn {\n\t\t\t\t\tlabel: e.CallType,\n\t\t\t\t\tdata: labels.map(function(d) { return dateMap[d] || 0; }),\n\t\t\t\t\tbackgroundColor: colors[i % colors.length],\n\t\t\t\t\tborderRadius: 4,\n\t\t\t\t\tbarPercentage: 0.7\n\t\t\t\t};\n\t\t\t});\n\t\t\tnew Chart(document.getElementById('endpointRequestsChart'), {\n\t\t\t\ttype: 'bar',\n\t\t\t\tdata: { labels: labels, datasets: datasets },\n\t\t\t\toptions: {\n\t\t\t\t\tresponsive: true,\n\t\t\t\t\tmaintainAspectRatio: false,\n\t\t\t\t\tplugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },\n\t\t\t\t\tscales: {\n\t\t\t\t\t\tx: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#737373' }, stacked: true },\n\t\t\t\t\t\ty: { grid: { color: '#e5e5e5' }, ticks: { font: { size: 11 }, color: '#737373' }, stacked: true }\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// --- Rate Limit Widget ---
+
+// AnthropicRateLimitWidgetData holds data for the rate limit widget.
+type AnthropicRateLimitWidgetData struct {
+	// TokenKey is the display key (sha256 prefix or "Default API Key").
+	TokenKey string
+	// UnifiedStatus: "allowed", "rate_limited", "overage", etc. Empty = unknown.
+	UnifiedStatus         string
+	Unified5hStatus       string
+	Unified5hUtilization  float64 // [0,1]; -1 = unknown
+	Unified7dStatus       string
+	Unified7dUtilization  float64 // [0,1]; -1 = unknown
+	RepresentativeClaim   string
+	OverageDisabledReason string
+}
+
+// rateLimitStatusClass returns a Tailwind badge class for a status string.
+func rateLimitStatusClass(status string) string {
+	switch status {
+	case "allowed":
+		return "bg-emerald-100 text-emerald-700"
+	case "rate_limited":
+		return "bg-destructive/10 text-destructive"
+	case "overage":
+		return "bg-amber-100 text-amber-700"
+	default:
+		return "bg-muted text-muted-foreground"
+	}
+}
+
+// fmtUtilPct converts a [0,1] fraction to "12.3%" or "—" if -1.
+func fmtUtilPct(v float64) string {
+	if v < 0 {
+		return "—"
+	}
+	return fmt.Sprintf("%.1f%%", v*100)
+}
+
+// utilBarWidth converts [0,1] to CSS width percent string.
+func utilBarWidth(v float64) string {
+	if v < 0 {
+		return "0%"
+	}
+	if v > 1 {
+		return "100%"
+	}
+	return fmt.Sprintf("%.1f%%", v*100)
+}
+
+// utilBarColor returns a Tailwind background class by utilization level.
+func utilBarColor(v float64) string {
+	switch {
+	case v < 0:
+		return "bg-muted"
+	case v < 0.6:
+		return "bg-emerald-500"
+	case v < 0.85:
+		return "bg-amber-500"
+	default:
+		return "bg-destructive"
+	}
+}
+
+// RateLimitWidget renders the Anthropic OAuth rate limit monitoring widget.
+// FR-013: JS polls /ui/api/rate-limit-state every 30s and updates the DOM.
+// FR-014: single token hides token key label.
+func RateLimitWidget(tokens []AnthropicRateLimitWidgetData) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var39 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var39 == nil {
+			templ_7745c5c3_Var39 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "<div id=\"rate-limit-widget\" class=\"mb-6\"><h3 class=\"text-sm font-semibold mb-3\">Anthropic OAuth Rate Limits</h3><div id=\"rate-limit-cards\" class=\"grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if len(tokens) == 0 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "<div class=\"col-span-full text-sm text-muted-foreground py-2\">No OAuth token rate limit data yet. Send a request via an Anthropic OAuth-backed model to populate.</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			for _, tok := range tokens {
+				templ_7745c5c3_Err = rateLimitCard(tok, len(tokens) > 1).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</div></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = rateLimitPollingScript().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func rateLimitCard(tok AnthropicRateLimitWidgetData, showKey bool) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var40 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var40 == nil {
+			templ_7745c5c3_Var40 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "<div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-4 space-y-3\"><div class=\"flex items-center justify-between gap-2\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if showKey {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "<span class=\"font-mono text-xs text-muted-foreground truncate\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var41 string
+			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(tok.TokenKey)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 814, Col: 81}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "</span> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "<span class=\"text-xs text-muted-foreground\">OAuth Token</span> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		var templ_7745c5c3_Var42 = []any{"rounded-full px-2 py-0.5 text-xs font-medium", rateLimitStatusClass(tok.UnifiedStatus)}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var42...)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "<span class=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var43 string
+		templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var42).String())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 1, Col: 0}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if tok.UnifiedStatus == "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "unknown")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			var templ_7745c5c3_Var44 string
+			templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(tok.UnifiedStatus)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 822, Col: 24}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "</span></div><!-- 5h window --><div><div class=\"flex items-center justify-between mb-1\"><span class=\"text-xs text-muted-foreground\">5h utilization</span><div class=\"flex items-center gap-1.5\"><span class=\"text-xs font-medium\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var45 string
+		templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(fmtUtilPct(tok.Unified5hUtilization))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 831, Col: 77}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</span> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if tok.Unified5hStatus != "" {
+			var templ_7745c5c3_Var46 = []any{"rounded-full px-1.5 py-0 text-xs font-medium", rateLimitStatusClass(tok.Unified5hStatus)}
+			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var46...)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "<span class=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var47 string
+			templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var46).String())
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 1, Col: 0}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var48 string
+			templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(tok.Unified5hStatus)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 833, Col: 133}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "</div></div><div class=\"h-1.5 w-full rounded-full bg-muted overflow-hidden\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var49 = []any{"h-full rounded-full transition-all", utilBarColor(tok.Unified5hUtilization)}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var49...)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "<div class=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var50 string
+		templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var49).String())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 1, Col: 0}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "\" style=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var51 string
+		templ_7745c5c3_Var51, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("width:" + utilBarWidth(tok.Unified5hUtilization))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 840, Col: 62}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "\"></div></div></div><!-- 7d window --><div><div class=\"flex items-center justify-between mb-1\"><span class=\"text-xs text-muted-foreground\">7d utilization</span><div class=\"flex items-center gap-1.5\"><span class=\"text-xs font-medium\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var52 string
+		templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(fmtUtilPct(tok.Unified7dUtilization))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 849, Col: 77}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "</span> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if tok.Unified7dStatus != "" {
+			var templ_7745c5c3_Var53 = []any{"rounded-full px-1.5 py-0 text-xs font-medium", rateLimitStatusClass(tok.Unified7dStatus)}
+			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var53...)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "<span class=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var54 string
+			templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var53).String())
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 1, Col: 0}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var55 string
+			templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(tok.Unified7dStatus)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 851, Col: 133}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "</div></div><div class=\"h-1.5 w-full rounded-full bg-muted overflow-hidden\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var56 = []any{"h-full rounded-full transition-all", utilBarColor(tok.Unified7dUtilization)}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var56...)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "<div class=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var57 string
+		templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var56).String())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 1, Col: 0}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "\" style=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var58 string
+		templ_7745c5c3_Var58, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("width:" + utilBarWidth(tok.Unified7dUtilization))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 858, Col: 62}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "\"></div></div></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if tok.OverageDisabledReason != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "<p class=\"text-xs text-muted-foreground\">Overage disabled: ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var59 string
+			templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(tok.OverageDisabledReason)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/usage.templ`, Line: 863, Col: 89}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "</div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func rateLimitPollingScript() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var60 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var60 == nil {
+			templ_7745c5c3_Var60 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "<script>\n\t\t(function() {\n\t\t\tfunction updateRateLimitCards() {\n\t\t\t\tfetch('/ui/api/rate-limit-state')\n\t\t\t\t\t.then(function(r) { return r.json(); })\n\t\t\t\t\t.then(function(items) {\n\t\t\t\t\t\tvar container = document.getElementById('rate-limit-cards');\n\t\t\t\t\t\tif (!container) return;\n\t\t\t\t\t\tif (!items || items.length === 0) {\n\t\t\t\t\t\t\tcontainer.innerHTML = '<div class=\"col-span-full text-sm text-muted-foreground py-2\">No OAuth token rate limit data yet. Send a request via an Anthropic OAuth-backed model to populate.</div>';\n\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t}\n\t\t\t\t\t\tvar showKey = items.length > 1;\n\t\t\t\t\t\tcontainer.innerHTML = items.map(function(tok) {\n\t\t\t\t\t\t\tvar status = tok.unified_status || '';\n\t\t\t\t\t\t\tvar badgeClass = status === 'allowed' ? 'bg-emerald-100 text-emerald-700'\n\t\t\t\t\t\t\t\t: status === 'rate_limited' ? 'bg-red-100 text-red-700'\n\t\t\t\t\t\t\t\t: status === 'overage' ? 'bg-amber-100 text-amber-700'\n\t\t\t\t\t\t\t\t: 'bg-muted text-muted-foreground';\n\t\t\t\t\t\t\tfunction pct(v) { return v < 0 ? '—' : (v * 100).toFixed(1) + '%'; }\n\t\t\t\t\t\t\tfunction barW(v) { return v < 0 ? '0%' : Math.min(v * 100, 100).toFixed(1) + '%'; }\n\t\t\t\t\t\t\tfunction barC(v) { return v < 0 ? 'bg-gray-200' : v < 0.6 ? 'bg-emerald-500' : v < 0.85 ? 'bg-amber-500' : 'bg-red-500'; }\n\t\t\t\t\t\t\tfunction badge(s) {\n\t\t\t\t\t\t\t\tif (!s) return '';\n\t\t\t\t\t\t\t\tvar c = s === 'allowed' ? 'bg-emerald-100 text-emerald-700'\n\t\t\t\t\t\t\t\t\t: s === 'rate_limited' ? 'bg-red-100 text-red-700'\n\t\t\t\t\t\t\t\t\t: s === 'overage' ? 'bg-amber-100 text-amber-700'\n\t\t\t\t\t\t\t\t\t: 'bg-gray-100 text-gray-600';\n\t\t\t\t\t\t\t\treturn '<span class=\"rounded-full px-1.5 py-0 text-xs font-medium ' + c + '\">' + s + '</span>';\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn '<div class=\"rounded-lg border bg-card text-card-foreground shadow-xs p-4 space-y-3\">'\n\t\t\t\t\t\t\t\t+ '<div class=\"flex items-center justify-between gap-2\">'\n\t\t\t\t\t\t\t\t+ (showKey ? '<span class=\"font-mono text-xs text-muted-foreground truncate\">' + (tok.token_key || '') + '</span>' : '<span class=\"text-xs text-muted-foreground\">OAuth Token</span>')\n\t\t\t\t\t\t\t\t+ '<span class=\"rounded-full px-2 py-0.5 text-xs font-medium ' + badgeClass + '\">' + (status || 'unknown') + '</span>'\n\t\t\t\t\t\t\t\t+ '</div>'\n\t\t\t\t\t\t\t\t+ '<div><div class=\"flex items-center justify-between mb-1\"><span class=\"text-xs text-muted-foreground\">5h utilization</span><div class=\"flex items-center gap-1.5\"><span class=\"text-xs font-medium\">' + pct(tok.unified_5h_utilization) + '</span>' + badge(tok.unified_5h_status) + '</div></div>'\n\t\t\t\t\t\t\t\t+ '<div class=\"h-1.5 w-full rounded-full bg-muted overflow-hidden\"><div class=\"h-full rounded-full transition-all ' + barC(tok.unified_5h_utilization) + '\" style=\"width:' + barW(tok.unified_5h_utilization) + '\"></div></div></div>'\n\t\t\t\t\t\t\t\t+ '<div><div class=\"flex items-center justify-between mb-1\"><span class=\"text-xs text-muted-foreground\">7d utilization</span><div class=\"flex items-center gap-1.5\"><span class=\"text-xs font-medium\">' + pct(tok.unified_7d_utilization) + '</span>' + badge(tok.unified_7d_status) + '</div></div>'\n\t\t\t\t\t\t\t\t+ '<div class=\"h-1.5 w-full rounded-full bg-muted overflow-hidden\"><div class=\"h-full rounded-full transition-all ' + barC(tok.unified_7d_utilization) + '\" style=\"width:' + barW(tok.unified_7d_utilization) + '\"></div></div></div>'\n\t\t\t\t\t\t\t\t+ (tok.overage_disabled_reason ? '<p class=\"text-xs text-muted-foreground\">Overage disabled: ' + tok.overage_disabled_reason + '</p>' : '')\n\t\t\t\t\t\t\t\t+ '</div>';\n\t\t\t\t\t\t}).join('');\n\t\t\t\t\t})\n\t\t\t\t\t.catch(function() { /* silently ignore */ });\n\t\t\t}\n\t\t\tupdateRateLimitCards();\n\t\t\tsetInterval(updateRateLimitCards, 30000);\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
