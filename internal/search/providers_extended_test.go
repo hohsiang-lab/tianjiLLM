@@ -136,3 +136,96 @@ func TestSearXNG(t *testing.T) {
 		t.Fatal("expected nil for GET")
 	}
 }
+
+func TestDataForSEO_NameAndMethod(t *testing.T) {
+	p := &DataForSEO{}
+	if p.Name() != "dataforseo" {
+		t.Fatalf("name: %q", p.Name())
+	}
+	if p.HTTPMethod() != "POST" {
+		t.Fatalf("method: %q", p.HTTPMethod())
+	}
+}
+
+func TestDataForSEO_TransformResponse_InvalidJSON(t *testing.T) {
+	p := &DataForSEO{}
+	_, err := p.TransformResponse([]byte("not-json"))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestDataForSEO_TransformResponse_Valid(t *testing.T) {
+	p := &DataForSEO{}
+	body := `{"tasks":[{"result":[{"items":[{"type":"organic","url":"https://example.com","title":"Example","description":"Test"}]}]}]}`
+	resp, err := p.TransformResponse([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Results) == 0 {
+		t.Fatal("expected results")
+	}
+}
+
+func TestExa_NameAndMethod(t *testing.T) {
+	p := &Exa{}
+	if p.Name() != "exa_ai" {
+		t.Fatalf("name: %q", p.Name())
+	}
+	if p.HTTPMethod() != "POST" {
+		t.Fatalf("method: %q", p.HTTPMethod())
+	}
+}
+
+func TestExa_TransformResponse_Valid(t *testing.T) {
+	p := &Exa{}
+	body := `{"results":[{"url":"https://example.com","title":"Test","text":"Content"}]}`
+	resp, err := p.TransformResponse([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Results) == 0 {
+		t.Fatal("expected results")
+	}
+}
+
+func TestGooglePSE_TransformResponse_Valid(t *testing.T) {
+	p := &GooglePSE{}
+	body := `{"items":[{"link":"https://example.com","title":"Google Result","snippet":"Snippet"}]}`
+	resp, err := p.TransformResponse([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Results) == 0 {
+		t.Fatal("expected results")
+	}
+}
+
+func TestSearXNG_DefaultAPIBase(t *testing.T) {
+	p := &SearXNG{}
+	if p.DefaultAPIBase() == "" {
+		t.Fatal("empty base")
+	}
+}
+
+func TestSearXNG_TransformResponse_Valid(t *testing.T) {
+	p := &SearXNG{}
+	body := `{"results":[{"url":"https://example.com","title":"SearXNG Result","content":"Content"}]}`
+	resp, err := p.TransformResponse([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Results) == 0 {
+		t.Fatal("expected results")
+	}
+}
+
+func TestTavily_NameAndBase(t *testing.T) {
+	p := &Tavily{}
+	if p.Name() != "tavily" {
+		t.Fatalf("name: %q", p.Name())
+	}
+	if p.DefaultAPIBase() == "" {
+		t.Fatal("empty base")
+	}
+}

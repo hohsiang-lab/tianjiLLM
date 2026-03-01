@@ -17,7 +17,7 @@ import (
 //   - members[].value → team members
 //   - externalId → metadata["externalId"]
 type GroupHandler struct {
-	DB         *db.Queries
+	DB         SCIMStore
 	UpsertUser bool // auto-create missing users when true
 }
 

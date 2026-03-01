@@ -46,3 +46,10 @@ func TestTransformRequest(t *testing.T) {
 	body, _ := io.ReadAll(httpReq.Body)
 	assert.Contains(t, string(body), `"model":"deepseek-chat"`)
 }
+
+func TestGetSupportedParams(t *testing.T) {
+	p := newTestProvider()
+	params := p.GetSupportedParams()
+	assert.NotEmpty(t, params)
+	assert.Contains(t, params, "model")
+}

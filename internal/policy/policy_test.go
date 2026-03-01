@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -211,3 +212,15 @@ func (c *passDataChecker) Check(name string, input map[string]any) (bool, error)
 // Ensure model.PipelineConfig is deserializable (compile-time check)
 var _ = model.PipelineConfig{}
 var _ = pgtype.Timestamptz{}
+
+// --- Engine Tests (no-match path, no DB needed) ---
+
+func TestEngine_Evaluate_NoAttachments(t *testing.T) {
+	e := &Engine{
+		policies: make(map[string]db.PolicyTable),
+	}
+	result, err := e.Evaluate(context.Background(), MatchRequest{KeyID: "k1"})
+	require.NoError(t, err)
+	assert.Empty(t, result.Guardrails)
+	assert.Empty(t, result.Policies)
+}

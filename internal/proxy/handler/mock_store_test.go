@@ -25,9 +25,14 @@ type mockStore struct {
 	// Teams
 	createTeamFn       func(ctx context.Context, arg db.CreateTeamParams) (db.TeamTable, error)
 	listTeamsFn        func(ctx context.Context) ([]db.TeamTable, error)
+	getTeamFn          func(ctx context.Context, teamID string) (db.TeamTable, error)
 	deleteTeamFn       func(ctx context.Context, teamID string) error
 	updateTeamFn       func(ctx context.Context, arg db.UpdateTeamParams) (db.TeamTable, error)
 	addTeamMemberFn    func(ctx context.Context, arg db.AddTeamMemberParams) error
+	blockTeamFn        func(ctx context.Context, teamID string) error
+	unblockTeamFn      func(ctx context.Context, teamID string) error
+	addTeamModelFn     func(ctx context.Context, arg db.AddTeamModelParams) error
+	removeTeamModelFn  func(ctx context.Context, arg db.RemoveTeamModelParams) error
 	removeTeamMemberFn func(ctx context.Context, arg db.RemoveTeamMemberParams) error
 
 	// Users
@@ -44,6 +49,52 @@ type mockStore struct {
 	updateOrgMemberFn    func(ctx context.Context, arg db.UpdateOrgMemberParams) (db.OrganizationMembership, error)
 	deleteOrgMemberFn    func(ctx context.Context, arg db.DeleteOrgMemberParams) error
 
+	// Skills
+	createSkillFn func(ctx context.Context, arg db.CreateSkillParams) (db.SkillsTable, error)
+	getSkillFn    func(ctx context.Context, skillID string) (db.SkillsTable, error)
+	listSkillsFn  func(ctx context.Context, arg db.ListSkillsParams) ([]db.SkillsTable, error)
+	deleteSkillFn func(ctx context.Context, skillID string) error
+
+	// Key ext
+
+	// EndUser ext
+
+	// Misc / team ext
+
+	// Team callback / permissions
+	getTeamCallbackFn      func(ctx context.Context, teamID string) (interface{}, error)
+	setTeamCallbackFn      func(ctx context.Context, arg db.SetTeamCallbackParams) error
+	getTeamPermissionsFn   func(ctx context.Context, teamID string) ([]byte, error)
+	setTeamPermissionsFn   func(ctx context.Context, arg db.SetTeamPermissionsParams) error
+	updateTeamMemberRoleFn func(ctx context.Context, arg db.UpdateTeamMemberRoleParams) error
+
+	listErrorLogsFn        func(ctx context.Context, arg db.ListErrorLogsParams) ([]db.ErrorLog, error)
+	listHealthChecksFn     func(ctx context.Context, arg db.ListHealthChecksParams) ([]db.HealthCheckTable, error)
+	listAvailableTeamsFn   func(ctx context.Context) ([]db.TeamTable, error)
+	resetTeamSpendFn       func(ctx context.Context, teamID string) error
+	getTeamDailyActivityFn func(ctx context.Context, arg db.GetTeamDailyActivityParams) ([]db.GetTeamDailyActivityRow, error)
+
+	listEndUsersFn   func(ctx context.Context) ([]db.EndUserTable2, error)
+	blockEndUserFn   func(ctx context.Context, id string) (db.EndUserTable2, error)
+	unblockEndUserFn func(ctx context.Context, id string) (db.EndUserTable2, error)
+	updateEndUserFn  func(ctx context.Context, arg db.UpdateEndUserParams) (db.EndUserTable2, error)
+
+	// IP Whitelist
+	createIPFn func(ctx context.Context, arg db.CreateIPWhitelistParams) (db.IPWhitelistTable, error)
+	listIPFn   func(ctx context.Context) ([]db.IPWhitelistTable, error)
+	deleteIPFn func(ctx context.Context, ipAddress string) error
+
+	bulkUpdateVerificationTokensFn func(ctx context.Context, arg db.BulkUpdateVerificationTokensParams) error
+	regenerateVerificationTokenFn  func(ctx context.Context, arg db.RegenerateVerificationTokenParams) (db.VerificationToken, error)
+	resetVerificationTokenSpendFn  func(ctx context.Context, token string) error
+	listDistinctKeyAliasesFn       func(ctx context.Context) ([]*string, error)
+	getVerificationTokenBatchFn    func(ctx context.Context, tokens []string) ([]db.VerificationToken, error)
+
+	// User extended
+	getUserFn              func(ctx context.Context, userID string) (db.UserTable, error)
+	updateUserFn           func(ctx context.Context, arg db.UpdateUserParams) (db.UserTable, error)
+	getUserDailyActivityFn func(ctx context.Context, arg db.GetUserDailyActivityParams) ([]db.GetUserDailyActivityRow, error)
+
 	// Spend
 	getSpendByKeyFn     func(ctx context.Context, arg db.GetSpendByKeyParams) ([]db.GetSpendByKeyRow, error)
 	getSpendByUserFn    func(ctx context.Context, arg db.GetSpendByUserParams) ([]db.GetSpendByUserRow, error)
@@ -54,6 +105,46 @@ type mockStore struct {
 
 	// Audit (no-op by default)
 	insertAuditLogFn func(ctx context.Context, arg db.InsertAuditLogParams) (db.AuditLog, error)
+
+	// Audit log
+	getAuditLogFn   func(ctx context.Context, id string) (db.AuditLog, error)
+	listAuditLogsFn func(ctx context.Context, arg db.ListAuditLogsParams) ([]db.AuditLog, error)
+
+	// Agent
+	createAgentFn func(ctx context.Context, arg db.CreateAgentParams) (db.AgentsTable, error)
+	getAgentFn    func(ctx context.Context, agentID string) (db.AgentsTable, error)
+	listAgentsFn  func(ctx context.Context, arg db.ListAgentsParams) ([]db.AgentsTable, error)
+	updateAgentFn func(ctx context.Context, arg db.UpdateAgentParams) (db.AgentsTable, error)
+	patchAgentFn  func(ctx context.Context, arg db.PatchAgentParams) (db.AgentsTable, error)
+	deleteAgentFn func(ctx context.Context, agentID string) error
+
+	// EndUser
+	createEndUserFn func(ctx context.Context, arg db.CreateEndUserParams) (db.EndUserTable2, error)
+	getEndUserFn    func(ctx context.Context, id string) (db.EndUserTable2, error)
+	deleteEndUserFn func(ctx context.Context, id string) error
+
+	// Plugin (marketplace)
+	createPluginFn       func(ctx context.Context, arg db.CreatePluginParams) (db.ClaudeCodePluginTable, error)
+	getPluginFn          func(ctx context.Context, name string) (db.ClaudeCodePluginTable, error)
+	listPluginsFn        func(ctx context.Context, arg db.ListPluginsParams) ([]db.ClaudeCodePluginTable, error)
+	listEnabledPluginsFn func(ctx context.Context) ([]db.ClaudeCodePluginTable, error)
+	enablePluginFn       func(ctx context.Context, name string) error
+	disablePluginFn      func(ctx context.Context, name string) error
+	deletePluginFn2      func(ctx context.Context, name string) error
+
+	// Prompt template
+	getNextPromptVersionFn func(ctx context.Context, name string) (int32, error)
+	getPromptVersionsFn    func(ctx context.Context, name string) ([]db.PromptTemplateTable, error)
+	createPromptFn         func(ctx context.Context, arg db.CreatePromptTemplateParams) (db.PromptTemplateTable, error)
+	getPromptFn            func(ctx context.Context, id string) (db.PromptTemplateTable, error)
+	listPromptsFn          func(ctx context.Context) ([]db.PromptTemplateTable, error)
+	deletePromptFn2        func(ctx context.Context, id string) error
+
+	// AccessGroup
+	createAccessGroupFn func(ctx context.Context, arg db.CreateAccessGroupParams) (db.ModelAccessGroup, error)
+	getAccessGroupFn    func(ctx context.Context, groupID string) (db.ModelAccessGroup, error)
+	updateAccessGroupFn func(ctx context.Context, arg db.UpdateAccessGroupParams) error
+	deleteAccessGroupFn func(ctx context.Context, groupID string) error
 
 	// Budget
 	createBudgetFn func(ctx context.Context, arg db.CreateBudgetParams) (db.BudgetTable, error)
@@ -325,23 +416,40 @@ func (m *mockStore) InsertAuditLog(ctx context.Context, arg db.InsertAuditLogPar
 func (m *mockStore) Pool() *pgxpool.Pool            { return nil }
 func (m *mockStore) Ping(ctx context.Context) error { return nil }
 func (m *mockStore) AddTeamModel(ctx context.Context, arg db.AddTeamModelParams) error {
-	m.ni()
-	return nil
+	if m.addTeamModelFn != nil {
+		return m.addTeamModelFn(ctx, arg)
+	}
+	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) BlockEndUser(ctx context.Context, id string) (db.EndUserTable2, error) {
-	m.ni()
+	if m.blockEndUserFn != nil {
+		return m.blockEndUserFn(ctx, id)
+	}
 	return db.EndUserTable2{}, nil
 }
-func (m *mockStore) BlockTeam(ctx context.Context, teamID string) error { m.ni(); return nil }
+func (m *mockStore) BlockTeam(ctx context.Context, teamID string) error {
+	if m.blockTeamFn != nil {
+		return m.blockTeamFn(ctx, teamID)
+	}
+	return fmt.Errorf("not mocked")
+}
 func (m *mockStore) BulkUpdateVerificationTokens(ctx context.Context, arg db.BulkUpdateVerificationTokensParams) error {
-	m.ni()
+	if m.bulkUpdateVerificationTokensFn != nil {
+		return m.bulkUpdateVerificationTokensFn(ctx, arg)
+	}
 	return nil
 }
 func (m *mockStore) CreateAccessGroup(ctx context.Context, arg db.CreateAccessGroupParams) (db.ModelAccessGroup, error) {
+	if m.createAccessGroupFn != nil {
+		return m.createAccessGroupFn(ctx, arg)
+	}
 	m.ni()
 	return db.ModelAccessGroup{}, nil
 }
 func (m *mockStore) CreateAgent(ctx context.Context, arg db.CreateAgentParams) (db.AgentsTable, error) {
+	if m.createAgentFn != nil {
+		return m.createAgentFn(ctx, arg)
+	}
 	m.ni()
 	return db.AgentsTable{}, nil
 }
@@ -358,6 +466,9 @@ func (m *mockStore) CreateCredential(ctx context.Context, arg db.CreateCredentia
 	return db.CredentialTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreateEndUser(ctx context.Context, arg db.CreateEndUserParams) (db.EndUserTable2, error) {
+	if m.createEndUserFn != nil {
+		return m.createEndUserFn(ctx, arg)
+	}
 	m.ni()
 	return db.EndUserTable2{}, nil
 }
@@ -368,7 +479,9 @@ func (m *mockStore) CreateGuardrailConfig(ctx context.Context, arg db.CreateGuar
 	return db.GuardrailConfigTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreateIPWhitelist(ctx context.Context, arg db.CreateIPWhitelistParams) (db.IPWhitelistTable, error) {
-	m.ni()
+	if m.createIPFn != nil {
+		return m.createIPFn(ctx, arg)
+	}
 	return db.IPWhitelistTable{}, nil
 }
 func (m *mockStore) CreateMCPServer(ctx context.Context, arg db.CreateMCPServerParams) (db.MCPServerTable, error) {
@@ -378,6 +491,9 @@ func (m *mockStore) CreateMCPServer(ctx context.Context, arg db.CreateMCPServerP
 	return db.MCPServerTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreatePlugin(ctx context.Context, arg db.CreatePluginParams) (db.ClaudeCodePluginTable, error) {
+	if m.createPluginFn != nil {
+		return m.createPluginFn(ctx, arg)
+	}
 	m.ni()
 	return db.ClaudeCodePluginTable{}, nil
 }
@@ -394,6 +510,9 @@ func (m *mockStore) CreatePolicyAttachment(ctx context.Context, arg db.CreatePol
 	return db.PolicyAttachmentTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreatePromptTemplate(ctx context.Context, arg db.CreatePromptTemplateParams) (db.PromptTemplateTable, error) {
+	if m.createPromptFn != nil {
+		return m.createPromptFn(ctx, arg)
+	}
 	m.ni()
 	return db.PromptTemplateTable{}, nil
 }
@@ -404,6 +523,9 @@ func (m *mockStore) CreateProxyModel(ctx context.Context, arg db.CreateProxyMode
 	return db.ProxyModelTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreateSkill(ctx context.Context, arg db.CreateSkillParams) (db.SkillsTable, error) {
+	if m.createSkillFn != nil {
+		return m.createSkillFn(ctx, arg)
+	}
 	m.ni()
 	return db.SkillsTable{}, nil
 }
@@ -413,8 +535,20 @@ func (m *mockStore) CreateTag(ctx context.Context, arg db.CreateTagParams) (db.T
 	}
 	return db.TagTable{}, fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeleteAccessGroup(ctx context.Context, groupID string) error { m.ni(); return nil }
-func (m *mockStore) DeleteAgent(ctx context.Context, agentID string) error       { m.ni(); return nil }
+func (m *mockStore) DeleteAccessGroup(ctx context.Context, groupID string) error {
+	if m.deleteAccessGroupFn != nil {
+		return m.deleteAccessGroupFn(ctx, groupID)
+	}
+	m.ni()
+	return nil
+}
+func (m *mockStore) DeleteAgent(ctx context.Context, agentID string) error {
+	if m.deleteAgentFn != nil {
+		return m.deleteAgentFn(ctx, agentID)
+	}
+	m.ni()
+	return nil
+}
 func (m *mockStore) DeleteBudget(ctx context.Context, budgetID string) error {
 	if m.deleteBudgetFn != nil {
 		return m.deleteBudgetFn(ctx, budgetID)
@@ -427,7 +561,13 @@ func (m *mockStore) DeleteCredential(ctx context.Context, credentialID string) e
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeleteEndUser(ctx context.Context, id string) error { m.ni(); return nil }
+func (m *mockStore) DeleteEndUser(ctx context.Context, id string) error {
+	if m.deleteEndUserFn != nil {
+		return m.deleteEndUserFn(ctx, id)
+	}
+	m.ni()
+	return nil
+}
 func (m *mockStore) DeleteGuardrailConfig(ctx context.Context, id string) error {
 	if m.deleteGuardrailConfigFn != nil {
 		return m.deleteGuardrailConfigFn(ctx, id)
@@ -435,7 +575,9 @@ func (m *mockStore) DeleteGuardrailConfig(ctx context.Context, id string) error 
 	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) DeleteIPWhitelistByAddress(ctx context.Context, ipAddress string) error {
-	m.ni()
+	if m.deleteIPFn != nil {
+		return m.deleteIPFn(ctx, ipAddress)
+	}
 	return nil
 }
 func (m *mockStore) DeleteMCPServer(ctx context.Context, id string) error {
@@ -444,7 +586,13 @@ func (m *mockStore) DeleteMCPServer(ctx context.Context, id string) error {
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeletePlugin(ctx context.Context, name string) error { m.ni(); return nil }
+func (m *mockStore) DeletePlugin(ctx context.Context, name string) error {
+	if m.deletePluginFn2 != nil {
+		return m.deletePluginFn2(ctx, name)
+	}
+	m.ni()
+	return nil
+}
 func (m *mockStore) DeletePolicy(ctx context.Context, id string) error {
 	if m.deletePolicyFn != nil {
 		return m.deletePolicyFn(ctx, id)
@@ -457,31 +605,64 @@ func (m *mockStore) DeletePolicyAttachment(ctx context.Context, id string) error
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeletePromptTemplate(ctx context.Context, id string) error { m.ni(); return nil }
+func (m *mockStore) DeletePromptTemplate(ctx context.Context, id string) error {
+	if m.deletePromptFn2 != nil {
+		return m.deletePromptFn2(ctx, id)
+	}
+	m.ni()
+	return nil
+}
 func (m *mockStore) DeleteProxyModel(ctx context.Context, modelID string) error {
 	if m.deleteProxyModelFn != nil {
 		return m.deleteProxyModelFn(ctx, modelID)
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DeleteSkill(ctx context.Context, skillID string) error { m.ni(); return nil }
+func (m *mockStore) DeleteSkill(ctx context.Context, skillID string) error {
+	if m.deleteSkillFn != nil {
+		return m.deleteSkillFn(ctx, skillID)
+	}
+	m.ni()
+	return nil
+}
 func (m *mockStore) DeleteTag(ctx context.Context, id string) error {
 	if m.deleteTagFn != nil {
 		return m.deleteTagFn(ctx, id)
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) DisablePlugin(ctx context.Context, name string) error { m.ni(); return nil }
-func (m *mockStore) EnablePlugin(ctx context.Context, name string) error  { m.ni(); return nil }
+func (m *mockStore) DisablePlugin(ctx context.Context, name string) error {
+	if m.disablePluginFn != nil {
+		return m.disablePluginFn(ctx, name)
+	}
+	m.ni()
+	return nil
+}
+func (m *mockStore) EnablePlugin(ctx context.Context, name string) error {
+	if m.enablePluginFn != nil {
+		return m.enablePluginFn(ctx, name)
+	}
+	m.ni()
+	return nil
+}
 func (m *mockStore) GetAccessGroup(ctx context.Context, groupID string) (db.ModelAccessGroup, error) {
+	if m.getAccessGroupFn != nil {
+		return m.getAccessGroupFn(ctx, groupID)
+	}
 	m.ni()
 	return db.ModelAccessGroup{}, nil
 }
 func (m *mockStore) GetAgent(ctx context.Context, agentID string) (db.AgentsTable, error) {
+	if m.getAgentFn != nil {
+		return m.getAgentFn(ctx, agentID)
+	}
 	m.ni()
 	return db.AgentsTable{}, nil
 }
 func (m *mockStore) GetAuditLog(ctx context.Context, id string) (db.AuditLog, error) {
+	if m.getAuditLogFn != nil {
+		return m.getAuditLogFn(ctx, id)
+	}
 	m.ni()
 	return db.AuditLog{}, nil
 }
@@ -528,6 +709,9 @@ func (m *mockStore) GetDailySpendByTeam(ctx context.Context, arg db.GetDailySpen
 	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetEndUser(ctx context.Context, id string) (db.EndUserTable2, error) {
+	if m.getEndUserFn != nil {
+		return m.getEndUserFn(ctx, id)
+	}
 	m.ni()
 	return db.EndUserTable2{}, nil
 }
@@ -586,10 +770,15 @@ func (m *mockStore) GetMCPServer(ctx context.Context, id string) (db.MCPServerTa
 	return db.MCPServerTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetNextPromptVersion(ctx context.Context, name string) (int32, error) {
-	m.ni()
-	return 0, nil
+	if m.getNextPromptVersionFn != nil {
+		return m.getNextPromptVersionFn(ctx, name)
+	}
+	return 1, nil
 }
 func (m *mockStore) GetPlugin(ctx context.Context, name string) (db.ClaudeCodePluginTable, error) {
+	if m.getPluginFn != nil {
+		return m.getPluginFn(ctx, name)
+	}
 	m.ni()
 	return db.ClaudeCodePluginTable{}, nil
 }
@@ -610,6 +799,9 @@ func (m *mockStore) GetPolicyByName(ctx context.Context, name string) (db.Policy
 	return db.PolicyTable{}, nil
 }
 func (m *mockStore) GetPromptTemplate(ctx context.Context, id string) (db.PromptTemplateTable, error) {
+	if m.getPromptFn != nil {
+		return m.getPromptFn(ctx, id)
+	}
 	m.ni()
 	return db.PromptTemplateTable{}, nil
 }
@@ -618,7 +810,9 @@ func (m *mockStore) GetPromptTemplateByNameVersion(ctx context.Context, arg db.G
 	return db.PromptTemplateTable{}, nil
 }
 func (m *mockStore) GetPromptVersions(ctx context.Context, name string) ([]db.PromptTemplateTable, error) {
-	m.ni()
+	if m.getPromptVersionsFn != nil {
+		return m.getPromptVersionsFn(ctx, name)
+	}
 	return nil, nil
 }
 func (m *mockStore) GetProxyModel(ctx context.Context, modelID string) (db.ProxyModelTable, error) {
@@ -628,6 +822,9 @@ func (m *mockStore) GetProxyModel(ctx context.Context, modelID string) (db.Proxy
 	return db.ProxyModelTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetSkill(ctx context.Context, skillID string) (db.SkillsTable, error) {
+	if m.getSkillFn != nil {
+		return m.getSkillFn(ctx, skillID)
+	}
 	m.ni()
 	return db.SkillsTable{}, nil
 }
@@ -644,31 +841,47 @@ func (m *mockStore) GetTag(ctx context.Context, id string) (db.TagTable, error) 
 	return db.TagTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetTeam(ctx context.Context, teamID string) (db.TeamTable, error) {
+	if m.getTeamFn != nil {
+		return m.getTeamFn(ctx, teamID)
+	}
 	m.ni()
 	return db.TeamTable{}, nil
 }
 func (m *mockStore) GetTeamCallback(ctx context.Context, teamID string) (interface{}, error) {
-	m.ni()
+	if m.getTeamCallbackFn != nil {
+		return m.getTeamCallbackFn(ctx, teamID)
+	}
 	return nil, nil
 }
 func (m *mockStore) GetTeamDailyActivity(ctx context.Context, arg db.GetTeamDailyActivityParams) ([]db.GetTeamDailyActivityRow, error) {
-	m.ni()
+	if m.getTeamDailyActivityFn != nil {
+		return m.getTeamDailyActivityFn(ctx, arg)
+	}
 	return nil, nil
 }
 func (m *mockStore) GetTeamPermissions(ctx context.Context, teamID string) ([]byte, error) {
-	m.ni()
+	if m.getTeamPermissionsFn != nil {
+		return m.getTeamPermissionsFn(ctx, teamID)
+	}
 	return nil, nil
 }
 func (m *mockStore) GetUser(ctx context.Context, userID string) (db.UserTable, error) {
+	if m.getUserFn != nil {
+		return m.getUserFn(ctx, userID)
+	}
 	m.ni()
 	return db.UserTable{}, nil
 }
 func (m *mockStore) GetUserDailyActivity(ctx context.Context, arg db.GetUserDailyActivityParams) ([]db.GetUserDailyActivityRow, error) {
-	m.ni()
+	if m.getUserDailyActivityFn != nil {
+		return m.getUserDailyActivityFn(ctx, arg)
+	}
 	return nil, nil
 }
 func (m *mockStore) GetVerificationTokenBatch(ctx context.Context, dollar_1 []string) ([]db.VerificationToken, error) {
-	m.ni()
+	if m.getVerificationTokenBatchFn != nil {
+		return m.getVerificationTokenBatchFn(ctx, dollar_1)
+	}
 	return nil, nil
 }
 func (m *mockStore) GetLatestPromptByName(ctx context.Context, name string) (db.PromptTemplateTable, error) {
@@ -684,15 +897,23 @@ func (m *mockStore) InsertHealthCheck(ctx context.Context, arg db.InsertHealthCh
 	return nil
 }
 func (m *mockStore) ListAgents(ctx context.Context, arg db.ListAgentsParams) ([]db.AgentsTable, error) {
+	if m.listAgentsFn != nil {
+		return m.listAgentsFn(ctx, arg)
+	}
 	m.ni()
 	return nil, nil
 }
 func (m *mockStore) ListAuditLogs(ctx context.Context, arg db.ListAuditLogsParams) ([]db.AuditLog, error) {
+	if m.listAuditLogsFn != nil {
+		return m.listAuditLogsFn(ctx, arg)
+	}
 	m.ni()
 	return nil, nil
 }
 func (m *mockStore) ListAvailableTeams(ctx context.Context) ([]db.TeamTable, error) {
-	m.ni()
+	if m.listAvailableTeamsFn != nil {
+		return m.listAvailableTeamsFn(ctx)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListBudgets(ctx context.Context) ([]db.BudgetTable, error) {
@@ -714,19 +935,27 @@ func (m *mockStore) ListCredentialsByOrg(ctx context.Context, organizationID *st
 	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListDistinctKeyAliases(ctx context.Context) ([]*string, error) {
-	m.ni()
+	if m.listDistinctKeyAliasesFn != nil {
+		return m.listDistinctKeyAliasesFn(ctx)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListEnabledPlugins(ctx context.Context) ([]db.ClaudeCodePluginTable, error) {
-	m.ni()
+	if m.listEnabledPluginsFn != nil {
+		return m.listEnabledPluginsFn(ctx)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListEndUsers(ctx context.Context) ([]db.EndUserTable2, error) {
-	m.ni()
+	if m.listEndUsersFn != nil {
+		return m.listEndUsersFn(ctx)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListErrorLogs(ctx context.Context, arg db.ListErrorLogsParams) ([]db.ErrorLog, error) {
-	m.ni()
+	if m.listErrorLogsFn != nil {
+		return m.listErrorLogsFn(ctx, arg)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListGuardrailConfigs(ctx context.Context) ([]db.GuardrailConfigTable, error) {
@@ -736,11 +965,15 @@ func (m *mockStore) ListGuardrailConfigs(ctx context.Context) ([]db.GuardrailCon
 	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListHealthChecks(ctx context.Context, arg db.ListHealthChecksParams) ([]db.HealthCheckTable, error) {
-	m.ni()
+	if m.listHealthChecksFn != nil {
+		return m.listHealthChecksFn(ctx, arg)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListIPWhitelist(ctx context.Context) ([]db.IPWhitelistTable, error) {
-	m.ni()
+	if m.listIPFn != nil {
+		return m.listIPFn(ctx)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListMCPServers(ctx context.Context) ([]db.MCPServerTable, error) {
@@ -750,7 +983,9 @@ func (m *mockStore) ListMCPServers(ctx context.Context) ([]db.MCPServerTable, er
 	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListPlugins(ctx context.Context, arg db.ListPluginsParams) ([]db.ClaudeCodePluginTable, error) {
-	m.ni()
+	if m.listPluginsFn != nil {
+		return m.listPluginsFn(ctx, arg)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListPolicies(ctx context.Context) ([]db.PolicyTable, error) {
@@ -770,7 +1005,9 @@ func (m *mockStore) ListPolicyAttachmentsByPolicy(ctx context.Context, policyNam
 	return nil, nil
 }
 func (m *mockStore) ListPromptTemplates(ctx context.Context) ([]db.PromptTemplateTable, error) {
-	m.ni()
+	if m.listPromptsFn != nil {
+		return m.listPromptsFn(ctx)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListProxyModels(ctx context.Context) ([]db.ProxyModelTable, error) {
@@ -780,7 +1017,9 @@ func (m *mockStore) ListProxyModels(ctx context.Context) ([]db.ProxyModelTable, 
 	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListSkills(ctx context.Context, arg db.ListSkillsParams) ([]db.SkillsTable, error) {
-	m.ni()
+	if m.listSkillsFn != nil {
+		return m.listSkillsFn(ctx, arg)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListTags(ctx context.Context) ([]db.TagTable, error) {
@@ -790,16 +1029,23 @@ func (m *mockStore) ListTags(ctx context.Context) ([]db.TagTable, error) {
 	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) PatchAgent(ctx context.Context, arg db.PatchAgentParams) (db.AgentsTable, error) {
+	if m.patchAgentFn != nil {
+		return m.patchAgentFn(ctx, arg)
+	}
 	m.ni()
 	return db.AgentsTable{}, nil
 }
 func (m *mockStore) RegenerateVerificationToken(ctx context.Context, arg db.RegenerateVerificationTokenParams) (db.VerificationToken, error) {
-	m.ni()
+	if m.regenerateVerificationTokenFn != nil {
+		return m.regenerateVerificationTokenFn(ctx, arg)
+	}
 	return db.VerificationToken{}, nil
 }
 func (m *mockStore) RemoveTeamModel(ctx context.Context, arg db.RemoveTeamModelParams) error {
-	m.ni()
-	return nil
+	if m.removeTeamModelFn != nil {
+		return m.removeTeamModelFn(ctx, arg)
+	}
+	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) ResetAllKeySpend(ctx context.Context) error {
 	if m.resetAllKeySpendFn != nil {
@@ -813,29 +1059,53 @@ func (m *mockStore) ResetAllTeamSpend(ctx context.Context) error {
 	}
 	return fmt.Errorf("not mocked")
 }
-func (m *mockStore) ResetTeamSpend(ctx context.Context, teamID string) error { m.ni(); return nil }
+func (m *mockStore) ResetTeamSpend(ctx context.Context, teamID string) error {
+	if m.resetTeamSpendFn != nil {
+		return m.resetTeamSpendFn(ctx, teamID)
+	}
+	return nil
+}
 func (m *mockStore) ResetVerificationTokenSpend(ctx context.Context, token string) error {
-	m.ni()
+	if m.resetVerificationTokenSpendFn != nil {
+		return m.resetVerificationTokenSpendFn(ctx, token)
+	}
 	return nil
 }
 func (m *mockStore) SetTeamCallback(ctx context.Context, arg db.SetTeamCallbackParams) error {
-	m.ni()
+	if m.setTeamCallbackFn != nil {
+		return m.setTeamCallbackFn(ctx, arg)
+	}
 	return nil
 }
 func (m *mockStore) SetTeamPermissions(ctx context.Context, arg db.SetTeamPermissionsParams) error {
-	m.ni()
+	if m.setTeamPermissionsFn != nil {
+		return m.setTeamPermissionsFn(ctx, arg)
+	}
 	return nil
 }
 func (m *mockStore) UnblockEndUser(ctx context.Context, id string) (db.EndUserTable2, error) {
-	m.ni()
+	if m.unblockEndUserFn != nil {
+		return m.unblockEndUserFn(ctx, id)
+	}
 	return db.EndUserTable2{}, nil
 }
-func (m *mockStore) UnblockTeam(ctx context.Context, teamID string) error { m.ni(); return nil }
+func (m *mockStore) UnblockTeam(ctx context.Context, teamID string) error {
+	if m.unblockTeamFn != nil {
+		return m.unblockTeamFn(ctx, teamID)
+	}
+	return fmt.Errorf("not mocked")
+}
 func (m *mockStore) UpdateAccessGroup(ctx context.Context, arg db.UpdateAccessGroupParams) error {
+	if m.updateAccessGroupFn != nil {
+		return m.updateAccessGroupFn(ctx, arg)
+	}
 	m.ni()
 	return nil
 }
 func (m *mockStore) UpdateAgent(ctx context.Context, arg db.UpdateAgentParams) (db.AgentsTable, error) {
+	if m.updateAgentFn != nil {
+		return m.updateAgentFn(ctx, arg)
+	}
 	m.ni()
 	return db.AgentsTable{}, nil
 }
@@ -852,7 +1122,9 @@ func (m *mockStore) UpdateCredential(ctx context.Context, arg db.UpdateCredentia
 	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) UpdateEndUser(ctx context.Context, arg db.UpdateEndUserParams) (db.EndUserTable2, error) {
-	m.ni()
+	if m.updateEndUserFn != nil {
+		return m.updateEndUserFn(ctx, arg)
+	}
 	return db.EndUserTable2{}, nil
 }
 func (m *mockStore) UpdateGuardrailConfig(ctx context.Context, arg db.UpdateGuardrailConfigParams) (db.GuardrailConfigTable, error) {
@@ -886,13 +1158,33 @@ func (m *mockStore) UpdateTag(ctx context.Context, arg db.UpdateTagParams) (db.T
 	return db.TagTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) UpdateTeamMemberRole(ctx context.Context, arg db.UpdateTeamMemberRoleParams) error {
-	m.ni()
+	if m.updateTeamMemberRoleFn != nil {
+		return m.updateTeamMemberRoleFn(ctx, arg)
+	}
 	return nil
 }
 func (m *mockStore) UpdateUser(ctx context.Context, arg db.UpdateUserParams) (db.UserTable, error) {
+	if m.updateUserFn != nil {
+		return m.updateUserFn(ctx, arg)
+	}
 	m.ni()
 	return db.UserTable{}, nil
 }
 
 // Compile-time check
 var _ db.Store = (*mockStore)(nil)
+
+func (m *mockStore) UpdateUserMetadata(ctx context.Context, arg db.UpdateUserMetadataParams) error {
+	m.ni()
+	return nil
+}
+
+func (m *mockStore) ListVerificationTokensByUser(ctx context.Context, userID *string) ([]db.VerificationToken, error) {
+	m.ni()
+	return nil, nil
+}
+
+func (m *mockStore) UpdateTeamMetadata(ctx context.Context, arg db.UpdateTeamMetadataParams) error {
+	m.ni()
+	return nil
+}

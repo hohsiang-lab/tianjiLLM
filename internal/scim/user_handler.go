@@ -19,7 +19,7 @@ import (
 //   - emails[0].value → user_email
 //   - displayName → user_alias
 type UserHandler struct {
-	DB *db.Queries
+	DB SCIMStore
 }
 
 func (h *UserHandler) Create(r *http.Request, attrs libscim.ResourceAttributes) (libscim.Resource, error) {

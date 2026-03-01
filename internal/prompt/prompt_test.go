@@ -191,3 +191,46 @@ func TestLangfuseSource_ByLabel(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+// --- parsePrompt coverage ---
+
+func newTestLangfuseSource() *LangfuseSource {
+	return &LangfuseSource{}
+}
+
+func TestParsePrompt_ChatType(t *testing.T) {
+	l := newTestLangfuseSource()
+	msgs := []any{
+		map[string]any{"role": "user", "content": "hello"},
+		map[string]any{"role": "assistant", "content": "hi"},
+	}
+	result, err := l.parsePrompt(msgs, "chat")
+	require.NoError(t, err)
+	assert.Len(t, result.Messages, 2)
+	assert.Equal(t, "user", result.Messages[0].Role)
+}
+
+func TestParsePrompt_TextType(t *testing.T) {
+	l := newTestLangfuseSource()
+	result, err := l.parsePrompt("Hello world", "text")
+	require.NoError(t, err)
+	assert.Len(t, result.Messages, 1)
+	assert.Equal(t, "user", result.Messages[0].Role)
+}
+
+func TestParsePrompt_DefaultTypeString(t *testing.T) {
+	l := newTestLangfuseSource()
+	result, err := l.parsePrompt("simple text", "unknown")
+	require.NoError(t, err)
+	assert.Len(t, result.Messages, 1)
+}
+
+func TestParsePrompt_DefaultTypeMsgs(t *testing.T) {
+	l := newTestLangfuseSource()
+	msgs := []any{
+		map[string]any{"role": "system", "content": "you are helpful"},
+	}
+	result, err := l.parsePrompt(msgs, "unknown")
+	require.NoError(t, err)
+	assert.Len(t, result.Messages, 1)
+}

@@ -57,3 +57,8 @@ func TestFOCUSRecord_Fields(t *testing.T) {
 	assert.Equal(t, 10.0, r.BilledCost)
 	assert.Equal(t, "tokens", r.UsageUnit)
 }
+
+func TestS3BackendName(t *testing.T) {
+	b := &S3Backend{}
+	assert.Equal(t, "s3", b.Name())
+}

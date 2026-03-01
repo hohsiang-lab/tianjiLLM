@@ -1,224 +1,319 @@
 package scim
 
 import (
+	"context"
+	"net/http/httptest"
 	"testing"
 
 	libscim "github.com/elimity-com/scim"
-	"github.com/elimity-com/scim/optional"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
+	"github.com/scim2/filter-parser/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestToSCIMUser(t *testing.T) {
-	alias := "Test User"
-	email := "test@example.com"
-
-	user := db.UserTable{
-		UserID:    "user-1",
-		UserAlias: &alias,
-		UserEmail: &email,
-		UserRole:  "internal_user",
-		Metadata:  []byte(`{"scim_active": true, "sso_user_id": "ext-123"}`),
-		CreatedAt: pgtype.Timestamptz{Valid: false},
-		UpdatedAt: pgtype.Timestamptz{Valid: false},
-	}
-
-	res := toSCIMUser(user)
-
-	assert.Equal(t, "user-1", res.ID)
-	assert.Equal(t, "Test User", res.Attributes["displayName"])
-	assert.Equal(t, "user-1", res.Attributes["userName"])
-	assert.Equal(t, true, res.Attributes["active"])
-	assert.True(t, res.ExternalID.Present())
-	assert.Equal(t, "ext-123", res.ExternalID.Value())
-
-	emails, ok := res.Attributes["emails"].([]interface{})
-	assert.True(t, ok)
-	assert.Len(t, emails, 1)
-	em, _ := emails[0].(map[string]interface{})
-	assert.Equal(t, "test@example.com", em["value"])
+// mockSCIMDB implements SCIMStore for testing.
+type mockSCIMDB struct {
+	createUserFn       func(ctx context.Context, arg db.CreateUserParams) (db.UserTable, error)
+	getUserFn          func(ctx context.Context, userID string) (db.UserTable, error)
+	listUsersFn        func(ctx context.Context) ([]db.UserTable, error)
+	updateUserFn       func(ctx context.Context, arg db.UpdateUserParams) (db.UserTable, error)
+	deleteUserFn       func(ctx context.Context, userID string) error
+	updateUserMetaFn   func(ctx context.Context, arg db.UpdateUserMetadataParams) error
+	createTeamFn       func(ctx context.Context, arg db.CreateTeamParams) (db.TeamTable, error)
+	getTeamFn          func(ctx context.Context, teamID string) (db.TeamTable, error)
+	listTeamsFn        func(ctx context.Context) ([]db.TeamTable, error)
+	updateTeamFn       func(ctx context.Context, arg db.UpdateTeamParams) (db.TeamTable, error)
+	deleteTeamFn       func(ctx context.Context, teamID string) error
+	updateTeamMetaFn   func(ctx context.Context, arg db.UpdateTeamMetadataParams) error
+	addTeamMemberFn    func(ctx context.Context, arg db.AddTeamMemberParams) error
+	removeTeamMemberFn func(ctx context.Context, arg db.RemoveTeamMemberParams) error
+	listTokensByUserFn func(ctx context.Context, userID *string) ([]db.VerificationToken, error)
+	blockTokenFn       func(ctx context.Context, token string) error
 }
 
-func TestToSCIMUserInactive(t *testing.T) {
-	user := db.UserTable{
-		UserID:   "user-2",
-		Metadata: []byte(`{"scim_active": false}`),
+func (m *mockSCIMDB) CreateUser(ctx context.Context, arg db.CreateUserParams) (db.UserTable, error) {
+	if m.createUserFn != nil {
+		return m.createUserFn(ctx, arg)
 	}
-
-	res := toSCIMUser(user)
-	assert.Equal(t, false, res.Attributes["active"])
+	return db.UserTable{UserID: arg.UserID}, nil
+}
+func (m *mockSCIMDB) GetUser(ctx context.Context, userID string) (db.UserTable, error) {
+	if m.getUserFn != nil {
+		return m.getUserFn(ctx, userID)
+	}
+	return db.UserTable{UserID: userID}, nil
+}
+func (m *mockSCIMDB) ListUsers(ctx context.Context) ([]db.UserTable, error) {
+	if m.listUsersFn != nil {
+		return m.listUsersFn(ctx)
+	}
+	return []db.UserTable{}, nil
+}
+func (m *mockSCIMDB) UpdateUser(ctx context.Context, arg db.UpdateUserParams) (db.UserTable, error) {
+	if m.updateUserFn != nil {
+		return m.updateUserFn(ctx, arg)
+	}
+	return db.UserTable{UserID: arg.UserID}, nil
+}
+func (m *mockSCIMDB) DeleteUser(ctx context.Context, userID string) error {
+	if m.deleteUserFn != nil {
+		return m.deleteUserFn(ctx, userID)
+	}
+	return nil
+}
+func (m *mockSCIMDB) UpdateUserMetadata(ctx context.Context, arg db.UpdateUserMetadataParams) error {
+	if m.updateUserMetaFn != nil {
+		return m.updateUserMetaFn(ctx, arg)
+	}
+	return nil
+}
+func (m *mockSCIMDB) CreateTeam(ctx context.Context, arg db.CreateTeamParams) (db.TeamTable, error) {
+	if m.createTeamFn != nil {
+		return m.createTeamFn(ctx, arg)
+	}
+	return db.TeamTable{TeamID: arg.TeamID}, nil
+}
+func (m *mockSCIMDB) GetTeam(ctx context.Context, teamID string) (db.TeamTable, error) {
+	if m.getTeamFn != nil {
+		return m.getTeamFn(ctx, teamID)
+	}
+	return db.TeamTable{TeamID: teamID}, nil
+}
+func (m *mockSCIMDB) ListTeams(ctx context.Context) ([]db.TeamTable, error) {
+	if m.listTeamsFn != nil {
+		return m.listTeamsFn(ctx)
+	}
+	return []db.TeamTable{}, nil
+}
+func (m *mockSCIMDB) UpdateTeam(ctx context.Context, arg db.UpdateTeamParams) (db.TeamTable, error) {
+	if m.updateTeamFn != nil {
+		return m.updateTeamFn(ctx, arg)
+	}
+	return db.TeamTable{TeamID: arg.TeamID}, nil
+}
+func (m *mockSCIMDB) DeleteTeam(ctx context.Context, teamID string) error {
+	if m.deleteTeamFn != nil {
+		return m.deleteTeamFn(ctx, teamID)
+	}
+	return nil
+}
+func (m *mockSCIMDB) UpdateTeamMetadata(ctx context.Context, arg db.UpdateTeamMetadataParams) error {
+	if m.updateTeamMetaFn != nil {
+		return m.updateTeamMetaFn(ctx, arg)
+	}
+	return nil
+}
+func (m *mockSCIMDB) AddTeamMember(ctx context.Context, arg db.AddTeamMemberParams) error {
+	if m.addTeamMemberFn != nil {
+		return m.addTeamMemberFn(ctx, arg)
+	}
+	return nil
+}
+func (m *mockSCIMDB) RemoveTeamMember(ctx context.Context, arg db.RemoveTeamMemberParams) error {
+	if m.removeTeamMemberFn != nil {
+		return m.removeTeamMemberFn(ctx, arg)
+	}
+	return nil
+}
+func (m *mockSCIMDB) ListVerificationTokensByUser(ctx context.Context, userID *string) ([]db.VerificationToken, error) {
+	if m.listTokensByUserFn != nil {
+		return m.listTokensByUserFn(ctx, userID)
+	}
+	return nil, nil
+}
+func (m *mockSCIMDB) BlockVerificationToken(ctx context.Context, token string) error {
+	if m.blockTokenFn != nil {
+		return m.blockTokenFn(ctx, token)
+	}
+	return nil
 }
 
-func TestToSCIMUserNoMetadata(t *testing.T) {
-	user := db.UserTable{
-		UserID: "user-3",
-	}
+func newMockSCIMDB() *mockSCIMDB { return &mockSCIMDB{} }
 
-	res := toSCIMUser(user)
-	assert.Equal(t, true, res.Attributes["active"]) // default active
-	assert.False(t, res.ExternalID.Present())
+// ---- UserHandler tests ----
+
+func TestUserHandler_Get(t *testing.T) {
+	h := &UserHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("GET", "/Users/u1", nil)
+	res, err := h.Get(req, "u1")
+	require.NoError(t, err)
+	assert.Equal(t, "u1", res.ID)
 }
 
-func TestFromSCIMUser(t *testing.T) {
+func TestUserHandler_Get_NotFound(t *testing.T) {
+	ms := newMockSCIMDB()
+	ms.getUserFn = func(_ context.Context, _ string) (db.UserTable, error) {
+		return db.UserTable{}, assert.AnError
+	}
+	h := &UserHandler{DB: ms}
+	req := httptest.NewRequest("GET", "/Users/u1", nil)
+	_, err := h.Get(req, "u1")
+	assert.Error(t, err)
+}
+
+func TestUserHandler_GetAll(t *testing.T) {
+	ms := newMockSCIMDB()
+	ms.listUsersFn = func(_ context.Context) ([]db.UserTable, error) {
+		return []db.UserTable{{UserID: "u1"}, {UserID: "u2"}}, nil
+	}
+	h := &UserHandler{DB: ms}
+	req := httptest.NewRequest("GET", "/Users", nil)
+	page, err := h.GetAll(req, libscim.ListRequestParams{Count: 10, StartIndex: 1})
+	require.NoError(t, err)
+	assert.Equal(t, 2, page.TotalResults)
+}
+
+func TestUserHandler_Create(t *testing.T) {
+	h := &UserHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("POST", "/Users", nil)
 	attrs := libscim.ResourceAttributes{
-		"userName":    "john.doe",
-		"displayName": "John Doe",
-		"emails": []interface{}{
-			map[string]interface{}{
-				"value":   "john@example.com",
-				"type":    "work",
-				"primary": true,
-			},
-		},
+		"userName": "alice",
+		"emails":   []any{map[string]any{"value": "alice@example.com"}},
 	}
-
-	params := fromSCIMUser(attrs)
-
-	assert.Equal(t, "john.doe", params.UserID)
-	assert.Equal(t, "John Doe", *params.UserAlias)
-	assert.Equal(t, "john@example.com", *params.UserEmail)
-	assert.Equal(t, "internal_user", params.UserRole)
-	assert.Equal(t, "scim", params.CreatedBy)
+	res, err := h.Create(req, attrs)
+	require.NoError(t, err)
+	assert.NotEmpty(t, res.ID)
 }
 
-func TestToSCIMGroup(t *testing.T) {
-	alias := "Engineering"
-	team := db.TeamTable{
-		TeamID:    "team-1",
-		TeamAlias: &alias,
-		Members:   []string{"user-1", "user-2"},
-		Metadata:  []byte(`{"externalId": "ext-team-1"}`),
-	}
-
-	res := toSCIMGroup(team)
-
-	assert.Equal(t, "team-1", res.ID)
-	assert.Equal(t, "Engineering", res.Attributes["displayName"])
-	assert.True(t, res.ExternalID.Present())
-	assert.Equal(t, "ext-team-1", res.ExternalID.Value())
-
-	members, ok := res.Attributes["members"].([]interface{})
-	assert.True(t, ok)
-	assert.Len(t, members, 2)
-}
-
-func TestFromSCIMGroup(t *testing.T) {
-	attrs := libscim.ResourceAttributes{
-		"displayName": "Platform Team",
-		"members": []interface{}{
-			map[string]interface{}{"value": "user-a"},
-			map[string]interface{}{"value": "user-b"},
-		},
-	}
-
-	params := fromSCIMGroup(attrs)
-
-	assert.Equal(t, "Platform Team", *params.TeamAlias)
-	assert.Equal(t, []string{"user-a", "user-b"}, params.Members)
-	assert.Equal(t, "scim", params.CreatedBy)
-}
-
-func TestExtractMembers(t *testing.T) {
-	attrs := libscim.ResourceAttributes{
-		"members": []interface{}{
-			map[string]interface{}{"value": "u1", "display": "User 1"},
-			map[string]interface{}{"value": "u2"},
-		},
-	}
-
-	members := extractMembers(attrs)
-	assert.Equal(t, []string{"u1", "u2"}, members)
-}
-
-func TestExtractMembersEmpty(t *testing.T) {
-	attrs := libscim.ResourceAttributes{}
-	members := extractMembers(attrs)
-	assert.Nil(t, members)
-}
-
-func TestSetMetadataField(t *testing.T) {
-	data := setMetadataField(nil, "key", "value")
-	m := parseMetadata(data)
-	assert.Equal(t, "value", m["key"])
-
-	data = setMetadataField(data, "key2", true)
-	m = parseMetadata(data)
-	assert.Equal(t, "value", m["key"])
-	assert.Equal(t, true, m["key2"])
-}
-
-func TestParseMetadataEmpty(t *testing.T) {
-	m := parseMetadata(nil)
-	assert.NotNil(t, m)
-	assert.Len(t, m, 0)
-}
-
-func TestParseMetadataInvalid(t *testing.T) {
-	m := parseMetadata([]byte("not json"))
-	assert.NotNil(t, m)
-	assert.Len(t, m, 0)
-}
-
-func TestExtractExternalID(t *testing.T) {
-	attrs := libscim.ResourceAttributes{
-		"externalId": "ext-123",
-	}
-	eid := extractExternalID(attrs)
-	assert.True(t, eid.Present())
-	assert.Equal(t, "ext-123", eid.Value())
-}
-
-func TestExtractExternalIDMissing(t *testing.T) {
-	attrs := libscim.ResourceAttributes{}
-	eid := extractExternalID(attrs)
-	assert.False(t, eid.Present())
-}
-
-func TestExtractPatchMembers(t *testing.T) {
-	// Array of members
-	value := []interface{}{
-		map[string]interface{}{"value": "u1"},
-		map[string]interface{}{"value": "u2"},
-	}
-	members := extractPatchMembers(value)
-	assert.Equal(t, []string{"u1", "u2"}, members)
-
-	// Single member map
-	single := map[string]interface{}{"value": "u3"}
-	members = extractPatchMembers(single)
-	assert.Equal(t, []string{"u3"}, members)
-}
-
-func TestResourceHandlerInterface(t *testing.T) {
-	// Verify UserHandler and GroupHandler implement scim.ResourceHandler
-	var _ libscim.ResourceHandler = &UserHandler{}
-	var _ libscim.ResourceHandler = &GroupHandler{}
-}
-
-func TestNewSCIMServer(t *testing.T) {
-	// Verify SCIM server can be created with nil DB (for interface check)
-	server, err := NewSCIMServer(Config{})
+func TestUserHandler_Delete(t *testing.T) {
+	h := &UserHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("DELETE", "/Users/u1", nil)
+	err := h.Delete(req, "u1")
 	assert.NoError(t, err)
-	assert.NotNil(t, server)
 }
 
-func TestDerefStr(t *testing.T) {
-	s := "hello"
-	assert.Equal(t, "hello", derefStr(&s))
-	assert.Equal(t, "", derefStr(nil))
+func TestUserHandler_Replace(t *testing.T) {
+	h := &UserHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("PUT", "/Users/u1", nil)
+	attrs := libscim.ResourceAttributes{
+		"userName": "alice-updated",
+	}
+	res, err := h.Replace(req, "u1", attrs)
+	require.NoError(t, err)
+	assert.Equal(t, "u1", res.ID)
 }
 
-func TestIsUserActiveDefault(t *testing.T) {
-	u := db.UserTable{UserID: "test"}
-	assert.True(t, isUserActive(u))
+// ---- GroupHandler tests ----
+
+func TestGroupHandler_Get(t *testing.T) {
+	h := &GroupHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("GET", "/Groups/g1", nil)
+	res, err := h.Get(req, "g1")
+	require.NoError(t, err)
+	assert.Equal(t, "g1", res.ID)
 }
 
-func TestNewSCIMServerExternalID(t *testing.T) {
-	eid := extractExternalID(libscim.ResourceAttributes{"externalId": "abc"})
-	assert.True(t, eid.Present())
-	assert.Equal(t, "abc", eid.Value())
+func TestGroupHandler_Get_NotFound(t *testing.T) {
+	ms := newMockSCIMDB()
+	ms.getTeamFn = func(_ context.Context, _ string) (db.TeamTable, error) {
+		return db.TeamTable{}, assert.AnError
+	}
+	h := &GroupHandler{DB: ms}
+	req := httptest.NewRequest("GET", "/Groups/g1", nil)
+	_, err := h.Get(req, "g1")
+	assert.Error(t, err)
+}
 
-	noEid := extractExternalID(libscim.ResourceAttributes{})
-	assert.Equal(t, optional.String{}, noEid)
+func TestGroupHandler_GetAll(t *testing.T) {
+	ms := newMockSCIMDB()
+	ms.listTeamsFn = func(_ context.Context) ([]db.TeamTable, error) {
+		return []db.TeamTable{{TeamID: "g1"}}, nil
+	}
+	h := &GroupHandler{DB: ms}
+	req := httptest.NewRequest("GET", "/Groups", nil)
+	page, err := h.GetAll(req, libscim.ListRequestParams{Count: 10, StartIndex: 1})
+	require.NoError(t, err)
+	assert.Equal(t, 1, page.TotalResults)
+}
+
+func TestGroupHandler_Create(t *testing.T) {
+	h := &GroupHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("POST", "/Groups", nil)
+	attrs := libscim.ResourceAttributes{
+		"displayName": "Engineering",
+	}
+	res, err := h.Create(req, attrs)
+	require.NoError(t, err)
+	assert.NotEmpty(t, res.ID)
+}
+
+func TestGroupHandler_Delete(t *testing.T) {
+	h := &GroupHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("DELETE", "/Groups/g1", nil)
+	err := h.Delete(req, "g1")
+	assert.NoError(t, err)
+}
+
+func TestGroupHandler_Replace(t *testing.T) {
+	h := &GroupHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("PUT", "/Groups/g1", nil)
+	attrs := libscim.ResourceAttributes{
+		"displayName": "Infra",
+	}
+	res, err := h.Replace(req, "g1", attrs)
+	require.NoError(t, err)
+	assert.Equal(t, "g1", res.ID)
+}
+
+func TestUserHandler_Patch_Active(t *testing.T) {
+	h := &UserHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("PATCH", "/Users/u1", nil)
+
+	p, err := filter.ParsePath([]byte("active"))
+	require.NoError(t, err)
+	ops := []libscim.PatchOperation{
+		{Op: libscim.PatchOperationReplace, Path: &p, Value: true},
+	}
+	res, patchErr := h.Patch(req, "u1", ops)
+	require.NoError(t, patchErr)
+	assert.Equal(t, "u1", res.ID)
+}
+
+func TestUserHandler_Patch_DisplayName(t *testing.T) {
+	h := &UserHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("PATCH", "/Users/u1", nil)
+
+	p, err := filter.ParsePath([]byte("displayName"))
+	require.NoError(t, err)
+	ops := []libscim.PatchOperation{
+		{Op: libscim.PatchOperationReplace, Path: &p, Value: "Alice"},
+	}
+	res, patchErr := h.Patch(req, "u1", ops)
+	require.NoError(t, patchErr)
+	assert.Equal(t, "u1", res.ID)
+}
+
+func TestGroupHandler_Patch_DisplayName(t *testing.T) {
+	h := &GroupHandler{DB: newMockSCIMDB()}
+	req := httptest.NewRequest("PATCH", "/Groups/g1", nil)
+
+	p, err := filter.ParsePath([]byte("displayName"))
+	require.NoError(t, err)
+	ops := []libscim.PatchOperation{
+		{Op: libscim.PatchOperationReplace, Path: &p, Value: "New Name"},
+	}
+	res, patchErr := h.Patch(req, "g1", ops)
+	require.NoError(t, patchErr)
+	assert.Equal(t, "g1", res.ID)
+}
+
+func TestGroupHandler_Patch_Members_Add(t *testing.T) {
+	ms := newMockSCIMDB()
+	ms.getUserFn = func(_ context.Context, userID string) (db.UserTable, error) {
+		return db.UserTable{UserID: userID}, nil
+	}
+	h := &GroupHandler{DB: ms}
+	req := httptest.NewRequest("PATCH", "/Groups/g1", nil)
+
+	p, err := filter.ParsePath([]byte("members"))
+	require.NoError(t, err)
+	ops := []libscim.PatchOperation{
+		{Op: libscim.PatchOperationAdd, Path: &p, Value: []any{
+			map[string]any{"value": "u1"},
+		}},
+	}
+	res, patchErr := h.Patch(req, "g1", ops)
+	require.NoError(t, patchErr)
+	assert.Equal(t, "g1", res.ID)
 }

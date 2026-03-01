@@ -120,3 +120,17 @@ func TestGetSupportedParams(t *testing.T) {
 	assert.Contains(t, params, "messages")
 	assert.Contains(t, params, "language")
 }
+
+func TestTransformStreamChunk(t *testing.T) {
+	p := &Provider{}
+	chunk, done, err := p.TransformStreamChunk(context.Background(), []byte("data"))
+	assert.Nil(t, chunk)
+	assert.True(t, done)
+	assert.Error(t, err)
+}
+
+func TestMapParams(t *testing.T) {
+	p := &Provider{}
+	in := map[string]any{"language": "en"}
+	assert.Equal(t, in, p.MapParams(in))
+}

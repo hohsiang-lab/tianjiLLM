@@ -136,3 +136,24 @@ func TestTransformResponse_Error(t *testing.T) {
 	assert.Equal(t, "replicate", tianjiErr.Provider)
 	assert.Equal(t, "Model not found", tianjiErr.Message)
 }
+
+func TestTransformStreamChunk(t *testing.T) {
+	p := &Provider{}
+	// passing done signal
+	_, _, _ = p.TransformStreamChunk(context.Background(), []byte("data: [DONE]"))
+}
+
+func TestGetSupportedParams(t *testing.T) {
+	p := &Provider{}
+	params := p.GetSupportedParams()
+	assert.NotEmpty(t, params)
+}
+
+func TestMapParams_MaxTokens(t *testing.T) {
+	p := &Provider{}
+	in := map[string]any{"max_tokens": 100, "stop": []string{"end"}, "other": "val"}
+	out := p.MapParams(in)
+	assert.Equal(t, 100, out["max_new_tokens"])
+	assert.Equal(t, []string{"end"}, out["stop_sequences"])
+	assert.Equal(t, "val", out["other"])
+}
