@@ -55,6 +55,25 @@ type mockStore struct {
 	listSkillsFn  func(ctx context.Context, arg db.ListSkillsParams) ([]db.SkillsTable, error)
 	deleteSkillFn func(ctx context.Context, skillID string) error
 
+	// Key ext
+
+	// EndUser ext
+	listEndUsersFn   func(ctx context.Context) ([]db.EndUserTable2, error)
+	blockEndUserFn   func(ctx context.Context, id string) (db.EndUserTable2, error)
+	unblockEndUserFn func(ctx context.Context, id string) (db.EndUserTable2, error)
+	updateEndUserFn  func(ctx context.Context, arg db.UpdateEndUserParams) (db.EndUserTable2, error)
+
+	// IP Whitelist
+	createIPFn func(ctx context.Context, arg db.CreateIPWhitelistParams) (db.IPWhitelistTable, error)
+	listIPFn   func(ctx context.Context) ([]db.IPWhitelistTable, error)
+	deleteIPFn func(ctx context.Context, ipAddress string) error
+
+	bulkUpdateVerificationTokensFn func(ctx context.Context, arg db.BulkUpdateVerificationTokensParams) error
+	regenerateVerificationTokenFn  func(ctx context.Context, arg db.RegenerateVerificationTokenParams) (db.VerificationToken, error)
+	resetVerificationTokenSpendFn  func(ctx context.Context, token string) error
+	listDistinctKeyAliasesFn       func(ctx context.Context) ([]*string, error)
+	getVerificationTokenBatchFn    func(ctx context.Context, tokens []string) ([]db.VerificationToken, error)
+
 	// User extended
 	getUserFn              func(ctx context.Context, userID string) (db.UserTable, error)
 	updateUserFn           func(ctx context.Context, arg db.UpdateUserParams) (db.UserTable, error)
@@ -80,6 +99,7 @@ type mockStore struct {
 	getAgentFn    func(ctx context.Context, agentID string) (db.AgentsTable, error)
 	listAgentsFn  func(ctx context.Context, arg db.ListAgentsParams) ([]db.AgentsTable, error)
 	updateAgentFn func(ctx context.Context, arg db.UpdateAgentParams) (db.AgentsTable, error)
+	patchAgentFn  func(ctx context.Context, arg db.PatchAgentParams) (db.AgentsTable, error)
 	deleteAgentFn func(ctx context.Context, agentID string) error
 
 	// EndUser
@@ -385,7 +405,9 @@ func (m *mockStore) AddTeamModel(ctx context.Context, arg db.AddTeamModelParams)
 	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) BlockEndUser(ctx context.Context, id string) (db.EndUserTable2, error) {
-	m.ni()
+	if m.blockEndUserFn != nil {
+		return m.blockEndUserFn(ctx, id)
+	}
 	return db.EndUserTable2{}, nil
 }
 func (m *mockStore) BlockTeam(ctx context.Context, teamID string) error {
@@ -395,7 +417,9 @@ func (m *mockStore) BlockTeam(ctx context.Context, teamID string) error {
 	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) BulkUpdateVerificationTokens(ctx context.Context, arg db.BulkUpdateVerificationTokensParams) error {
-	m.ni()
+	if m.bulkUpdateVerificationTokensFn != nil {
+		return m.bulkUpdateVerificationTokensFn(ctx, arg)
+	}
 	return nil
 }
 func (m *mockStore) CreateAccessGroup(ctx context.Context, arg db.CreateAccessGroupParams) (db.ModelAccessGroup, error) {
@@ -438,7 +462,9 @@ func (m *mockStore) CreateGuardrailConfig(ctx context.Context, arg db.CreateGuar
 	return db.GuardrailConfigTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) CreateIPWhitelist(ctx context.Context, arg db.CreateIPWhitelistParams) (db.IPWhitelistTable, error) {
-	m.ni()
+	if m.createIPFn != nil {
+		return m.createIPFn(ctx, arg)
+	}
 	return db.IPWhitelistTable{}, nil
 }
 func (m *mockStore) CreateMCPServer(ctx context.Context, arg db.CreateMCPServerParams) (db.MCPServerTable, error) {
@@ -532,7 +558,9 @@ func (m *mockStore) DeleteGuardrailConfig(ctx context.Context, id string) error 
 	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) DeleteIPWhitelistByAddress(ctx context.Context, ipAddress string) error {
-	m.ni()
+	if m.deleteIPFn != nil {
+		return m.deleteIPFn(ctx, ipAddress)
+	}
 	return nil
 }
 func (m *mockStore) DeleteMCPServer(ctx context.Context, id string) error {
@@ -826,7 +854,9 @@ func (m *mockStore) GetUserDailyActivity(ctx context.Context, arg db.GetUserDail
 	return nil, nil
 }
 func (m *mockStore) GetVerificationTokenBatch(ctx context.Context, dollar_1 []string) ([]db.VerificationToken, error) {
-	m.ni()
+	if m.getVerificationTokenBatchFn != nil {
+		return m.getVerificationTokenBatchFn(ctx, dollar_1)
+	}
 	return nil, nil
 }
 func (m *mockStore) GetLatestPromptByName(ctx context.Context, name string) (db.PromptTemplateTable, error) {
@@ -878,7 +908,9 @@ func (m *mockStore) ListCredentialsByOrg(ctx context.Context, organizationID *st
 	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) ListDistinctKeyAliases(ctx context.Context) ([]*string, error) {
-	m.ni()
+	if m.listDistinctKeyAliasesFn != nil {
+		return m.listDistinctKeyAliasesFn(ctx)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListEnabledPlugins(ctx context.Context) ([]db.ClaudeCodePluginTable, error) {
@@ -888,7 +920,9 @@ func (m *mockStore) ListEnabledPlugins(ctx context.Context) ([]db.ClaudeCodePlug
 	return nil, nil
 }
 func (m *mockStore) ListEndUsers(ctx context.Context) ([]db.EndUserTable2, error) {
-	m.ni()
+	if m.listEndUsersFn != nil {
+		return m.listEndUsersFn(ctx)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListErrorLogs(ctx context.Context, arg db.ListErrorLogsParams) ([]db.ErrorLog, error) {
@@ -906,7 +940,9 @@ func (m *mockStore) ListHealthChecks(ctx context.Context, arg db.ListHealthCheck
 	return nil, nil
 }
 func (m *mockStore) ListIPWhitelist(ctx context.Context) ([]db.IPWhitelistTable, error) {
-	m.ni()
+	if m.listIPFn != nil {
+		return m.listIPFn(ctx)
+	}
 	return nil, nil
 }
 func (m *mockStore) ListMCPServers(ctx context.Context) ([]db.MCPServerTable, error) {
@@ -962,11 +998,16 @@ func (m *mockStore) ListTags(ctx context.Context) ([]db.TagTable, error) {
 	return nil, fmt.Errorf("not mocked")
 }
 func (m *mockStore) PatchAgent(ctx context.Context, arg db.PatchAgentParams) (db.AgentsTable, error) {
+	if m.patchAgentFn != nil {
+		return m.patchAgentFn(ctx, arg)
+	}
 	m.ni()
 	return db.AgentsTable{}, nil
 }
 func (m *mockStore) RegenerateVerificationToken(ctx context.Context, arg db.RegenerateVerificationTokenParams) (db.VerificationToken, error) {
-	m.ni()
+	if m.regenerateVerificationTokenFn != nil {
+		return m.regenerateVerificationTokenFn(ctx, arg)
+	}
 	return db.VerificationToken{}, nil
 }
 func (m *mockStore) RemoveTeamModel(ctx context.Context, arg db.RemoveTeamModelParams) error {
@@ -989,7 +1030,9 @@ func (m *mockStore) ResetAllTeamSpend(ctx context.Context) error {
 }
 func (m *mockStore) ResetTeamSpend(ctx context.Context, teamID string) error { m.ni(); return nil }
 func (m *mockStore) ResetVerificationTokenSpend(ctx context.Context, token string) error {
-	m.ni()
+	if m.resetVerificationTokenSpendFn != nil {
+		return m.resetVerificationTokenSpendFn(ctx, token)
+	}
 	return nil
 }
 func (m *mockStore) SetTeamCallback(ctx context.Context, arg db.SetTeamCallbackParams) error {
@@ -1001,7 +1044,9 @@ func (m *mockStore) SetTeamPermissions(ctx context.Context, arg db.SetTeamPermis
 	return nil
 }
 func (m *mockStore) UnblockEndUser(ctx context.Context, id string) (db.EndUserTable2, error) {
-	m.ni()
+	if m.unblockEndUserFn != nil {
+		return m.unblockEndUserFn(ctx, id)
+	}
 	return db.EndUserTable2{}, nil
 }
 func (m *mockStore) UnblockTeam(ctx context.Context, teamID string) error {
@@ -1037,7 +1082,9 @@ func (m *mockStore) UpdateCredential(ctx context.Context, arg db.UpdateCredentia
 	return fmt.Errorf("not mocked")
 }
 func (m *mockStore) UpdateEndUser(ctx context.Context, arg db.UpdateEndUserParams) (db.EndUserTable2, error) {
-	m.ni()
+	if m.updateEndUserFn != nil {
+		return m.updateEndUserFn(ctx, arg)
+	}
 	return db.EndUserTable2{}, nil
 }
 func (m *mockStore) UpdateGuardrailConfig(ctx context.Context, arg db.UpdateGuardrailConfigParams) (db.GuardrailConfigTable, error) {

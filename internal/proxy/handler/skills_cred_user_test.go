@@ -200,3 +200,133 @@ func TestUserDailyActivity_NoDB(t *testing.T) {
 	h.UserDailyActivity(w, req)
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
+
+// ---- Key Ext ----
+
+func TestKeyRegenerate_Success(t *testing.T) {
+	ms := newMockStore()
+	ms.regenerateVerificationTokenFn = func(_ context.Context, arg db.RegenerateVerificationTokenParams) (db.VerificationToken, error) {
+		return db.VerificationToken{Token: "sk-new-xxx"}, nil
+	}
+	h := &Handlers{DB: ms}
+	body, _ := json.Marshal(map[string]string{"key": "sk-old-key"})
+	req := httptest.NewRequest(http.MethodPost, "/key/regenerate", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.KeyRegenerate(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestKeyRegenerate_NoDB(t *testing.T) {
+	h := newTestHandlers()
+	body, _ := json.Marshal(map[string]string{"key": "sk-old"})
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.KeyRegenerate(w, req)
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestResetKeySpend_Success(t *testing.T) {
+	ms := newMockStore()
+	ms.resetVerificationTokenSpendFn = func(_ context.Context, _ string) error { return nil }
+	h := &Handlers{DB: ms}
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("key", "sk-abc")
+	req := httptest.NewRequest(http.MethodPost, "/key/sk-abc/reset_spend", nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	w := httptest.NewRecorder()
+	h.ResetKeySpend(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestKeyAliases_Success(t *testing.T) {
+	ms := newMockStore()
+	alias1 := "gpt4"
+	ms.listDistinctKeyAliasesFn = func(_ context.Context) ([]*string, error) {
+		return []*string{&alias1}, nil
+	}
+	h := &Handlers{DB: ms}
+	req := httptest.NewRequest(http.MethodGet, "/key/aliases", nil)
+	w := httptest.NewRecorder()
+	h.KeyAliases(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestKeyInfoV2_Success(t *testing.T) {
+	ms := newMockStore()
+	ms.getVerificationTokenBatchFn = func(_ context.Context, tokens []string) ([]db.VerificationToken, error) {
+		result := make([]db.VerificationToken, len(tokens))
+		for i, t := range tokens {
+			result[i] = db.VerificationToken{Token: t}
+		}
+		return result, nil
+	}
+	h := &Handlers{DB: ms}
+	body, _ := json.Marshal(map[string][]string{"keys": {"sk-a", "sk-b"}})
+	req := httptest.NewRequest(http.MethodPost, "/key/info_v2", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.KeyInfoV2(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestKeyBulkUpdate_Success(t *testing.T) {
+	ms := newMockStore()
+	ms.bulkUpdateVerificationTokensFn = func(_ context.Context, _ db.BulkUpdateVerificationTokensParams) error {
+		return nil
+	}
+	h := &Handlers{DB: ms}
+	body, _ := json.Marshal(map[string]any{"keys": []string{"sk-a", "sk-b"}, "max_budget": 100.0})
+	req := httptest.NewRequest(http.MethodPost, "/key/bulk_update", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.KeyBulkUpdate(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestKeyHealthCheck_NoDB(t *testing.T) {
+	h := newTestHandlers()
+	req := httptest.NewRequest(http.MethodGet, "/key/health", nil)
+	w := httptest.NewRecorder()
+	h.KeyHealthCheck(w, req)
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+// ---- Agent Patch / Update ----
+
+func TestAgentPatch_Success(t *testing.T) {
+	ms := newMockStore()
+	ms.patchAgentFn = func(_ context.Context, arg db.PatchAgentParams) (db.AgentsTable, error) {
+		return db.AgentsTable{AgentID: arg.AgentID}, nil
+	}
+	h := &Handlers{DB: ms}
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("agent_id", "agent-1")
+	body, _ := json.Marshal(map[string]string{"agent_name": "updated"})
+	req := httptest.NewRequest(http.MethodPatch, "/agent/agent-1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	w := httptest.NewRecorder()
+	h.AgentPatch(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestAgentUpdateV2_Success(t *testing.T) {
+	ms := newMockStore()
+	ms.updateAgentFn = func(_ context.Context, arg db.UpdateAgentParams) (db.AgentsTable, error) {
+		return db.AgentsTable{AgentID: arg.AgentID}, nil
+	}
+	h := &Handlers{DB: ms}
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("agent_id", "agent-1")
+	body, _ := json.Marshal(map[string]string{"agent_name": "fully-updated"})
+	req := httptest.NewRequest(http.MethodPut, "/agent/agent-1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	w := httptest.NewRecorder()
+	h.AgentUpdate(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
