@@ -21156,6 +21156,14 @@
         "output_cost_per_token": 4e-07,
         "supports_tool_choice": true
     },
+    "jina-embeddings-v3": {
+        "input_cost_per_token": 1.8e-08,
+        "litellm_provider": "jina_ai",
+        "max_input_tokens": 8192,
+        "max_tokens": 8192,
+        "mode": "embedding",
+        "output_cost_per_token": 0
+    },
     "jina-reranker-v2-base-multilingual": {
         "input_cost_per_token": 1.8e-08,
         "litellm_provider": "jina_ai",
