@@ -151,7 +151,9 @@ func setProviderAuth(req *http.Request, providerName, apiKey string) {
 		} else {
 			req.Header.Set("x-api-key", apiKey)
 		}
-		req.Header.Set("anthropic-version", "2023-06-01")
+		if req.Header.Get("anthropic-version") == "" {
+			req.Header.Set("anthropic-version", "2023-06-01")
+		}
 	case "vertex_ai", "gemini":
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	default:
