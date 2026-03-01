@@ -87,17 +87,23 @@ func (h *Handlers) Rerank(w http.ResponseWriter, r *http.Request) {
 		totalTokens := 0
 		if parsed.Usage != nil {
 			totalTokens = parsed.Usage.TotalTokens
+		} else if parsed.Meta != nil && parsed.Meta.Tokens != nil {
+			// Cohere-style response: meta.tokens.input_tokens
+			totalTokens = parsed.Meta.Tokens.InputTokens + parsed.Meta.Tokens.OutputTokens
 		}
 
 		endTime := time.Now()
+		// For rerank, there is no prompt/completion token split.
+		// Set PromptTokens = TotalTokens so the UI can display token usage.
 		go h.Callbacks.LogSuccess(callback.LogData{
-			Model:       req.Model,
-			APIKey:      apiKey,
-			TotalTokens: totalTokens,
-			StartTime:   startTime,
-			EndTime:     endTime,
-			Latency:     endTime.Sub(startTime),
-			CallType:    "rerank",
+			Model:        req.Model,
+			APIKey:       apiKey,
+			PromptTokens: totalTokens,
+			TotalTokens:  totalTokens,
+			StartTime:    startTime,
+			EndTime:      endTime,
+			Latency:      endTime.Sub(startTime),
+			CallType:     "rerank",
 		})
 	}
 }
