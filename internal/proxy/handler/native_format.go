@@ -128,6 +128,11 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 				if h.DiscordAlerter != nil {
 					h.DiscordAlerter.CheckAndAlert(state)
 				}
+				if h.RateLimitStore != nil {
+					tokenKey := callback.RateLimitCacheKey(apiKey)
+					rlState := callback.ParseAnthropicOAuthRateLimitHeaders(resp.Header, tokenKey)
+					h.RateLimitStore.Set(tokenKey, rlState)
+				}
 			}
 
 			if h.Callbacks == nil {
