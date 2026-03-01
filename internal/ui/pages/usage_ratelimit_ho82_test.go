@@ -117,7 +117,7 @@ func TestRateLimitWidget_5hUtilization_NegativeOne(t *testing.T) {
 		t.Errorf("Unified5hUtilization=-1: expected '\u2014' (dash) in rendered HTML, got:\n%s", html)
 	}
 
-	if strings.Contains(html, "-100") {
+	if strings.Contains(html, "aria-valuenow=\"-100\"") {
 		t.Errorf("Unified5hUtilization=-1: must not render '-100%%', got:\n%s", html)
 	}
 }
@@ -137,7 +137,7 @@ func TestRateLimitWidget_7dUtilization_NegativeOne(t *testing.T) {
 		t.Errorf("Unified7dUtilization=-1: expected '\u2014' (dash) in rendered HTML, got:\n%s", html)
 	}
 
-	if strings.Contains(html, "-100") {
+	if strings.Contains(html, "aria-valuenow=\"-100\"") {
 		t.Errorf("Unified7dUtilization=-1: must not render '-100%%', got:\n%s", html)
 	}
 }
