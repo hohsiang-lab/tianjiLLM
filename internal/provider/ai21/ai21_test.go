@@ -1,7 +1,10 @@
 package ai21
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 
@@ -54,4 +57,34 @@ func TestMapParams(t *testing.T) {
 	params := map[string]any{"model": "test"}
 	result := p.MapParams(params)
 	assert.Equal(t, params, result)
+}
+
+func TestTransformResponse_Error(t *testing.T) {
+	p := &Provider{}
+	resp := &http.Response{
+		StatusCode: http.StatusUnauthorized,
+		Body:       io.NopCloser(bytes.NewReader([]byte("unauthorized"))),
+	}
+	_, err := p.TransformResponse(context.Background(), resp)
+	assert.Error(t, err)
+}
+
+func TestTransformStreamChunk(t *testing.T) {
+	p := &Provider{}
+	stop := "stop"
+	chunk := struct {
+		ID      string `json:"id"`
+		Choices []struct {
+			FinishReason *string `json:"finish_reason"`
+		} `json:"choices"`
+	}{
+		ID: "1",
+		Choices: []struct {
+			FinishReason *string `json:"finish_reason"`
+		}{{FinishReason: &stop}},
+	}
+	data, _ := json.Marshal(chunk)
+	_, done, err := p.TransformStreamChunk(context.Background(), data)
+	require.NoError(t, err)
+	assert.True(t, done)
 }

@@ -1,36 +1,28 @@
 package spend
 
 import (
-	"context"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
+	"time"
 )
 
-type mockStorage struct {
-	uploads []string
+func TestPgDate(t *testing.T) {
+	now := time.Now()
+	d := pgDate(now)
+	if !d.Valid {
+		t.Fatal("pgDate should be valid")
+	}
+	if !d.Time.Equal(now) {
+		t.Fatalf("pgDate time = %v, want %v", d.Time, now)
+	}
 }
 
-func (m *mockStorage) Name() string { return "mock" }
-func (m *mockStorage) Upload(_ context.Context, key string, _ []byte) (string, error) {
-	m.uploads = append(m.uploads, key)
-	return "mock://" + key, nil
-}
-
-func TestStorageBackendInterface(t *testing.T) {
-	var _ StorageBackend = &mockStorage{}
-	var _ StorageBackend = &S3Backend{}
-}
-
-func TestMockStorageUpload(t *testing.T) {
-	m := &mockStorage{}
-	loc, err := m.Upload(context.Background(), "test/key.json", []byte(`{"test":true}`))
-	assert.NoError(t, err)
-	assert.Equal(t, "mock://test/key.json", loc)
-	assert.Len(t, m.uploads, 1)
-}
-
-func TestArchiverDefaults(t *testing.T) {
-	a := &Archiver{}
-	assert.Equal(t, int32(0), a.BatchSize) // default, resolved to 10000 at runtime
+func TestPgTSTZ(t *testing.T) {
+	now := time.Now()
+	ts := pgTSTZ(now)
+	if !ts.Valid {
+		t.Fatal("pgTSTZ should be valid")
+	}
+	if !ts.Time.Equal(now) {
+		t.Fatalf("pgTSTZ time = %v, want %v", ts.Time, now)
+	}
 }

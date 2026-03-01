@@ -136,3 +136,36 @@ func TestGetRequestURL(t *testing.T) {
 	assert.Contains(t, url, "anthropic.claude-v2")
 	assert.Contains(t, url, "converse")
 }
+
+func TestGetSupportedParams(t *testing.T) {
+	p := New()
+	params := p.GetSupportedParams()
+	if len(params) == 0 {
+		t.Fatal("expected supported params")
+	}
+	found := false
+	for _, p := range params {
+		if p == "model" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected 'model' in supported params")
+	}
+}
+
+func TestMapParams(t *testing.T) {
+	p := New()
+	input := map[string]any{
+		"max_tokens":            100,
+		"temperature":           0.7,
+		"max_completion_tokens": 200,
+	}
+	result := p.MapParams(input)
+	if result == nil {
+		t.Fatal("MapParams returned nil")
+	}
+	if _, ok := result["maxTokens"]; !ok {
+		t.Fatal("expected maxTokens in result")
+	}
+}

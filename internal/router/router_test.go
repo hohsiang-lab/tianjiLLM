@@ -224,3 +224,63 @@ func TestRouter_RecordSuccess_ResetsFailures(t *testing.T) {
 	d.RecordFailure()
 	assert.True(t, d.IsHealthy(), "should still be healthy because success reset failures")
 }
+
+func TestModelGroupAlias(t *testing.T) {
+	settings := RouterSettings{
+		ModelGroupAlias: map[string]ModelGroupAliasItem{
+			"gpt-4": {Model: "gpt-4o"},
+		},
+	}
+	r := New(nil, &roundRobinStrategy{}, settings)
+	alias := r.ModelGroupAlias()
+	assert.NotNil(t, alias)
+	assert.Contains(t, alias, "gpt-4")
+}
+
+func TestRecordFailure(t *testing.T) {
+	r := New(nil, &roundRobinStrategy{}, RouterSettings{})
+	d := &Deployment{
+		allowedFails: 3,
+		cooldownTime: time.Minute,
+	}
+	// Should not panic
+	r.RecordFailure(d)
+}
+
+func TestExtractLastUserMessage_Empty(t *testing.T) {
+	req := &model.ChatCompletionRequest{}
+	msg := extractLastUserMessage(req)
+	assert.Equal(t, "", msg)
+}
+
+func TestExtractLastUserMessage_User(t *testing.T) {
+	req := &model.ChatCompletionRequest{
+		Messages: []model.Message{
+			{Role: "system", Content: "system prompt"},
+			{Role: "user", Content: "hello"},
+		},
+	}
+	msg := extractLastUserMessage(req)
+	assert.Equal(t, "hello", msg)
+}
+
+func TestExtractTags_Nil(t *testing.T) {
+	tags := extractTags(nil)
+	assert.Nil(t, tags)
+}
+
+func TestExtractTags_NoMetadata(t *testing.T) {
+	req := &model.ChatCompletionRequest{}
+	tags := extractTags(req)
+	assert.Nil(t, tags)
+}
+
+func TestExtractTags_WithTags(t *testing.T) {
+	req := &model.ChatCompletionRequest{
+		Metadata: map[string]any{
+			"tags": []any{"billing", "prod"},
+		},
+	}
+	tags := extractTags(req)
+	assert.Equal(t, []string{"billing", "prod"}, tags)
+}
