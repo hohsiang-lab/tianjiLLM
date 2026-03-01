@@ -5,7 +5,19 @@ INSERT INTO "ErrorLogs" (
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: ListErrorLogs :many
-SELECT * FROM "ErrorLogs"
-WHERE ($1::text = '' OR model = $1)
+SELECT
+    id,
+    request_id,
+    api_key_hash,
+    model,
+    provider,
+    status_code,
+    error_type,
+    error_message,
+    traceback,
+    created_at,
+    team_id
+FROM "ErrorLogs"
+WHERE (sqlc.narg(filter_model)::text IS NULL OR model = sqlc.narg(filter_model))
 ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
+LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);

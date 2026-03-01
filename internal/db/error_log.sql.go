@@ -44,20 +44,32 @@ func (q *Queries) InsertErrorLog(ctx context.Context, arg InsertErrorLogParams) 
 }
 
 const listErrorLogs = `-- name: ListErrorLogs :many
-SELECT id, request_id, api_key_hash, model, provider, status_code, error_type, error_message, traceback, created_at, team_id FROM "ErrorLogs"
-WHERE ($1::text = '' OR model = $1)
+SELECT
+    id,
+    request_id,
+    api_key_hash,
+    model,
+    provider,
+    status_code,
+    error_type,
+    error_message,
+    traceback,
+    created_at,
+    team_id
+FROM "ErrorLogs"
+WHERE ($1::text IS NULL OR model = $1)
 ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
+LIMIT $3 OFFSET $2
 `
 
 type ListErrorLogsParams struct {
-	Column1 string `json:"column_1"`
-	Limit   int32  `json:"limit"`
-	Offset  int32  `json:"offset"`
+	FilterModel *string `json:"filter_model"`
+	QueryOffset int32   `json:"query_offset"`
+	QueryLimit  int32   `json:"query_limit"`
 }
 
 func (q *Queries) ListErrorLogs(ctx context.Context, arg ListErrorLogsParams) ([]ErrorLog, error) {
-	rows, err := q.db.Query(ctx, listErrorLogs, arg.Column1, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listErrorLogs, arg.FilterModel, arg.QueryOffset, arg.QueryLimit)
 	if err != nil {
 		return nil, err
 	}
