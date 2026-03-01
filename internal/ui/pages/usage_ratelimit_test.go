@@ -108,3 +108,24 @@ func TestRateLimitCard_OverageDisabledReason_RendersBadge(t *testing.T) {
 		t.Errorf("no badge element found for OverageDisabledReason='org_level_disabled'.\nRendered HTML:\n%s", html)
 	}
 }
+
+// TestRateLimitPollingScript_ProgressBar_HasARIA verifies that the JS polling
+// script (rendered inside RateLimitWidget) includes ARIA attributes on the
+// dynamically-generated inner progress bar divs for both 5h and 7d windows.
+func TestRateLimitPollingScript_ProgressBar_HasARIA(t *testing.T) {
+	// Render with no tokens so we still get the script block
+	html := renderToString(t, pages.RateLimitWidget(nil))
+
+	if !strings.Contains(html, `role="progressbar"`) {
+		t.Errorf("polling script does not contain role=\"progressbar\"; JS-generated inner bar is missing ARIA.\nRendered HTML:\n%s", html)
+	}
+	if !strings.Contains(html, "aria-valuenow") {
+		t.Errorf("polling script does not contain aria-valuenow.\nRendered HTML:\n%s", html)
+	}
+	if !strings.Contains(html, "aria-valuemin") {
+		t.Errorf("polling script does not contain aria-valuemin.\nRendered HTML:\n%s", html)
+	}
+	if !strings.Contains(html, "aria-valuemax") {
+		t.Errorf("polling script does not contain aria-valuemax.\nRendered HTML:\n%s", html)
+	}
+}
