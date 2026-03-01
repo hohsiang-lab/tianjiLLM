@@ -1,8 +1,8 @@
 -- name: InsertErrorLog :exec
 INSERT INTO "ErrorLogs" (
     request_id, api_key_hash, model, provider,
-    status_code, error_type, error_message, traceback
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+    status_code, error_type, error_message, traceback, team_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: ListErrorLogs :many
 SELECT * FROM "ErrorLogs"

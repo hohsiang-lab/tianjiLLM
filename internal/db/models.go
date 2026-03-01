@@ -227,6 +227,7 @@ type ErrorLog struct {
 	ErrorMessage string             `json:"error_message"`
 	Traceback    string             `json:"traceback"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TeamID       *string            `json:"team_id"`
 }
 
 type GuardrailConfigTable struct {

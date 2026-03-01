@@ -94,6 +94,10 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 						apiKeyHash = v
 					}
 					requestID := chiMiddleware.GetReqID(ctx)
+					var teamID *string
+					if tid, ok := ctx.Value(middleware.ContextKeyTeamID).(string); ok && tid != "" {
+						teamID = &tid
+					}
 					go func() {
 						_ = h.DB.InsertErrorLog(context.Background(), db.InsertErrorLogParams{
 							RequestID:    requestID,
@@ -103,6 +107,7 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 							StatusCode:   int32(resp.StatusCode),
 							ErrorType:    "upstream_error",
 							ErrorMessage: errMsg,
+							TeamID:       teamID,
 						})
 					}()
 				}

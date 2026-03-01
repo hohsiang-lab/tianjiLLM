@@ -12,19 +12,20 @@ import (
 const insertErrorLog = `-- name: InsertErrorLog :exec
 INSERT INTO "ErrorLogs" (
     request_id, api_key_hash, model, provider,
-    status_code, error_type, error_message, traceback
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    status_code, error_type, error_message, traceback, team_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type InsertErrorLogParams struct {
-	RequestID    string `json:"request_id"`
-	ApiKeyHash   string `json:"api_key_hash"`
-	Model        string `json:"model"`
-	Provider     string `json:"provider"`
-	StatusCode   int32  `json:"status_code"`
-	ErrorType    string `json:"error_type"`
-	ErrorMessage string `json:"error_message"`
-	Traceback    string `json:"traceback"`
+	RequestID    string  `json:"request_id"`
+	ApiKeyHash   string  `json:"api_key_hash"`
+	Model        string  `json:"model"`
+	Provider     string  `json:"provider"`
+	StatusCode   int32   `json:"status_code"`
+	ErrorType    string  `json:"error_type"`
+	ErrorMessage string  `json:"error_message"`
+	Traceback    string  `json:"traceback"`
+	TeamID       *string `json:"team_id"`
 }
 
 func (q *Queries) InsertErrorLog(ctx context.Context, arg InsertErrorLogParams) error {
@@ -37,12 +38,13 @@ func (q *Queries) InsertErrorLog(ctx context.Context, arg InsertErrorLogParams) 
 		arg.ErrorType,
 		arg.ErrorMessage,
 		arg.Traceback,
+		arg.TeamID,
 	)
 	return err
 }
 
 const listErrorLogs = `-- name: ListErrorLogs :many
-SELECT id, request_id, api_key_hash, model, provider, status_code, error_type, error_message, traceback, created_at FROM "ErrorLogs"
+SELECT id, request_id, api_key_hash, model, provider, status_code, error_type, error_message, traceback, created_at, team_id FROM "ErrorLogs"
 WHERE ($1::text = '' OR model = $1)
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -74,6 +76,7 @@ func (q *Queries) ListErrorLogs(ctx context.Context, arg ListErrorLogsParams) ([
 			&i.ErrorMessage,
 			&i.Traceback,
 			&i.CreatedAt,
+			&i.TeamID,
 		); err != nil {
 			return nil, err
 		}
