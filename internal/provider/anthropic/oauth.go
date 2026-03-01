@@ -20,7 +20,9 @@ func SetOAuthHeaders(req *http.Request, apiKey string) {
 	req.Header.Del("x-api-key")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	if existing := req.Header.Get("anthropic-beta"); existing != "" {
-		req.Header.Set("anthropic-beta", existing+","+OAuthBetaHeader)
+		if !strings.Contains(existing, OAuthBetaHeader) {
+			req.Header.Set("anthropic-beta", existing+","+OAuthBetaHeader)
+		}
 	} else {
 		req.Header.Set("anthropic-beta", OAuthBetaHeader)
 	}
