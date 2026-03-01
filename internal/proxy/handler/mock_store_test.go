@@ -25,6 +25,7 @@ type mockStore struct {
 	// Teams
 	createTeamFn       func(ctx context.Context, arg db.CreateTeamParams) (db.TeamTable, error)
 	listTeamsFn        func(ctx context.Context) ([]db.TeamTable, error)
+	getTeamFn           func(ctx context.Context, teamID string) (db.TeamTable, error)
 	deleteTeamFn       func(ctx context.Context, teamID string) error
 	updateTeamFn       func(ctx context.Context, arg db.UpdateTeamParams) (db.TeamTable, error)
 	addTeamMemberFn    func(ctx context.Context, arg db.AddTeamMemberParams) error
@@ -655,6 +656,9 @@ func (m *mockStore) GetTag(ctx context.Context, id string) (db.TagTable, error) 
 	return db.TagTable{}, fmt.Errorf("not mocked")
 }
 func (m *mockStore) GetTeam(ctx context.Context, teamID string) (db.TeamTable, error) {
+	if m.getTeamFn != nil {
+		return m.getTeamFn(ctx, teamID)
+	}
 	m.ni()
 	return db.TeamTable{}, nil
 }
