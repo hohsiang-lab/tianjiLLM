@@ -2,10 +2,12 @@ package proxy
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/handler"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
@@ -63,7 +65,8 @@ func NewServerWithAuth(cfg ServerConfig, authCfg middleware.AuthConfig) *Server 
 	r.Use(chiMiddleware.RequestID)
 	r.Use(chiMiddleware.RealIP)
 	r.Use(chiMiddleware.Recoverer)
-	r.Use(chiMiddleware.Logger)
+	// Structured logging via zerolog (HO-150)
+	r.Use(middleware.StructuredLogging(zerolog.New(os.Stdout).With().Timestamp().Logger()))
 
 	authMW := middleware.NewAuthMiddleware(authCfg)
 
