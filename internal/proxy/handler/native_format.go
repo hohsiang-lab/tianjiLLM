@@ -91,6 +91,8 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 					if len(body) > 0 {
 						errMsg = string(body)
 					}
+					log.Printf("native proxy %s: upstream error status=%d model=%q body=%s",
+						providerName, resp.StatusCode, requestModel, truncateStr(errMsg, 500))
 					apiKeyHash := ""
 					if v, ok := ctx.Value(middleware.ContextKeyTokenHash).(string); ok {
 						apiKeyHash = v
@@ -193,7 +195,7 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 			return nil
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-			log.Printf("native proxy error (%s): %v", providerName, err)
+			log.Printf("native proxy %s: transport error model=%q err=%v", providerName, requestModel, err)
 			http.Error(w, `{"error":"upstream request failed"}`, http.StatusBadGateway)
 		},
 	}
@@ -456,6 +458,13 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion, cacheRe
 		}
 	}
 	return
+}
+
+func truncateStr(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
 }
 
 func defaultBaseURL(provider string) string {

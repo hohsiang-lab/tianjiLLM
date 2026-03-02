@@ -284,6 +284,8 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		log.Printf("chat streaming: upstream error status=%d model=%q body=%s",
+			resp.StatusCode, req.Model, truncateStr(string(body), 500))
 		h.logFailure(r.Context(), req, p, startTime, fmt.Errorf("upstream error: status %d", resp.StatusCode))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)

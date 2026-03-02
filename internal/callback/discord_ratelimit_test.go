@@ -98,9 +98,9 @@ func itoa(n int64) string {
 
 // --- FR-003 / SC-007: missing header → error log, check skipped ---
 
-func TestParseAnthropicHeaders_MissingInputHeader_LogsErrorAndSkipsInputCheck(t *testing.T) {
+func TestParseAnthropicHeaders_MissingInputHeader_ReturnsSentinelAndNoLog(t *testing.T) {
 	// FR-003 / SC-007: When a required input-token header is absent,
-	// ParseAnthropicRateLimitHeaders logs an error and sets input fields to -1 (C-04).
+	// ParseAnthropicRateLimitHeaders sets input fields to -1 (C-04) silently.
 	logBuf, restore := captureLog(t)
 	defer restore()
 
@@ -117,18 +117,17 @@ func TestParseAnthropicHeaders_MissingInputHeader_LogsErrorAndSkipsInputCheck(t 
 
 	// Input check must be skipped (sentinel -1)
 	assert.Equal(t, int64(-1), state.InputTokensLimit, "InputTokensLimit should be -1 when input headers are missing")
+	assert.Equal(t, int64(-1), state.InputTokensRemaining, "InputTokensRemaining should be -1 when input headers are missing")
+	assert.Empty(t, state.InputTokensReset, "InputTokensReset should be empty when input headers are missing")
 
-	// Error must be logged for missing header
-	logged := logBuf.String()
-	assert.Contains(t, logged, "anthropic-ratelimit-input-tokens-limit",
-		"error log must mention the missing header name")
-	assert.Contains(t, logged, "ERROR", "log must include ERROR level indicator")
+	// Missing headers should NOT produce log spam
+	assert.Empty(t, logBuf.String(), "missing headers should not produce log output")
 }
 
 // --- FR-004 / SC-008: header present but non-integer → error log with raw value, check skipped ---
 
-func TestParseAnthropicHeaders_UnparseableInputHeader_LogsErrorWithRawValue(t *testing.T) {
-	// FR-004 / SC-008
+func TestParseAnthropicHeaders_UnparseableInputHeader_ReturnsSentinelSilently(t *testing.T) {
+	// FR-004 / SC-008: non-integer header → sentinel -1, no log spam.
 	logBuf, restore := captureLog(t)
 	defer restore()
 
@@ -139,15 +138,11 @@ func TestParseAnthropicHeaders_UnparseableInputHeader_LogsErrorWithRawValue(t *t
 	state := ParseAnthropicRateLimitHeaders(h)
 
 	assert.Equal(t, int64(-1), state.InputTokensRemaining, "InputTokensRemaining must be -1 for unparseable header")
-
-	logged := logBuf.String()
-	assert.Contains(t, logged, "not-a-number", "error log must include the raw invalid value")
-	assert.Contains(t, logged, "anthropic-ratelimit-input-tokens-remaining",
-		"error log must include the header name")
+	assert.Empty(t, logBuf.String(), "unparseable headers should not produce log output")
 }
 
-func TestParseAnthropicHeaders_UnparseableOutputHeader_LogsErrorWithRawValue(t *testing.T) {
-	// FR-004 / SC-008 (output variant)
+func TestParseAnthropicHeaders_UnparseableOutputHeader_ReturnsSentinelSilently(t *testing.T) {
+	// FR-004 / SC-008 (output variant): non-integer header → sentinel -1, no log spam.
 	logBuf, restore := captureLog(t)
 	defer restore()
 
@@ -157,9 +152,7 @@ func TestParseAnthropicHeaders_UnparseableOutputHeader_LogsErrorWithRawValue(t *
 	state := ParseAnthropicRateLimitHeaders(h)
 
 	assert.Equal(t, int64(-1), state.OutputTokensLimit, "OutputTokensLimit must be -1 for unparseable header")
-
-	logged := logBuf.String()
-	assert.Contains(t, logged, "bad_value", "error log must include raw invalid value")
+	assert.Empty(t, logBuf.String(), "unparseable headers should not produce log output")
 }
 
 // --- FR-005: input and output are independent checks ---

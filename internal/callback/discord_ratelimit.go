@@ -35,22 +35,16 @@ func ParseAnthropicRateLimitHeaders(h http.Header) AnthropicRateLimitState {
 	parseInt64OrNeg1 := func(name string) int64 {
 		raw := h.Get(name)
 		if raw == "" {
-			log.Printf("ERROR ratelimit: Anthropic response missing header %q", name)
 			return -1
 		}
 		v, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil {
-			log.Printf("ERROR ratelimit: cannot parse header %q value %q: %v", name, raw, err)
 			return -1
 		}
 		return v
 	}
 	getResetOrEmpty := func(name string) string {
-		raw := h.Get(name)
-		if raw == "" {
-			log.Printf("ERROR ratelimit: Anthropic response missing header %q", name)
-		}
-		return raw
+		return h.Get(name)
 	}
 
 	s.InputTokensLimit = parseInt64OrNeg1("anthropic-ratelimit-input-tokens-limit")
