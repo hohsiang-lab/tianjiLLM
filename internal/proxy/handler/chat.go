@@ -335,6 +335,12 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 				if chunk.Usage.CompletionTokens > 0 {
 					accUsage.CompletionTokens = chunk.Usage.CompletionTokens
 				}
+				if chunk.Usage.CacheReadInputTokens > 0 {
+					accUsage.CacheReadInputTokens = chunk.Usage.CacheReadInputTokens
+				}
+				if chunk.Usage.CacheCreationInputTokens > 0 {
+					accUsage.CacheCreationInputTokens = chunk.Usage.CacheCreationInputTokens
+				}
 			}
 			// Accumulate content for caching
 			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != nil {

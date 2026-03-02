@@ -15,10 +15,6 @@ import (
 // response contains cache tokens, the LogData callback receives non-zero
 // CacheReadInputTokens and CacheCreationInputTokens.
 //
-// Currently FAILS because:
-// 1. model.Usage lacks CacheReadInputTokens / CacheCreationInputTokens fields
-// 2. logSuccess doesn't copy cache fields from Usage to LogData
-// 3. pricing.TokenUsage literal doesn't include cache fields
 func TestLogSuccess_CacheTokensPassedToCallback(t *testing.T) {
 	t.Parallel()
 

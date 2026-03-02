@@ -7,7 +7,7 @@ import (
 
 // TestUsageUnmarshalCacheTokens verifies that model.Usage can unmarshal
 // cache_read_input_tokens and cache_creation_input_tokens from JSON.
-// Currently FAILS because Usage struct lacks these fields.
+// Verifies cache fields exist on Usage struct.
 func TestUsageUnmarshalCacheTokens(t *testing.T) {
 	raw := `{
 		"prompt_tokens": 1000,
