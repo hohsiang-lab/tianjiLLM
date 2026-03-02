@@ -5,13 +5,19 @@ import (
 	"io"
 	"net/http"
 
+	"time"
+
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 )
 
 // forwardToProvider proxies a request to the upstream provider, copying the
 // request body and returning the upstream response verbatim. This is used by
 // Files, Batches, Fine-tuning, and similar pass-through endpoints.
 func (h *Handlers) forwardToProvider(w http.ResponseWriter, r *http.Request, upstreamURL, apiKey, contentType string) {
+	// Phase 2: provider.resolved (for passthrough endpoints)
+	middleware.LogProviderResolved(r.Context(), "passthrough", upstreamURL, "passthrough", "")
+
 	upstreamReq, err := http.NewRequestWithContext(r.Context(), r.Method, upstreamURL, r.Body)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
@@ -35,8 +41,14 @@ func (h *Handlers) forwardToProvider(w http.ResponseWriter, r *http.Request, ups
 		upstreamReq.ContentLength = r.ContentLength
 	}
 
+	upstreamStart := time.Now()
 	resp, err := http.DefaultClient.Do(upstreamReq)
+	upstreamLatency := middleware.UpstreamLatencyMs(upstreamStart)
 	if err != nil {
+		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+			LatencyMs: upstreamLatency,
+			Error:     err.Error(),
+		})
 		writeJSON(w, http.StatusBadGateway, model.ErrorResponse{
 			Error: model.ErrorDetail{
 				Message: "upstream request failed: " + err.Error(),
@@ -46,6 +58,12 @@ func (h *Handlers) forwardToProvider(w http.ResponseWriter, r *http.Request, ups
 		return
 	}
 	defer resp.Body.Close()
+
+	// Phase 3: upstream.responded
+	middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+		StatusCode: resp.StatusCode,
+		LatencyMs:  upstreamLatency,
+	})
 
 	// Copy upstream response headers
 	for k, vv := range resp.Header {

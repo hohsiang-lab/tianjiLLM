@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 )
 
 // ImageGeneration handles POST /v1/images/generations.
@@ -33,6 +34,9 @@ func (h *Handlers) ImageGeneration(w http.ResponseWriter, r *http.Request) {
 
 	url := p.GetRequestURL(req.Model)
 	url = url[:len(url)-len("/chat/completions")] + "/images/generations"
+
+	// Phase 2: provider.resolved
+	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(req.Model), url, "image_generation", req.Model)
 
 	proxyUpstream(w, r, url, apiKey, p)
 }

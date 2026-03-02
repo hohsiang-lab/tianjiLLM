@@ -9,11 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog"
 
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
@@ -52,6 +53,7 @@ func (h *Handlers) ChatCompletion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	originalModel := req.Model
 	p, apiKey, modelName, err := h.resolveProvider(r.Context(), &req)
 	if err != nil {
 		var status int
@@ -77,6 +79,9 @@ func (h *Handlers) ChatCompletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Model = modelName
+
+	// Phase 2: provider.resolved
+	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(originalModel), p.GetRequestURL(modelName), "chat", modelName)
 
 	// Evaluate policy engine — merge guardrails from policies
 	guardrailNames := h.getGuardrailNames(r.Context())
@@ -115,7 +120,7 @@ func (h *Handlers) ChatCompletion(w http.ResponseWriter, r *http.Request) {
 		for k := range req.ExtraParams {
 			keys = append(keys, k)
 		}
-		log.Printf("warn: unknown parameters forwarded to upstream: %v", keys)
+		zerolog.Ctx(r.Context()).Warn().Strs("unknown_params", keys).Msg("unknown parameters forwarded to upstream")
 	}
 
 	if req.IsStreaming() {
@@ -139,7 +144,7 @@ func (h *Handlers) resolveProvider(ctx context.Context, req *model.ChatCompletio
 		// Try general fallback chain
 		d, p, fbErr := h.Router.GeneralFallback(req.Model)
 		if fbErr == nil {
-			log.Printf("fallback: %s → %s", req.Model, d.ModelName)
+			zerolog.Ctx(ctx).Info().Str("event", "model.fallback").Str("from", req.Model).Str("to", d.ModelName).Msg("fallback activated")
 			return p, d.APIKey(), d.ModelName, nil
 		}
 
@@ -204,6 +209,12 @@ func (h *Handlers) handleNonStreamingCompletion(w http.ResponseWriter, r *http.R
 	resp, err := http.DefaultClient.Do(httpReq)
 	llmLatency := time.Since(llmStart)
 	if err != nil {
+		// Phase 3: upstream.responded (error)
+		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+			StatusCode: 0,
+			LatencyMs:  float64(llmLatency.Milliseconds()),
+			Error:      err.Error(),
+		})
 		h.logFailure(r.Context(), req, p, startTime, fmt.Errorf("upstream request failed: %w", err))
 		writeJSON(w, http.StatusBadGateway, model.ErrorResponse{
 			Error: model.ErrorDetail{
@@ -213,6 +224,12 @@ func (h *Handlers) handleNonStreamingCompletion(w http.ResponseWriter, r *http.R
 		})
 		return
 	}
+
+	// Phase 3: upstream.responded
+	middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+		StatusCode: resp.StatusCode,
+		LatencyMs:  float64(llmLatency.Milliseconds()),
+	})
 
 	result, err := p.TransformResponse(r.Context(), resp)
 	if err != nil {
@@ -271,6 +288,12 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 	resp, err := http.DefaultClient.Do(httpReq)
 	llmLatency := time.Since(llmStart)
 	if err != nil {
+		// Phase 3: upstream.responded (error)
+		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+			StatusCode: 0,
+			LatencyMs:  float64(llmLatency.Milliseconds()),
+			Error:      err.Error(),
+		})
 		h.logFailure(r.Context(), req, p, startTime, fmt.Errorf("upstream request failed: %w", err))
 		writeJSON(w, http.StatusBadGateway, model.ErrorResponse{
 			Error: model.ErrorDetail{
@@ -281,6 +304,12 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	defer resp.Body.Close()
+
+	// Phase 3: upstream.responded
+	middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+		StatusCode: resp.StatusCode,
+		LatencyMs:  float64(llmLatency.Milliseconds()),
+	})
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -312,7 +341,7 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 
 		chunk, done, err := p.TransformStreamChunk(r.Context(), []byte(data))
 		if err != nil {
-			log.Printf("stream chunk error: %v", err)
+			zerolog.Ctx(r.Context()).Warn().Err(err).Msg("stream chunk transform error")
 			continue
 		}
 
@@ -348,7 +377,7 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 			}
 			chunkData, err := json.Marshal(chunk)
 			if err != nil {
-				log.Printf("marshal chunk error: %v", err)
+				zerolog.Ctx(r.Context()).Warn().Err(err).Msg("marshal chunk error")
 				continue
 			}
 			fmt.Fprintf(w, "data: %s\n\n", chunkData)

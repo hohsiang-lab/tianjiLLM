@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 )
 
 // Moderation handles POST /v1/moderations.
@@ -37,6 +38,9 @@ func (h *Handlers) Moderation(w http.ResponseWriter, r *http.Request) {
 
 	url := p.GetRequestURL(modelName)
 	url = url[:len(url)-len("/chat/completions")] + "/moderations"
+
+	// Phase 2: provider.resolved
+	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(modelName), url, "moderation", modelName)
 
 	proxyUpstream(w, r, url, apiKey, p)
 }

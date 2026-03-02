@@ -9,6 +9,7 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 )
 
 // Embedding handles POST /v1/embeddings.
@@ -52,6 +53,9 @@ func (h *Handlers) Embedding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Phase 2: provider.resolved
+	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(req.Model), p.GetRequestURL(modelName), "embedding", modelName)
+
 	req.Model = modelName
 
 	httpReq, err := embProvider.TransformEmbeddingRequest(r.Context(), &req, apiKey)
@@ -65,8 +69,14 @@ func (h *Handlers) Embedding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	upstreamStart := time.Now()
 	resp, err := http.DefaultClient.Do(httpReq)
+	upstreamLatency := middleware.UpstreamLatencyMs(upstreamStart)
 	if err != nil {
+		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+			LatencyMs: upstreamLatency,
+			Error:     err.Error(),
+		})
 		writeJSON(w, http.StatusBadGateway, model.ErrorResponse{
 			Error: model.ErrorDetail{
 				Message: "upstream request failed: " + err.Error(),
@@ -75,6 +85,12 @@ func (h *Handlers) Embedding(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	// Phase 3: upstream.responded
+	middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+		StatusCode: resp.StatusCode,
+		LatencyMs:  upstreamLatency,
+	})
 
 	result, err := embProvider.TransformEmbeddingResponse(r.Context(), resp)
 	if err != nil {
