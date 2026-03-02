@@ -6,9 +6,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/rs/zerolog"
 	"net/http"
 	"strings"
+
+	"github.com/rs/zerolog"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/auth"
 )
