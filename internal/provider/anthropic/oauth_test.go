@@ -86,3 +86,25 @@ func TestSetupHeaders_EmptyKey(t *testing.T) {
 	assert.Empty(t, req.Header.Get("Authorization"))
 	assert.Empty(t, req.Header.Get("anthropic-beta"))
 }
+
+func TestSetOAuthHeaders_MergeExistingBeta(t *testing.T) {
+	req, err := http.NewRequest(http.MethodPost, "https://api.anthropic.com/v1/messages", nil)
+	require.NoError(t, err)
+
+	// Pre-set a beta header that should be preserved
+	req.Header.Set("anthropic-beta", "prompt-caching-2024-07-31")
+
+	SetOAuthHeaders(req, "sk-ant-oat01-abc123")
+
+	got := req.Header.Get("anthropic-beta")
+	assert.Equal(t, "prompt-caching-2024-07-31,"+OAuthBetaHeader, got)
+}
+
+func TestSetOAuthHeaders_NoBetaPreset(t *testing.T) {
+	req, err := http.NewRequest(http.MethodPost, "https://api.anthropic.com/v1/messages", nil)
+	require.NoError(t, err)
+
+	SetOAuthHeaders(req, "sk-ant-oat01-abc123")
+
+	assert.Equal(t, OAuthBetaHeader, req.Header.Get("anthropic-beta"))
+}

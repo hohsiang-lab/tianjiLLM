@@ -61,7 +61,9 @@ func Handler(cfg Config) http.HandlerFunc {
 						} else {
 							req.Header.Set("x-api-key", apiKey)
 						}
-						req.Header.Set("anthropic-version", "2023-06-01")
+						if req.Header.Get("anthropic-version") == "" {
+							req.Header.Set("anthropic-version", "2023-06-01")
+						}
 					default:
 						req.Header.Set("Authorization", "Bearer "+apiKey)
 					}
