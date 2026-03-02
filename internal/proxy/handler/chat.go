@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"github.com/rs/zerolog"
 	"net/http"
 	"sort"
 	"strings"
@@ -115,7 +115,7 @@ func (h *Handlers) ChatCompletion(w http.ResponseWriter, r *http.Request) {
 		for k := range req.ExtraParams {
 			keys = append(keys, k)
 		}
-		log.Printf("warn: unknown parameters forwarded to upstream: %v", keys)
+		zerolog.Ctx(r.Context()).Warn().Strs("unknown_params", keys).Msg("unknown parameters forwarded to upstream")
 	}
 
 	if req.IsStreaming() {
@@ -139,7 +139,7 @@ func (h *Handlers) resolveProvider(ctx context.Context, req *model.ChatCompletio
 		// Try general fallback chain
 		d, p, fbErr := h.Router.GeneralFallback(req.Model)
 		if fbErr == nil {
-			log.Printf("fallback: %s → %s", req.Model, d.ModelName)
+			zerolog.Ctx(ctx).Info().Str("event", "model.fallback").Str("from", req.Model).Str("to", d.ModelName).Msg("fallback activated")
 			return p, d.APIKey(), d.ModelName, nil
 		}
 
@@ -312,7 +312,7 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 
 		chunk, done, err := p.TransformStreamChunk(r.Context(), []byte(data))
 		if err != nil {
-			log.Printf("stream chunk error: %v", err)
+			zerolog.Ctx(r.Context()).Warn().Err(err).Msg("stream chunk transform error")
 			continue
 		}
 
@@ -348,7 +348,7 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 			}
 			chunkData, err := json.Marshal(chunk)
 			if err != nil {
-				log.Printf("marshal chunk error: %v", err)
+				zerolog.Ctx(r.Context()).Warn().Err(err).Msg("marshal chunk error")
 				continue
 			}
 			fmt.Fprintf(w, "data: %s\n\n", chunkData)

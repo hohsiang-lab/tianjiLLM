@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
+	"github.com/rs/zerolog"
 	"net/http"
 	"strings"
 
@@ -81,7 +81,7 @@ func NewAuthMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 			if cfg.EnableJWTAuth && cfg.JWTValidator != nil && isJWT(token) {
 				claims, err := cfg.JWTValidator.ValidateToken(r.Context(), token)
 				if err != nil {
-					log.Printf("JWT validation failed: %v", err)
+					zerolog.Ctx(r.Context()).Warn().Err(err).Msg("JWT validation failed")
 					authError(w, "invalid JWT token", http.StatusUnauthorized)
 					return
 				}
@@ -117,20 +117,20 @@ func NewAuthMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 				info, err := cfg.Validator.ValidateToken(r.Context(), tokenHash)
 				if err != nil {
 					if errors.Is(err, ErrDBUnavailable) {
-						log.Printf("auth error: database unavailable: %v", err)
+						zerolog.Ctx(r.Context()).Error().Err(err).Msg("auth error: database unavailable")
 						authError(w, "service temporarily unavailable", http.StatusServiceUnavailable)
 					} else {
-						log.Printf("auth failed: key not found (hash=%s...)", tokenHash[:8])
+						zerolog.Ctx(r.Context()).Warn().Str("token_hash_prefix", tokenHash[:8]).Msg("auth failed: key not found")
 						authError(w, "invalid API key", http.StatusUnauthorized)
 					}
 					return
 				}
 				if info.Blocked {
-					log.Printf("auth failed: key is blocked (hash=%s...)", tokenHash[:8])
+					zerolog.Ctx(r.Context()).Warn().Str("token_hash_prefix", tokenHash[:8]).Msg("auth failed: key is blocked")
 					authError(w, "API key is blocked", http.StatusForbidden)
 					return
 				}
-				log.Printf("virtual key auth: user=%v team=%v", info.UserID, info.TeamID)
+				zerolog.Ctx(r.Context()).Info().Interface("user_id", info.UserID).Interface("team_id", info.TeamID).Msg("virtual key auth success")
 
 				ctx := r.Context()
 				ctx = context.WithValue(ctx, ContextKeyIsMasterKey, false)

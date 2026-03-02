@@ -11,6 +11,9 @@ import (
 
 // StructuredLogging returns a chi-compatible middleware that logs
 // request lifecycle events using zerolog structured JSON.
+// It also injects a per-request zerolog.Logger (with request_id) into
+// the request context so downstream handlers can retrieve it via
+// zerolog.Ctx(r.Context()).
 func StructuredLogging(logger zerolog.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -18,10 +21,13 @@ func StructuredLogging(logger zerolog.Logger) func(next http.Handler) http.Handl
 			reqID := chiMiddleware.GetReqID(r.Context())
 			path := r.URL.Path
 
+			// Build a sub-logger carrying request_id and inject into context.
+			reqLogger := logger.With().Str("request_id", reqID).Logger()
+			r = r.WithContext(reqLogger.WithContext(r.Context()))
+
 			// Phase 1: request.received
-			logger.Info().
+			reqLogger.Info().
 				Str("event", "request.received").
-				Str("request_id", reqID).
 				Str("method", r.Method).
 				Str("path", path).
 				Msg("")
@@ -33,9 +39,8 @@ func StructuredLogging(logger zerolog.Logger) func(next http.Handler) http.Handl
 			latency := time.Since(start)
 
 			// Phase 4: request.completed
-			logger.Info().
+			reqLogger.Info().
 				Str("event", "request.completed").
-				Str("request_id", reqID).
 				Str("method", r.Method).
 				Str("path", path).
 				Int("status", ww.Status()).
