@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 )
 
 // AudioTranscription handles POST /v1/audio/transcriptions.
@@ -34,6 +35,9 @@ func (h *Handlers) AudioTranscription(w http.ResponseWriter, r *http.Request) {
 	url := p.GetRequestURL(modelName)
 	url = url[:len(url)-len("/chat/completions")] + "/audio/transcriptions"
 
+	// Phase 2: provider.resolved
+	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(modelName), url, "audio_transcription", modelName)
+
 	proxyUpstream(w, r, url, apiKey, p)
 }
 
@@ -63,6 +67,9 @@ func (h *Handlers) AudioSpeech(w http.ResponseWriter, r *http.Request) {
 
 	url := p.GetRequestURL(req.Model)
 	url = url[:len(url)-len("/chat/completions")] + "/audio/speech"
+
+	// Phase 2: provider.resolved
+	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(req.Model), url, "audio_speech", req.Model)
 
 	proxyUpstream(w, r, url, apiKey, p)
 }

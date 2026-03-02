@@ -171,3 +171,18 @@ func mustReadAll(r io.Reader) []byte {
 	data, _ := io.ReadAll(r)
 	return data
 }
+
+// lookupProviderName returns the provider name for a given model alias.
+// It looks up the model config and parses the provider prefix from TianjiParams.Model.
+// Returns "openai" if no provider prefix is found.
+func (h *Handlers) lookupProviderName(modelName string) string {
+	cfg, fullModel := h.findModelConfig(modelName)
+	if cfg == nil {
+		return "unknown"
+	}
+	name, _ := provider.ParseModelName(fullModel)
+	if name == "" {
+		return "openai"
+	}
+	return name
+}

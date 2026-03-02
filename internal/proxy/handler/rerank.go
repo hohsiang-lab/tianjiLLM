@@ -9,6 +9,7 @@ import (
 
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 )
 
 // Rerank handles POST /v1/rerank — rerank documents.
@@ -45,6 +46,9 @@ func (h *Handlers) Rerank(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Phase 2: provider.resolved
+	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(req.Model), baseURL+"/rerank", "rerank", req.Model)
+
 	upstreamReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, baseURL+"/rerank", bytes.NewReader(body))
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
@@ -58,8 +62,14 @@ func (h *Handlers) Rerank(w http.ResponseWriter, r *http.Request) {
 	upstreamReq.Header.Set("Content-Type", "application/json")
 	upstreamReq.Header.Set("Authorization", "Bearer "+apiKey)
 
+	upstreamStart := time.Now()
 	resp, err := http.DefaultClient.Do(upstreamReq)
+	upstreamLatency := middleware.UpstreamLatencyMs(upstreamStart)
 	if err != nil {
+		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+			LatencyMs: upstreamLatency,
+			Error:     err.Error(),
+		})
 		writeJSON(w, http.StatusBadGateway, model.ErrorResponse{
 			Error: model.ErrorDetail{
 				Message: "upstream request failed: " + err.Error(),
@@ -69,6 +79,12 @@ func (h *Handlers) Rerank(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
+
+	// Phase 3: upstream.responded
+	middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+		StatusCode: resp.StatusCode,
+		LatencyMs:  upstreamLatency,
+	})
 
 	respBody, _ := io.ReadAll(resp.Body)
 

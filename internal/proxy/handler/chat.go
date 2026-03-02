@@ -52,6 +52,7 @@ func (h *Handlers) ChatCompletion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	originalModel := req.Model
 	p, apiKey, modelName, err := h.resolveProvider(r.Context(), &req)
 	if err != nil {
 		var status int
@@ -77,6 +78,9 @@ func (h *Handlers) ChatCompletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Model = modelName
+
+	// Phase 2: provider.resolved
+	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(originalModel), p.GetRequestURL(modelName), "chat", modelName)
 
 	// Evaluate policy engine — merge guardrails from policies
 	guardrailNames := h.getGuardrailNames(r.Context())
@@ -204,6 +208,12 @@ func (h *Handlers) handleNonStreamingCompletion(w http.ResponseWriter, r *http.R
 	resp, err := http.DefaultClient.Do(httpReq)
 	llmLatency := time.Since(llmStart)
 	if err != nil {
+		// Phase 3: upstream.responded (error)
+		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+			StatusCode: 0,
+			LatencyMs:  float64(llmLatency.Milliseconds()),
+			Error:      err.Error(),
+		})
 		h.logFailure(r.Context(), req, p, startTime, fmt.Errorf("upstream request failed: %w", err))
 		writeJSON(w, http.StatusBadGateway, model.ErrorResponse{
 			Error: model.ErrorDetail{
@@ -213,6 +223,12 @@ func (h *Handlers) handleNonStreamingCompletion(w http.ResponseWriter, r *http.R
 		})
 		return
 	}
+
+	// Phase 3: upstream.responded
+	middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+		StatusCode: resp.StatusCode,
+		LatencyMs:  float64(llmLatency.Milliseconds()),
+	})
 
 	result, err := p.TransformResponse(r.Context(), resp)
 	if err != nil {
@@ -271,6 +287,12 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 	resp, err := http.DefaultClient.Do(httpReq)
 	llmLatency := time.Since(llmStart)
 	if err != nil {
+		// Phase 3: upstream.responded (error)
+		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+			StatusCode: 0,
+			LatencyMs:  float64(llmLatency.Milliseconds()),
+			Error:      err.Error(),
+		})
 		h.logFailure(r.Context(), req, p, startTime, fmt.Errorf("upstream request failed: %w", err))
 		writeJSON(w, http.StatusBadGateway, model.ErrorResponse{
 			Error: model.ErrorDetail{
@@ -281,6 +303,12 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	defer resp.Body.Close()
+
+	// Phase 3: upstream.responded
+	middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+		StatusCode: resp.StatusCode,
+		LatencyMs:  float64(llmLatency.Milliseconds()),
+	})
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

@@ -10,6 +10,7 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 )
 
 // Completion handles POST /v1/completions (legacy text completion).
@@ -52,6 +53,9 @@ func (h *Handlers) Completion(w http.ResponseWriter, r *http.Request) {
 
 	// Build the upstream URL for /completions
 	url := p.GetRequestURL(req.Model)
+
+	// Phase 2: provider.resolved
+	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(req.Model), url, "completion", req.Model)
 	// Replace /chat/completions with /completions for legacy endpoint
 	url = url[:len(url)-len("/chat/completions")] + "/completions"
 
@@ -69,8 +73,14 @@ func (h *Handlers) Completion(w http.ResponseWriter, r *http.Request) {
 	p.SetupHeaders(httpReq, apiKey)
 	httpReq.Header.Set("Content-Type", r.Header.Get("Content-Type"))
 
+	upstreamStart := time.Now()
 	resp, err := http.DefaultClient.Do(httpReq)
+	upstreamLatency := middleware.UpstreamLatencyMs(upstreamStart)
 	if err != nil {
+		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+			LatencyMs: upstreamLatency,
+			Error:     err.Error(),
+		})
 		writeJSON(w, http.StatusBadGateway, model.ErrorResponse{
 			Error: model.ErrorDetail{
 				Message: "upstream request failed: " + err.Error(),
@@ -80,6 +90,12 @@ func (h *Handlers) Completion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
+
+	// Phase 3: upstream.responded
+	middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+		StatusCode: resp.StatusCode,
+		LatencyMs:  upstreamLatency,
+	})
 
 	respBody := mustReadAll(resp.Body)
 
@@ -139,8 +155,14 @@ func proxyUpstream(w http.ResponseWriter, r *http.Request, url, apiKey string, p
 	p.SetupHeaders(httpReq, apiKey)
 	httpReq.Header.Set("Content-Type", r.Header.Get("Content-Type"))
 
+	upstreamStart2 := time.Now()
 	resp, err := http.DefaultClient.Do(httpReq)
+	upstreamLatency2 := middleware.UpstreamLatencyMs(upstreamStart2)
 	if err != nil {
+		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+			LatencyMs: upstreamLatency2,
+			Error:     err.Error(),
+		})
 		writeJSON(w, http.StatusBadGateway, model.ErrorResponse{
 			Error: model.ErrorDetail{
 				Message: "upstream request failed: " + err.Error(),
@@ -150,6 +172,12 @@ func proxyUpstream(w http.ResponseWriter, r *http.Request, url, apiKey string, p
 		return
 	}
 	defer resp.Body.Close()
+
+	// Phase 3: upstream.responded
+	middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+		StatusCode: resp.StatusCode,
+		LatencyMs:  upstreamLatency2,
+	})
 
 	// Copy upstream response headers and body
 	for k, vv := range resp.Header {
