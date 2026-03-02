@@ -74,7 +74,7 @@ func TestLogStreamSuccess_UsesAccumulatedUsage(t *testing.T) {
 
 	start := time.Now()
 	end := start.Add(100 * time.Millisecond)
-	h.logStreamSuccess(context.Background(), req, lastChunk, accUsage, nil, start, end, 50*time.Millisecond)
+	h.logStreamSuccess(context.Background(), req, lastChunk, accUsage, nil, start, end, 50*time.Millisecond, 0)
 
 	data := cap.wait(t, 2*time.Second)
 	assert.Equal(t, 30, data.PromptTokens)
@@ -104,7 +104,7 @@ func TestLogStreamSuccess_FallsBackToLastChunk(t *testing.T) {
 
 	start := time.Now()
 	end := start.Add(100 * time.Millisecond)
-	h.logStreamSuccess(context.Background(), req, lastChunk, accUsage, nil, start, end, 50*time.Millisecond)
+	h.logStreamSuccess(context.Background(), req, lastChunk, accUsage, nil, start, end, 50*time.Millisecond, 0)
 
 	data := cap.wait(t, 2*time.Second)
 	assert.Equal(t, 20, data.PromptTokens)

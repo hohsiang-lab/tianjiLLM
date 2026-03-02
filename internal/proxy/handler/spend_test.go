@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -142,6 +141,3 @@ func TestSpendByTeams_DBNil(t *testing.T) {
 		t.Fatalf("expected 503, got %d", w.Code)
 	}
 }
-
-// Suppress unused import warning
-var _ = json.Marshal

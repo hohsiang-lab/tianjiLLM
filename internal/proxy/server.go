@@ -7,6 +7,7 @@ import (
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/handler"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
 )
@@ -99,6 +100,9 @@ func (s *Server) setupRoutes() {
 		r.Get("/liveness", s.Handlers.HealthLiveness)
 		r.Get("/services", s.Handlers.HealthServices)
 	})
+
+	// Prometheus metrics (no auth)
+	r.Handle("/metrics", callback.Handler())
 
 	// OpenAI-compatible API — registered under /v1 and bare paths for client compat.
 	// Python LiteLLM registers both; most SDKs use bare paths (no /v1 prefix).

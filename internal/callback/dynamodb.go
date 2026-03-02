@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -106,6 +105,3 @@ func (l *DynamoDBLogger) flush(batch []LogData) error {
 	}
 	return nil
 }
-
-// Ensure uuid is used
-var _ = aws.String
