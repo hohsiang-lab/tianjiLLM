@@ -14,7 +14,6 @@ import (
 // TestLogSuccess_CacheTokensPassedToCallback verifies that when a non-streaming
 // response contains cache tokens, the LogData callback receives non-zero
 // CacheReadInputTokens and CacheCreationInputTokens.
-//
 func TestLogSuccess_CacheTokensPassedToCallback(t *testing.T) {
 	t.Parallel()
 
@@ -64,9 +63,9 @@ func TestLogStreamSuccess_CacheTokensPassedToCallback(t *testing.T) {
 	req := &model.ChatCompletionRequest{Model: "anthropic/claude-sonnet-4-5-20250929"}
 	lastChunk := &model.StreamChunk{Model: "claude-sonnet-4-5-20250929"}
 	accUsage := model.Usage{
-		PromptTokens:            1000,
-		CompletionTokens:        200,
-		CacheReadInputTokens:    800,
+		PromptTokens:             1000,
+		CompletionTokens:         200,
+		CacheReadInputTokens:     800,
 		CacheCreationInputTokens: 150,
 	}
 

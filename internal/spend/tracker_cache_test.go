@@ -10,33 +10,14 @@ import (
 // TestLogSuccess_BuildsSpendRecordWithCacheTokens verifies that Tracker.LogSuccess
 // includes CacheReadInputTokens and CacheCreationInputTokens in the SpendRecord
 // it passes to Record().
-//
-// We test by extracting the same SpendRecord construction logic that LogSuccess uses.
 func TestLogSuccess_BuildsSpendRecordWithCacheTokens(t *testing.T) {
 	data := callback.LogData{
-		Model:                    "anthropic/claude-sonnet-4-5-20250929",
-		PromptTokens:             1000,
-		CompletionTokens:         200,
-		TotalTokens:              1200,
 		CacheReadInputTokens:     800,
 		CacheCreationInputTokens: 150,
-		Cost:                     0.01,
 	}
 
-	// Reproduce exactly what LogSuccess does (line 53-66 of tracker.go):
+	// Mirror the cache-relevant field mapping from LogSuccess.
 	rec := SpendRecord{
-		Model:            data.Model,
-		APIKey:           data.APIKey,
-		PromptTokens:     data.PromptTokens,
-		CompletionTokens: data.CompletionTokens,
-		TotalTokens:      data.TotalTokens,
-		StartTime:        data.StartTime,
-		EndTime:          data.EndTime,
-		User:             data.UserID,
-		TeamID:           data.TeamID,
-		Tags:             data.RequestTags,
-		Cost:                     data.Cost,
-		CallType:                 data.CallType,
 		CacheReadInputTokens:     data.CacheReadInputTokens,
 		CacheCreationInputTokens: data.CacheCreationInputTokens,
 	}

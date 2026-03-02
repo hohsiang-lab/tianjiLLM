@@ -440,9 +440,9 @@ func (h *Handlers) logSuccess(ctx context.Context, req *model.ChatCompletionRequ
 		data.CacheReadInputTokens = result.Usage.CacheReadInputTokens
 		data.CacheCreationInputTokens = result.Usage.CacheCreationInputTokens
 		data.Cost = pricing.Default().TotalCost(req.Model, pricing.TokenUsage{
-			PromptTokens:            result.Usage.PromptTokens,
-			CompletionTokens:        result.Usage.CompletionTokens,
-			CacheReadInputTokens:    result.Usage.CacheReadInputTokens,
+			PromptTokens:             result.Usage.PromptTokens,
+			CompletionTokens:         result.Usage.CompletionTokens,
+			CacheReadInputTokens:     result.Usage.CacheReadInputTokens,
 			CacheCreationInputTokens: result.Usage.CacheCreationInputTokens,
 		})
 	}
@@ -481,9 +481,9 @@ func (h *Handlers) logStreamSuccess(ctx context.Context, req *model.ChatCompleti
 		data.CacheReadInputTokens = cacheReadTokens
 		data.CacheCreationInputTokens = cacheCreationTokens
 		data.Cost = pricing.Default().TotalCost(req.Model, pricing.TokenUsage{
-			PromptTokens:            promptTokens,
-			CompletionTokens:        completionTokens,
-			CacheReadInputTokens:    cacheReadTokens,
+			PromptTokens:             promptTokens,
+			CompletionTokens:         completionTokens,
+			CacheReadInputTokens:     cacheReadTokens,
 			CacheCreationInputTokens: cacheCreationTokens,
 		})
 	}
