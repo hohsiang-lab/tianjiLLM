@@ -431,7 +431,14 @@ func (h *Handlers) logSuccess(ctx context.Context, req *model.ChatCompletionRequ
 		data.PromptTokens = result.Usage.PromptTokens
 		data.CompletionTokens = result.Usage.CompletionTokens
 		data.TotalTokens = result.Usage.TotalTokens
-		data.Cost = pricing.Default().TotalCost(req.Model, pricing.TokenUsage{PromptTokens: result.Usage.PromptTokens, CompletionTokens: result.Usage.CompletionTokens})
+		data.CacheReadInputTokens = result.Usage.CacheReadInputTokens
+		data.CacheCreationInputTokens = result.Usage.CacheCreationInputTokens
+		data.Cost = pricing.Default().TotalCost(req.Model, pricing.TokenUsage{
+			PromptTokens:            result.Usage.PromptTokens,
+			CompletionTokens:        result.Usage.CompletionTokens,
+			CacheReadInputTokens:    result.Usage.CacheReadInputTokens,
+			CacheCreationInputTokens: result.Usage.CacheCreationInputTokens,
+		})
 	}
 
 	go h.Callbacks.LogSuccess(data)
@@ -453,15 +460,26 @@ func (h *Handlers) logStreamSuccess(ctx context.Context, req *model.ChatCompleti
 
 	promptTokens := accUsage.PromptTokens
 	completionTokens := accUsage.CompletionTokens
+	cacheReadTokens := accUsage.CacheReadInputTokens
+	cacheCreationTokens := accUsage.CacheCreationInputTokens
 	if promptTokens == 0 && completionTokens == 0 && lastChunk != nil && lastChunk.Usage != nil {
 		promptTokens = lastChunk.Usage.PromptTokens
 		completionTokens = lastChunk.Usage.CompletionTokens
+		cacheReadTokens = lastChunk.Usage.CacheReadInputTokens
+		cacheCreationTokens = lastChunk.Usage.CacheCreationInputTokens
 	}
 	if promptTokens > 0 || completionTokens > 0 {
 		data.PromptTokens = promptTokens
 		data.CompletionTokens = completionTokens
 		data.TotalTokens = promptTokens + completionTokens
-		data.Cost = pricing.Default().TotalCost(req.Model, pricing.TokenUsage{PromptTokens: promptTokens, CompletionTokens: completionTokens})
+		data.CacheReadInputTokens = cacheReadTokens
+		data.CacheCreationInputTokens = cacheCreationTokens
+		data.Cost = pricing.Default().TotalCost(req.Model, pricing.TokenUsage{
+			PromptTokens:            promptTokens,
+			CompletionTokens:        completionTokens,
+			CacheReadInputTokens:    cacheReadTokens,
+			CacheCreationInputTokens: cacheCreationTokens,
+		})
 	}
 
 	go h.Callbacks.LogSuccess(data)

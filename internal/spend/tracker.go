@@ -51,18 +51,20 @@ type SpendRecord struct {
 // LogSuccess implements callback.CustomLogger — writes spend to DB.
 func (t *Tracker) LogSuccess(data callback.LogData) {
 	t.Record(context.Background(), SpendRecord{
-		Model:            data.Model,
-		APIKey:           data.APIKey,
-		PromptTokens:     data.PromptTokens,
-		CompletionTokens: data.CompletionTokens,
-		TotalTokens:      data.TotalTokens,
-		StartTime:        data.StartTime,
-		EndTime:          data.EndTime,
-		User:             data.UserID,
-		TeamID:           data.TeamID,
-		Tags:             data.RequestTags,
-		Cost:             data.Cost,
-		CallType:         data.CallType,
+		Model:                    data.Model,
+		APIKey:                   data.APIKey,
+		PromptTokens:             data.PromptTokens,
+		CompletionTokens:         data.CompletionTokens,
+		TotalTokens:              data.TotalTokens,
+		CacheReadInputTokens:     data.CacheReadInputTokens,
+		CacheCreationInputTokens: data.CacheCreationInputTokens,
+		StartTime:                data.StartTime,
+		EndTime:                  data.EndTime,
+		User:                     data.UserID,
+		TeamID:                   data.TeamID,
+		Tags:                     data.RequestTags,
+		Cost:                     data.Cost,
+		CallType:                 data.CallType,
 	})
 }
 
