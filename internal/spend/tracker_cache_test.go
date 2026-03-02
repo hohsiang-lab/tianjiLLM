@@ -11,8 +11,6 @@ import (
 // includes CacheReadInputTokens and CacheCreationInputTokens in the SpendRecord
 // it passes to Record().
 //
-// Currently FAILS because LogSuccess doesn't copy cache fields from LogData.
-//
 // We test by extracting the same SpendRecord construction logic that LogSuccess uses.
 func TestLogSuccess_BuildsSpendRecordWithCacheTokens(t *testing.T) {
 	data := callback.LogData{
