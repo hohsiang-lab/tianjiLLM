@@ -401,6 +401,7 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion, cacheRe
 				} `json:"usage"`
 			}
 			if json.Unmarshal(data, &event) != nil {
+				log.Printf("parseSSEUsage %s: failed to unmarshal SSE data: %s", providerName, truncateStr(string(data), 200))
 				continue
 			}
 			if event.Type == "message_start" {
@@ -426,6 +427,7 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion, cacheRe
 				} `json:"usage"`
 			}
 			if json.Unmarshal(data, &event) != nil {
+				log.Printf("parseSSEUsage %s: failed to unmarshal SSE data: %s", providerName, truncateStr(string(data), 200))
 				continue
 			}
 			if event.Model != "" {
@@ -445,6 +447,7 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion, cacheRe
 				} `json:"usageMetadata"`
 			}
 			if json.Unmarshal(data, &event) != nil {
+				log.Printf("parseSSEUsage %s: failed to unmarshal SSE data: %s", providerName, truncateStr(string(data), 200))
 				continue
 			}
 			if event.ModelVersion != "" {
@@ -456,6 +459,9 @@ func parseSSEUsage(providerName string, raw []byte) (prompt, completion, cacheRe
 				completion = event.UsageMetadata.CandidatesTokenCount
 			}
 		}
+	}
+	if prompt == 0 && completion == 0 && len(raw) > 0 {
+		log.Printf("parseSSEUsage %s: no usage found in %d bytes of SSE data", providerName, len(raw))
 	}
 	return
 }
