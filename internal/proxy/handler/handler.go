@@ -9,13 +9,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/praxisllmlab/tianjiLLM/internal/a2a"
 	"github.com/praxisllmlab/tianjiLLM/internal/cache"
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
 	"github.com/praxisllmlab/tianjiLLM/internal/guardrail"
-	"github.com/praxisllmlab/tianjiLLM/internal/policy"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider"
 	"github.com/praxisllmlab/tianjiLLM/internal/proxy/hook"
 	"github.com/praxisllmlab/tianjiLLM/internal/router"
@@ -37,12 +35,12 @@ type Handlers struct {
 	Callbacks        *callback.Registry
 	Guardrails       *guardrail.Registry
 	PolicyEngine     *router.PolicyEngine
-	PolicyEng        *policy.Engine
+	PolicyEng        PolicyEvaluator
 	SSOHandler       *SSOHandler
 	RealtimeRelay    http.Handler
 	TokenCounter     *token.Counter
-	AgentRegistry    *a2a.AgentRegistry
-	CompletionBridge *a2a.CompletionBridge
+	AgentRegistry    AgentRegistryProvider
+	CompletionBridge MessageSender
 	EventDispatcher  *hook.ManagementEventDispatcher
 	DiscordAlerter   *callback.DiscordRateLimitAlerter
 }

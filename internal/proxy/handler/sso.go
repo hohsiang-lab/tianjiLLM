@@ -5,13 +5,12 @@ import (
 	"encoding/hex"
 	"net/http"
 
-	"github.com/praxisllmlab/tianjiLLM/internal/auth"
 	"github.com/praxisllmlab/tianjiLLM/internal/model"
 )
 
 // SSOHandler holds SSO-specific dependencies.
 type SSOHandler struct {
-	SSO *auth.SSOHandler
+	SSO SSOProvider
 }
 
 // SSOLogin handles GET /sso/login — redirects to IDP authorization URL.
