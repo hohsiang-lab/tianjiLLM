@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -60,6 +61,6 @@ func doUpstreamWithRetry(ctx context.Context, client *http.Client, buildReq func
 		}
 	}
 
-	// Unreachable, but satisfies compiler.
-	return nil, nil
+	// Loop exhausted all retries; return last response.
+	return nil, fmt.Errorf("upstream retries exhausted")
 }

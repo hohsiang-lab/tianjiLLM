@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -69,13 +70,19 @@ func (h *Handlers) SearchHandler(w http.ResponseWriter, r *http.Request) {
 	upstreamURL := provider.GetCompleteURL(apiBase, params)
 
 	resp, err := doUpstreamWithRetry(r.Context(), http.DefaultClient, func() (*http.Request, error) {
-		var req *http.Request
+		var (
+			req    *http.Request
+			reqErr error
+		)
 		if provider.HTTPMethod() == http.MethodPost {
 			reqBody := provider.TransformRequest(params)
 			bodyBytes, _ := json.Marshal(reqBody)
-			req, _ = http.NewRequestWithContext(r.Context(), http.MethodPost, upstreamURL, bytes.NewReader(bodyBytes))
+			req, reqErr = http.NewRequestWithContext(r.Context(), http.MethodPost, upstreamURL, bytes.NewReader(bodyBytes))
 		} else {
-			req, _ = http.NewRequestWithContext(r.Context(), http.MethodGet, upstreamURL, nil)
+			req, reqErr = http.NewRequestWithContext(r.Context(), http.MethodGet, upstreamURL, nil)
+		}
+		if reqErr != nil {
+			return nil, fmt.Errorf("failed to create request: %w", reqErr)
 		}
 		for k, vs := range headers {
 			for _, v := range vs {
