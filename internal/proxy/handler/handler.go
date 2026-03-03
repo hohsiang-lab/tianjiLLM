@@ -30,22 +30,22 @@ type DBPinger interface {
 
 // Handlers holds all HTTP handler dependencies.
 type Handlers struct {
-	Config           *config.ProxyConfig
-	DB               db.Store
-	Cache            cache.Cache
-	Router           *router.Router
-	Callbacks        *callback.Registry
-	Guardrails       *guardrail.Registry
-	PolicyEngine     *router.PolicyEngine
-	PolicyEng        *policy.Engine
-	SSOHandler       *SSOHandler
-	RealtimeRelay    http.Handler
-	TokenCounter     *token.Counter
-	AgentRegistry    *a2a.AgentRegistry
-	CompletionBridge *a2a.CompletionBridge
-	EventDispatcher  *hook.ManagementEventDispatcher
-	DiscordAlerter   *callback.DiscordRateLimitAlerter
-	RateLimitStore        callback.RateLimitStore
+	Config             *config.ProxyConfig
+	DB                 db.Store
+	Cache              cache.Cache
+	Router             *router.Router
+	Callbacks          *callback.Registry
+	Guardrails         *guardrail.Registry
+	PolicyEngine       *router.PolicyEngine
+	PolicyEng          *policy.Engine
+	SSOHandler         *SSOHandler
+	RealtimeRelay      http.Handler
+	TokenCounter       *token.Counter
+	AgentRegistry      *a2a.AgentRegistry
+	CompletionBridge   *a2a.CompletionBridge
+	EventDispatcher    *hook.ManagementEventDispatcher
+	DiscordAlerter     *callback.DiscordRateLimitAlerter
+	RateLimitStore     callback.RateLimitStore
 	MaxUpstreamRetries int
 }
 

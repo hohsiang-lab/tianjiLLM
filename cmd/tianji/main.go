@@ -413,13 +413,13 @@ func main() {
 		AgentRegistry:   agentRegistry,
 		EventDispatcher: eventDispatcher,
 		DiscordAlerter:  discordAlerter,
-		RateLimitStore:       rateLimitStore,
+		RateLimitStore:  rateLimitStore,
 		MaxUpstreamRetries: func() int {
-		if cfg != nil && cfg.TianjiSettings.MaxUpstreamRetries != nil {
-			return *cfg.TianjiSettings.MaxUpstreamRetries
-		}
-		return 2
-	}(),
+			if cfg != nil && cfg.TianjiSettings.MaxUpstreamRetries != nil {
+				return *cfg.TianjiSettings.MaxUpstreamRetries
+			}
+			return 2
+		}(),
 	}
 
 	// Init scheduler

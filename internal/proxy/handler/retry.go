@@ -12,9 +12,9 @@ import (
 var retryableStatusCodes = map[int]bool{
 	http.StatusTooManyRequests:     true, // 429
 	http.StatusInternalServerError: true, // 500
-	http.StatusBadGateway:         true, // 502
-	http.StatusServiceUnavailable: true, // 503
-	http.StatusGatewayTimeout:     true, // 504
+	http.StatusBadGateway:          true, // 502
+	http.StatusServiceUnavailable:  true, // 503
+	http.StatusGatewayTimeout:      true, // 504
 }
 
 const retryBaseDelay = time.Second
