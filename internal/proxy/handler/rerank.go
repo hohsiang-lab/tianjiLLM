@@ -51,13 +51,13 @@ func (h *Handlers) Rerank(w http.ResponseWriter, r *http.Request) {
 
 	upstreamStart := time.Now()
 	resp, err := doUpstreamWithRetry(r.Context(), http.DefaultClient, func() (*http.Request, error) {
-		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, baseURL+"/rerank", bytes.NewReader(body))
-		if err != nil {
-			return nil, err
+		httpReq, buildErr := http.NewRequestWithContext(r.Context(), http.MethodPost, baseURL+"/rerank", bytes.NewReader(body))
+		if buildErr != nil {
+			return nil, buildErr
 		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-		return req, nil
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+		return httpReq, nil
 	}, h.MaxUpstreamRetries)
 	upstreamLatency := middleware.UpstreamLatencyMs(upstreamStart)
 	if err != nil {

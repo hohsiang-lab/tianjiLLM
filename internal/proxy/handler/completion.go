@@ -61,13 +61,13 @@ func (h *Handlers) Completion(w http.ResponseWriter, r *http.Request) {
 
 	upstreamStart := time.Now()
 	resp, err := doUpstreamWithRetry(r.Context(), http.DefaultClient, func() (*http.Request, error) {
-		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, url, bytes.NewReader(body))
-		if err != nil {
-			return nil, err
+		httpReq, buildErr := http.NewRequestWithContext(r.Context(), http.MethodPost, url, bytes.NewReader(body))
+		if buildErr != nil {
+			return nil, buildErr
 		}
-		p.SetupHeaders(req, apiKey)
-		req.Header.Set("Content-Type", r.Header.Get("Content-Type"))
-		return req, nil
+		p.SetupHeaders(httpReq, apiKey)
+		httpReq.Header.Set("Content-Type", r.Header.Get("Content-Type"))
+		return httpReq, nil
 	}, h.MaxUpstreamRetries)
 	upstreamLatency := middleware.UpstreamLatencyMs(upstreamStart)
 	if err != nil {
@@ -150,13 +150,13 @@ func proxyUpstream(w http.ResponseWriter, r *http.Request, url, apiKey string, p
 
 	upstreamStart2 := time.Now()
 	resp, err := doUpstreamWithRetry(r.Context(), http.DefaultClient, func() (*http.Request, error) {
-		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, url, bytes.NewReader(bodyBytes))
-		if err != nil {
-			return nil, err
+		httpReq, buildErr := http.NewRequestWithContext(r.Context(), http.MethodPost, url, bytes.NewReader(bodyBytes))
+		if buildErr != nil {
+			return nil, buildErr
 		}
-		p.SetupHeaders(req, apiKey)
-		req.Header.Set("Content-Type", contentType)
-		return req, nil
+		p.SetupHeaders(httpReq, apiKey)
+		httpReq.Header.Set("Content-Type", contentType)
+		return httpReq, nil
 	}, maxRetries)
 	upstreamLatency2 := middleware.UpstreamLatencyMs(upstreamStart2)
 	if err != nil {

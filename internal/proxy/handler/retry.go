@@ -17,8 +17,6 @@ var retryableStatusCodes = map[int]bool{
 	http.StatusGatewayTimeout:      true, // 504
 }
 
-const retryBaseDelay = time.Second
-
 // doUpstreamWithRetry executes the request built by buildReq, retrying on
 // retryable status codes up to maxRetries times with exponential backoff.
 // buildReq is called on every attempt so that the request body can be re-read.
