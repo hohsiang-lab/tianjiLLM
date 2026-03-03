@@ -133,12 +133,14 @@ type mockStore struct {
 	deletePluginFn2      func(ctx context.Context, name string) error
 
 	// Prompt template
-	getNextPromptVersionFn func(ctx context.Context, name string) (int32, error)
-	getPromptVersionsFn    func(ctx context.Context, name string) ([]db.PromptTemplateTable, error)
-	createPromptFn         func(ctx context.Context, arg db.CreatePromptTemplateParams) (db.PromptTemplateTable, error)
-	getPromptFn            func(ctx context.Context, id string) (db.PromptTemplateTable, error)
-	listPromptsFn          func(ctx context.Context) ([]db.PromptTemplateTable, error)
-	deletePromptFn2        func(ctx context.Context, id string) error
+	getNextPromptVersionFn   func(ctx context.Context, name string) (int32, error)
+	getPromptByNameVersionFn func(context.Context, db.GetPromptTemplateByNameVersionParams) (db.PromptTemplateTable, error)
+	getLatestPromptByNameFn  func(context.Context, string) (db.PromptTemplateTable, error)
+	getPromptVersionsFn      func(ctx context.Context, name string) ([]db.PromptTemplateTable, error)
+	createPromptFn           func(ctx context.Context, arg db.CreatePromptTemplateParams) (db.PromptTemplateTable, error)
+	getPromptFn              func(ctx context.Context, id string) (db.PromptTemplateTable, error)
+	listPromptsFn            func(ctx context.Context) ([]db.PromptTemplateTable, error)
+	deletePromptFn2          func(ctx context.Context, id string) error
 
 	// AccessGroup
 	createAccessGroupFn func(ctx context.Context, arg db.CreateAccessGroupParams) (db.ModelAccessGroup, error)
@@ -806,6 +808,9 @@ func (m *mockStore) GetPromptTemplate(ctx context.Context, id string) (db.Prompt
 	return db.PromptTemplateTable{}, nil
 }
 func (m *mockStore) GetPromptTemplateByNameVersion(ctx context.Context, arg db.GetPromptTemplateByNameVersionParams) (db.PromptTemplateTable, error) {
+	if m.getPromptByNameVersionFn != nil {
+		return m.getPromptByNameVersionFn(ctx, arg)
+	}
 	m.ni()
 	return db.PromptTemplateTable{}, nil
 }
@@ -885,6 +890,9 @@ func (m *mockStore) GetVerificationTokenBatch(ctx context.Context, dollar_1 []st
 	return nil, nil
 }
 func (m *mockStore) GetLatestPromptByName(ctx context.Context, name string) (db.PromptTemplateTable, error) {
+	if m.getLatestPromptByNameFn != nil {
+		return m.getLatestPromptByNameFn(ctx, name)
+	}
 	m.ni()
 	return db.PromptTemplateTable{}, nil
 }
