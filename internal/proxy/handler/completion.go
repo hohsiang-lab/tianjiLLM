@@ -134,23 +134,30 @@ func (h *Handlers) Completion(w http.ResponseWriter, r *http.Request) {
 }
 
 // proxyUpstream forwards the request body to the upstream URL and pipes the response back.
-func proxyUpstream(w http.ResponseWriter, r *http.Request, url, apiKey string, p provider.Provider) {
-	httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, url, r.Body)
+func proxyUpstream(w http.ResponseWriter, r *http.Request, url, apiKey string, p provider.Provider, maxRetries int) {
+	// Buffer body so it can be re-read on each retry attempt.
+	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
 			Error: model.ErrorDetail{
-				Message: "create upstream request: " + err.Error(),
+				Message: "read request body: " + err.Error(),
 				Type:    "internal_error",
 			},
 		})
 		return
 	}
-
-	p.SetupHeaders(httpReq, apiKey)
-	httpReq.Header.Set("Content-Type", r.Header.Get("Content-Type"))
+	contentType := r.Header.Get("Content-Type")
 
 	upstreamStart2 := time.Now()
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := doUpstreamWithRetry(r.Context(), http.DefaultClient, func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, url, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return nil, err
+		}
+		p.SetupHeaders(req, apiKey)
+		req.Header.Set("Content-Type", contentType)
+		return req, nil
+	}, maxRetries)
 	upstreamLatency2 := middleware.UpstreamLatencyMs(upstreamStart2)
 	if err != nil {
 		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
