@@ -193,20 +193,11 @@ func (h *Handlers) handleNonStreamingCompletion(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	httpReq, err := p.TransformRequest(r.Context(), req, apiKey)
-	if err != nil {
-		h.logFailure(r.Context(), req, p, startTime, fmt.Errorf("transform request: %w", err))
-		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
-			Error: model.ErrorDetail{
-				Message: "transform request: " + err.Error(),
-				Type:    "internal_error",
-			},
-		})
-		return
-	}
-
 	llmStart := time.Now()
-	resp, err := http.DefaultClient.Do(httpReq)
+	_p, _req, _apiKey := p, req, apiKey
+	resp, err := doUpstreamWithRetry(r.Context(), http.DefaultClient, func() (*http.Request, error) {
+		return _p.TransformRequest(r.Context(), _req, _apiKey)
+	}, h.MaxUpstreamRetries)
 	llmLatency := time.Since(llmStart)
 	if err != nil {
 		// Phase 3: upstream.responded (error)
@@ -272,20 +263,11 @@ func (h *Handlers) handleStreamingCompletion(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	httpReq, err := p.TransformRequest(r.Context(), req, apiKey)
-	if err != nil {
-		h.logFailure(r.Context(), req, p, startTime, fmt.Errorf("transform request: %w", err))
-		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
-			Error: model.ErrorDetail{
-				Message: "transform request: " + err.Error(),
-				Type:    "internal_error",
-			},
-		})
-		return
-	}
-
 	llmStart := time.Now()
-	resp, err := http.DefaultClient.Do(httpReq)
+	_p2, _req2, _apiKey2 := p, req, apiKey
+	resp, err := doUpstreamWithRetry(r.Context(), http.DefaultClient, func() (*http.Request, error) {
+		return _p2.TransformRequest(r.Context(), _req2, _apiKey2)
+	}, h.MaxUpstreamRetries)
 	llmLatency := time.Since(llmStart)
 	if err != nil {
 		// Phase 3: upstream.responded (error)

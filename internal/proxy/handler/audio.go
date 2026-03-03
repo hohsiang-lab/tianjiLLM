@@ -38,7 +38,7 @@ func (h *Handlers) AudioTranscription(w http.ResponseWriter, r *http.Request) {
 	// Phase 2: provider.resolved
 	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(modelName), url, "audio_transcription", modelName)
 
-	proxyUpstream(w, r, url, apiKey, p)
+	proxyUpstream(w, r, url, apiKey, p, h.MaxUpstreamRetries)
 }
 
 // AudioSpeech handles POST /v1/audio/speech.
@@ -71,5 +71,5 @@ func (h *Handlers) AudioSpeech(w http.ResponseWriter, r *http.Request) {
 	// Phase 2: provider.resolved
 	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(req.Model), url, "audio_speech", req.Model)
 
-	proxyUpstream(w, r, url, apiKey, p)
+	proxyUpstream(w, r, url, apiKey, p, h.MaxUpstreamRetries)
 }

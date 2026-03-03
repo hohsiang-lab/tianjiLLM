@@ -38,5 +38,5 @@ func (h *Handlers) ImageGeneration(w http.ResponseWriter, r *http.Request) {
 	// Phase 2: provider.resolved
 	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(req.Model), url, "image_generation", req.Model)
 
-	proxyUpstream(w, r, url, apiKey, p)
+	proxyUpstream(w, r, url, apiKey, p, h.MaxUpstreamRetries)
 }

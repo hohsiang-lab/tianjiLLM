@@ -401,19 +401,25 @@ func main() {
 		}
 	}()
 
+	upstreamRetries := 2
+	if cfg.RouterSettings != nil && cfg.RouterSettings.NumRetries != nil {
+		upstreamRetries = *cfg.RouterSettings.NumRetries
+	}
+
 	handlers := &handler.Handlers{
-		Config:          cfg,
-		DB:              queries,
-		Cache:           cacheBackend,
-		Router:          rtr,
-		Callbacks:       callbackRegistry,
-		Guardrails:      guardrailRegistry,
-		PolicyEng:       policyEng,
-		SSOHandler:      ssoHandler,
-		AgentRegistry:   agentRegistry,
-		EventDispatcher: eventDispatcher,
-		DiscordAlerter:  discordAlerter,
-		RateLimitStore:  rateLimitStore,
+		Config:             cfg,
+		DB:                 queries,
+		Cache:              cacheBackend,
+		Router:             rtr,
+		Callbacks:          callbackRegistry,
+		Guardrails:         guardrailRegistry,
+		PolicyEng:          policyEng,
+		SSOHandler:         ssoHandler,
+		AgentRegistry:      agentRegistry,
+		EventDispatcher:    eventDispatcher,
+		DiscordAlerter:     discordAlerter,
+		RateLimitStore:     rateLimitStore,
+		MaxUpstreamRetries: upstreamRetries,
 	}
 
 	// Init scheduler
