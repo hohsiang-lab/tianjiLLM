@@ -71,7 +71,7 @@ func TestLogStreamSuccess_CacheTokensPassedToCallback(t *testing.T) {
 
 	start := time.Now()
 	end := start.Add(100 * time.Millisecond)
-	h.logStreamSuccess(context.Background(), req, lastChunk, accUsage, nil, start, end, 50*time.Millisecond)
+	h.logStreamSuccess(context.Background(), req, lastChunk, accUsage, nil, start, end, 50*time.Millisecond, 10*time.Millisecond)
 
 	data := cap.wait(t, 2*time.Second)
 	assert.Equal(t, 800, data.CacheReadInputTokens, "CacheReadInputTokens should be passed to callback")
