@@ -83,6 +83,10 @@ func (p *PrometheusCallback) LogSuccess(data LogData) {
 	p.totalLatency.With(labels).Observe(data.Latency.Seconds())
 	p.llmAPILatency.With(labels).Observe(data.LLMAPILatency.Seconds())
 
+	if data.TimeToFirstToken > 0 {
+		p.timeToFirstToken.With(labels).Observe(data.TimeToFirstToken.Seconds())
+	}
+
 	p.tokenCounter.With(prometheus.Labels{
 		"model": data.Model, "provider": data.Provider, "type": "prompt",
 	}).Add(float64(data.PromptTokens))

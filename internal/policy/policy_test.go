@@ -3,9 +3,7 @@ package policy
 import (
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
-	"github.com/praxisllmlab/tianjiLLM/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -207,7 +205,3 @@ func (c *passDataChecker) Check(name string, input map[string]any) (bool, error)
 	}
 	return true, nil
 }
-
-// Ensure model.PipelineConfig is deserializable (compile-time check)
-var _ = model.PipelineConfig{}
-var _ = pgtype.Timestamptz{}

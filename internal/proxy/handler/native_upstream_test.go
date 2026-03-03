@@ -95,7 +95,7 @@ func TestSelectUpstream_RoundRobin(t *testing.T) {
 
 	seen := make(map[string]int)
 	for i := 0; i < 6; i++ {
-		u := selectUpstream("test-anthropic-rr", upstreams)
+		u := selectUpstream("test-rr-deterministic", upstreams)
 		seen[u.APIKey]++
 	}
 

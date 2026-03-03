@@ -3,7 +3,6 @@ package cache
 import (
 	"context"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"math"
 	"time"
@@ -166,6 +165,3 @@ func float32ToBytes(vec []float32) []byte {
 	}
 	return buf
 }
-
-// Ensure json is used (for potential future use in response serialization)
-var _ = json.Marshal

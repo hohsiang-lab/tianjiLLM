@@ -10,7 +10,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 // S3Cache stores cache entries as S3 objects with TTL via Expires metadata.
@@ -100,6 +99,3 @@ func (c *S3Cache) Ping(ctx context.Context) error {
 
 // Ensure S3Cache implements Cache
 var _ Cache = (*S3Cache)(nil)
-
-// Suppress unused import for types package (used in potential future extensions)
-var _ = types.ObjectStorageClassStandard
