@@ -901,7 +901,6 @@ func (m *mockStore) InsertErrorLog(ctx context.Context, arg db.InsertErrorLogPar
 	return nil
 }
 func (m *mockStore) InsertHealthCheck(ctx context.Context, arg db.InsertHealthCheckParams) error {
-	m.ni()
 	return nil
 }
 func (m *mockStore) ListAgents(ctx context.Context, arg db.ListAgentsParams) ([]db.AgentsTable, error) {
