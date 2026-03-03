@@ -20,6 +20,9 @@ var retryableStatusCodes = map[int]bool{
 // doUpstreamWithRetry executes an HTTP request with exponential backoff retry.
 // buildReq must build a fresh request each time (Body can only be read once).
 func doUpstreamWithRetry(ctx context.Context, client *http.Client, buildReq func() (*http.Request, error), maxRetries int) (*http.Response, error) {
+	if maxRetries < 0 {
+		maxRetries = 0
+	}
 	baseDelay := time.Second
 	var lastResp *http.Response
 	var lastErr error
@@ -37,7 +40,11 @@ func doUpstreamWithRetry(ctx context.Context, client *http.Client, buildReq func
 			if attempt < maxRetries {
 				wait := baseDelay * (1 << attempt)
 				log.Printf("[retry] attempt %d/%d error=%v waiting=%v", attempt+1, maxRetries, err, wait)
-				time.Sleep(wait)
+				select {
+				case <-time.After(wait):
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
 				continue
 			}
 			return nil, lastErr
@@ -62,7 +69,11 @@ func doUpstreamWithRetry(ctx context.Context, client *http.Client, buildReq func
 			}
 		}
 		log.Printf("[retry] attempt %d/%d status=%d waiting=%v", attempt+1, maxRetries, resp.StatusCode, wait)
-		time.Sleep(wait)
+		select {
+		case <-time.After(wait):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
 	return lastResp, nil
 }
