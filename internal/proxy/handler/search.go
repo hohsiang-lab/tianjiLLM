@@ -68,21 +68,22 @@ func (h *Handlers) SearchHandler(w http.ResponseWriter, r *http.Request) {
 
 	upstreamURL := provider.GetCompleteURL(apiBase, params)
 
-	var upstreamReq *http.Request
-	if provider.HTTPMethod() == http.MethodPost {
-		reqBody := provider.TransformRequest(params)
-		bodyBytes, _ := json.Marshal(reqBody)
-		upstreamReq, _ = http.NewRequestWithContext(r.Context(), http.MethodPost, upstreamURL, bytes.NewReader(bodyBytes))
-	} else {
-		upstreamReq, _ = http.NewRequestWithContext(r.Context(), http.MethodGet, upstreamURL, nil)
-	}
-	for k, vs := range headers {
-		for _, v := range vs {
-			upstreamReq.Header.Set(k, v)
+	resp, err := doUpstreamWithRetry(r.Context(), http.DefaultClient, func() (*http.Request, error) {
+		var req *http.Request
+		if provider.HTTPMethod() == http.MethodPost {
+			reqBody := provider.TransformRequest(params)
+			bodyBytes, _ := json.Marshal(reqBody)
+			req, _ = http.NewRequestWithContext(r.Context(), http.MethodPost, upstreamURL, bytes.NewReader(bodyBytes))
+		} else {
+			req, _ = http.NewRequestWithContext(r.Context(), http.MethodGet, upstreamURL, nil)
 		}
-	}
-
-	resp, err := http.DefaultClient.Do(upstreamReq)
+		for k, vs := range headers {
+			for _, v := range vs {
+				req.Header.Set(k, v)
+			}
+		}
+		return req, nil
+	}, h.MaxUpstreamRetries)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, model.ErrorResponse{
 			Error: model.ErrorDetail{Message: "upstream request failed: " + err.Error(), Type: "upstream_error"},

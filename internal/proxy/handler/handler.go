@@ -45,7 +45,8 @@ type Handlers struct {
 	CompletionBridge *a2a.CompletionBridge
 	EventDispatcher  *hook.ManagementEventDispatcher
 	DiscordAlerter   *callback.DiscordRateLimitAlerter
-	RateLimitStore   callback.RateLimitStore
+	RateLimitStore        callback.RateLimitStore
+	MaxUpstreamRetries int
 }
 
 func (h *Handlers) ListModels(w http.ResponseWriter, r *http.Request) {

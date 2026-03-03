@@ -49,21 +49,16 @@ func (h *Handlers) Rerank(w http.ResponseWriter, r *http.Request) {
 	// Phase 2: provider.resolved
 	middleware.LogProviderResolved(r.Context(), h.lookupProviderName(req.Model), baseURL+"/rerank", "rerank", req.Model)
 
-	upstreamReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, baseURL+"/rerank", bytes.NewReader(body))
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
-			Error: model.ErrorDetail{
-				Message: "create upstream request: " + err.Error(),
-				Type:    "internal_error",
-			},
-		})
-		return
-	}
-	upstreamReq.Header.Set("Content-Type", "application/json")
-	upstreamReq.Header.Set("Authorization", "Bearer "+apiKey)
-
 	upstreamStart := time.Now()
-	resp, err := http.DefaultClient.Do(upstreamReq)
+	resp, err := doUpstreamWithRetry(r.Context(), http.DefaultClient, func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, baseURL+"/rerank", bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		return req, nil
+	}, h.MaxUpstreamRetries)
 	upstreamLatency := middleware.UpstreamLatencyMs(upstreamStart)
 	if err != nil {
 		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{

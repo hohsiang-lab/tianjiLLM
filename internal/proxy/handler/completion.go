@@ -59,22 +59,16 @@ func (h *Handlers) Completion(w http.ResponseWriter, r *http.Request) {
 	// Replace /chat/completions with /completions for legacy endpoint
 	url = url[:len(url)-len("/chat/completions")] + "/completions"
 
-	httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
-			Error: model.ErrorDetail{
-				Message: "create upstream request: " + err.Error(),
-				Type:    "internal_error",
-			},
-		})
-		return
-	}
-
-	p.SetupHeaders(httpReq, apiKey)
-	httpReq.Header.Set("Content-Type", r.Header.Get("Content-Type"))
-
 	upstreamStart := time.Now()
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := doUpstreamWithRetry(r.Context(), http.DefaultClient, func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, url, bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		p.SetupHeaders(req, apiKey)
+		req.Header.Set("Content-Type", r.Header.Get("Content-Type"))
+		return req, nil
+	}, h.MaxUpstreamRetries)
 	upstreamLatency := middleware.UpstreamLatencyMs(upstreamStart)
 	if err != nil {
 		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{

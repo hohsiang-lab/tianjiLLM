@@ -116,7 +116,8 @@ type TianjiSettings struct {
 	Cache          bool         `yaml:"cache"`
 	CacheParams    *CacheParams `yaml:"cache_params,omitempty"`
 	SetVerbose     bool         `yaml:"set_verbose"`
-	NumRetries     *int         `yaml:"num_retries,omitempty"`
+	NumRetries          *int         `yaml:"num_retries,omitempty"`
+	MaxUpstreamRetries *int         `yaml:"max_upstream_retries,omitempty"`
 	RequestTimeout *int         `yaml:"request_timeout,omitempty"`
 	AllowedFails   *int         `yaml:"allowed_fails,omitempty"`
 	JSONLogs       bool         `yaml:"json_logs"`

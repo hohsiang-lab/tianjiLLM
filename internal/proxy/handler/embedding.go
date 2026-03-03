@@ -58,19 +58,10 @@ func (h *Handlers) Embedding(w http.ResponseWriter, r *http.Request) {
 
 	req.Model = modelName
 
-	httpReq, err := embProvider.TransformEmbeddingRequest(r.Context(), &req, apiKey)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
-			Error: model.ErrorDetail{
-				Message: "transform request: " + err.Error(),
-				Type:    "internal_error",
-			},
-		})
-		return
-	}
-
 	upstreamStart := time.Now()
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := doUpstreamWithRetry(r.Context(), http.DefaultClient, func() (*http.Request, error) {
+		return embProvider.TransformEmbeddingRequest(r.Context(), &req, apiKey)
+	}, h.MaxUpstreamRetries)
 	upstreamLatency := middleware.UpstreamLatencyMs(upstreamStart)
 	if err != nil {
 		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
