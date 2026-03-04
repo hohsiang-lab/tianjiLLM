@@ -72,9 +72,9 @@ func selectUpstream(provider string, upstreams []nativeUpstream) nativeUpstream 
 
 // nativeUtilizationState tracks active token state for native proxy lowest-utilization selection.
 var (
-	nativeUtilMu         sync.RWMutex
-	nativeActiveKey      string
-	nativeLastUsedAt     = map[string]time.Time{}
+	nativeUtilMu     sync.RWMutex
+	nativeActiveKey  string
+	nativeLastUsedAt = map[string]time.Time{}
 )
 
 // selectUpstreamByUtilization picks the upstream with the lowest 5h utilization.
