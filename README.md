@@ -91,7 +91,25 @@ Every provider implements the `Provider` interface (7 methods) and self-register
 
 ### Router
 
-Multi-deployment load balancing with pluggable strategies (shuffle/latency/cost). Deployment health tracked via failure count + cooldown + EMA latency. Fallback chains handle context window and content policy errors.
+Multi-deployment load balancing with pluggable strategies (shuffle/latency/cost/utilization). Deployment health tracked via failure count + cooldown + EMA latency. Fallback chains handle context window and content policy errors.
+
+#### Lowest-Utilization Strategy
+
+Designed for Anthropic OAuth token rotation. Tracks each token's 5-hour utilization via response headers and sticks with the active token until it exceeds a configurable threshold, then switches to the token with the lowest utilization.
+
+```yaml
+router_settings:
+  routing_strategy: "lowest-utilization"
+  routing_strategy_args:
+    utilization_threshold: 80  # percentage, default 80
+```
+
+Behavior:
+- Active token below threshold → keep using it
+- Active token ≥ threshold or rate-limited → switch to lowest-utilization token (LRU tie-break)
+- All tokens rate-limited → fallback shuffle
+- Cold start (no data) → shuffle, then lock to first token
+- Token switches emit `slog.Warn` + optional Discord alert
 
 ## Development
 

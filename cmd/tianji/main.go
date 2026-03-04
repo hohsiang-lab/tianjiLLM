@@ -222,11 +222,40 @@ func main() {
 		log.Printf("guardrail registered: %s (fail_open=%v)", gc.GuardrailName, failOpen)
 	}
 
+	// Init rate limit store and Discord alerter (needed by router strategy).
+	discordAlerter := callback.NewDiscordRateLimitAlerter(cfg.DiscordWebhookURL, cfg.RatelimitAlertThreshold)
+	rateLimitStore := callback.NewInMemoryRateLimitStore()
+	// FR-015: prune stale entries every minute.
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			rateLimitStore.Prune(5 * time.Minute)
+		}
+	}()
+
 	// Init router (config-driven)
 	var rtr *router.Router
 	if cfg.RouterSettings != nil {
 		strategyName := cfg.RouterSettings.RoutingStrategy
-		routeStrategy, err := strategy.NewFromConfig(strategyName)
+
+		// Build strategy options — inject dependencies for strategies that need them.
+		var strategyOpts []strategy.Option
+		strategyOpts = append(strategyOpts, strategy.WithRateLimitStore(rateLimitStore))
+		if t, ok := cfg.RouterSettings.RoutingStrategyArgs["utilization_threshold"]; ok {
+			if v, ok := t.(float64); ok {
+				strategyOpts = append(strategyOpts, strategy.WithUtilizationThreshold(v))
+			} else if v, ok := t.(int); ok {
+				strategyOpts = append(strategyOpts, strategy.WithUtilizationThreshold(float64(v)))
+			}
+		}
+		if discordAlerter != nil {
+			strategyOpts = append(strategyOpts, strategy.WithAlertFunc(func(msg string) {
+				go discordAlerter.SendRaw(msg)
+			}))
+		}
+
+		routeStrategy, err := strategy.NewFromConfig(strategyName, strategyOpts...)
 		if err != nil {
 			log.Printf("warn: routing strategy %q: %v, using shuffle", strategyName, err)
 			routeStrategy = strategy.NewShuffle()
@@ -389,17 +418,6 @@ func main() {
 	}
 
 	eventDispatcher := hook.NewManagementEventDispatcher(cfg.GeneralSettings.ManagementWebhookURL)
-
-	discordAlerter := callback.NewDiscordRateLimitAlerter(cfg.DiscordWebhookURL, cfg.RatelimitAlertThreshold)
-	rateLimitStore := callback.NewInMemoryRateLimitStore()
-	// FR-015: prune stale entries every minute.
-	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
-		defer ticker.Stop()
-		for range ticker.C {
-			rateLimitStore.Prune(5 * time.Minute)
-		}
-	}()
 
 	handlers := &handler.Handlers{
 		Config:          cfg,
