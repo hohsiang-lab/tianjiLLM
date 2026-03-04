@@ -119,6 +119,9 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 					tokenKey := callback.RateLimitCacheKey(apiKey)
 					rlState := callback.ParseAnthropicOAuthRateLimitHeaders(resp.Header, tokenKey)
 					h.RateLimitStore.Set(tokenKey, rlState)
+					if h.DiscordAlerter != nil {
+						h.DiscordAlerter.CheckAndAlertOAuth(rlState)
+					}
 				}
 				return nil
 			}
@@ -132,6 +135,9 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 					tokenKey := callback.RateLimitCacheKey(apiKey)
 					rlState := callback.ParseAnthropicOAuthRateLimitHeaders(resp.Header, tokenKey)
 					h.RateLimitStore.Set(tokenKey, rlState)
+					if h.DiscordAlerter != nil {
+						h.DiscordAlerter.CheckAndAlertOAuth(rlState)
+					}
 				}
 			}
 

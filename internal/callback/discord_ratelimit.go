@@ -159,3 +159,70 @@ func (a *DiscordRateLimitAlerter) sendIfNotCooling(key, alertType string, state 
 		log.Printf("ERROR ratelimit: Discord webhook returned %d: %s", resp.StatusCode, body.String())
 	}
 }
+
+// CheckAndAlertOAuth evaluates unified OAuth rate limit state and sends Discord alerts if:
+//   - Unified5hUtilization >= threshold (e.g. 0.8 for 80%)
+//   - UnifiedStatus == "rate_limited"
+//
+// Alert sending is non-blocking (goroutine). Per-key cooldown prevents spam.
+func (a *DiscordRateLimitAlerter) CheckAndAlertOAuth(state AnthropicOAuthRateLimitState) {
+	if state.UnifiedStatus == "rate_limited" {
+		go a.sendOAuthAlertIfNotCooling("ratelimit:oauth:rate_limited:"+state.TokenKey, "🚨 rate_limited", state)
+		return
+	}
+	if state.Unified5hUtilization >= a.threshold {
+		key := fmt.Sprintf("ratelimit:oauth:5h_util:%s", state.TokenKey)
+		go a.sendOAuthAlertIfNotCooling(key, fmt.Sprintf("⚠️ 5h utilization %.1f%%", state.Unified5hUtilization*100), state)
+	}
+}
+
+// sendOAuthAlertIfNotCooling sends a Discord alert for an OAuth token if cooldown has elapsed.
+func (a *DiscordRateLimitAlerter) sendOAuthAlertIfNotCooling(key, reason string, state AnthropicOAuthRateLimitState) {
+	a.mu.Lock()
+	last, exists := a.alerted[key]
+	if exists && time.Since(last) < a.cooldown {
+		a.mu.Unlock()
+		return
+	}
+	a.alerted[key] = time.Now()
+	a.mu.Unlock()
+
+	pct := func(v float64) string {
+		if v < 0 {
+			return "—"
+		}
+		return fmt.Sprintf("%.1f%%", v*100)
+	}
+
+	msg := fmt.Sprintf(
+		"%s — Anthropic OAuth token `%s`\n"+
+			"status: **%s** | 5h utilization: **%s** (reset: %s)\n"+
+			"representative claim: %s",
+		reason,
+		state.TokenKey,
+		state.UnifiedStatus,
+		pct(state.Unified5hUtilization),
+		state.Unified5hReset,
+		state.RepresentativeClaim,
+	)
+
+	payload, err := json.Marshal(map[string]string{"content": msg})
+	if err != nil {
+		log.Printf("ERROR ratelimit: failed to marshal Discord OAuth payload: %v", err)
+		return
+	}
+	resp, err := a.client.Post(a.webhookURL, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		log.Printf("ERROR ratelimit: Discord webhook (OAuth) request failed: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var body bytes.Buffer
+		if _, err := body.ReadFrom(resp.Body); err != nil {
+			log.Printf("ERROR ratelimit: failed to read Discord webhook (OAuth) response: %v", err)
+		}
+		log.Printf("ERROR ratelimit: Discord webhook (OAuth) returned %d: %s", resp.StatusCode, body.String())
+	}
+}
