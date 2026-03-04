@@ -39,6 +39,20 @@ func NewLowestUtilization(store callback.RateLimitStore, threshold float64, aler
 	}
 }
 
+// PickKey selects the best token key from a list of cache keys using
+// lowest-utilization logic. Goroutine-safe. Used by the native proxy path
+// to share selection logic without converting to router.Deployment.
+func (lu *LowestUtilization) PickKey(allKeys []string) string {
+	if len(allKeys) == 0 {
+		return ""
+	}
+	lu.mu.Lock()
+	defer lu.mu.Unlock()
+	picked := lu.pickTokenKey(allKeys)
+	lu.lastUsedAt[picked] = time.Now()
+	return picked
+}
+
 func (lu *LowestUtilization) Pick(deployments []*router.Deployment) *router.Deployment {
 	if len(deployments) == 0 {
 		return nil
