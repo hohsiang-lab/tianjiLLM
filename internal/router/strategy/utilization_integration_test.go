@@ -3,6 +3,7 @@ package strategy_test
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
@@ -94,15 +95,38 @@ func TestIntegration_TieBreak_LRU(t *testing.T) {
 	depA := makeDep("dep-A", "key-A")
 	depB := makeDep("dep-B", "key-B")
 
-	// Cold start with tie: first call picks one (deterministic by iteration order is not guaranteed,
-	// but the LRU tie-break ensures least-recently-used wins).
+	// Seed lastUsedAt: key-A was used recently, key-B was used earlier.
+	// PickKey records lastUsedAt internally, so we call PickKey to seed key-A first,
+	// then use SeedLastUsedAt to backdate key-B.
+	keyA := callback.RateLimitCacheKey("key-A")
+	keyB := callback.RateLimitCacheKey("key-B")
+
+	// Pick key-A first to seed it as recently used.
+	lu.PickKey([]string{keyA})
+	// Backdate key-B to an earlier time so it becomes the LRU candidate.
+	lu.SeedLastUsedAt(keyB, time.Now().Add(-10*time.Minute))
+
+	// Force a switch by raising key-A above threshold so pickBestKey is invoked.
+	setState(store, "key-A", 0.90, "allowed") // above 80% threshold
+	setState(store, "key-B", 0.50, "allowed") // below threshold
+
 	d := lu.Pick([]*router.Deployment{depA, depB})
 	require.NotNil(t, d)
-	// Both are valid on first pick (zero lastUsedAt), so we just verify it returns something.
-	assert.Contains(t, []string{
-		callback.RateLimitCacheKey("key-A"),
-		callback.RateLimitCacheKey("key-B"),
-	}, callback.RateLimitCacheKey(d.APIKey()))
+	// key-A is above threshold → switch. key-B is the only alternative → picks key-B.
+	assert.Equal(t, keyB, callback.RateLimitCacheKey(d.APIKey()))
+
+	// Now reset both to same utilization to test pure LRU tie-break.
+	setState(store, "key-A", 0.40, "allowed")
+	setState(store, "key-B", 0.40, "allowed")
+	// Backdate key-A to be the LRU (older).
+	lu.SeedLastUsedAt(keyA, time.Now().Add(-20*time.Minute))
+
+	// Force switch by temporarily raising key-B above threshold.
+	setState(store, "key-B", 0.85, "allowed")
+	d2 := lu.Pick([]*router.Deployment{depA, depB})
+	require.NotNil(t, d2)
+	// key-B is above threshold → switch → picks key-A (lower util / LRU).
+	assert.Equal(t, keyA, callback.RateLimitCacheKey(d2.APIKey()))
 }
 
 // Scenario 4: rate_limited → skipped

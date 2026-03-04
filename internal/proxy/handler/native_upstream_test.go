@@ -9,9 +9,18 @@ import (
 
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
+	"github.com/praxisllmlab/tianjiLLM/internal/router/strategy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// resetNativeUtilInstances clears the package-level nativeUtilInstances map
+// to prevent state leaking between tests.
+func resetNativeUtilInstances() {
+	nativeUtilMu.Lock()
+	defer nativeUtilMu.Unlock()
+	nativeUtilInstances = map[string]*strategy.LowestUtilization{}
+}
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 

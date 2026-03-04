@@ -123,7 +123,14 @@ func (h *Handlers) getNativeUtilInstance(provider string) *strategy.LowestUtiliz
 		}
 	}
 
-	lu := strategy.NewLowestUtilization(h.RateLimitStore, threshold, nil)
+	var alertFn strategy.AlertFunc
+	if h.DiscordAlerter != nil {
+		alertFn = func(msg string) {
+			go h.DiscordAlerter.SendRaw(msg)
+		}
+	}
+
+	lu := strategy.NewLowestUtilization(h.RateLimitStore, threshold, alertFn)
 	nativeUtilInstances[provider] = lu
 	return lu
 }

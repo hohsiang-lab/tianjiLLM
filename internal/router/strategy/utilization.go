@@ -86,6 +86,13 @@ func (lu *LowestUtilization) Pick(deployments []*router.Deployment) *router.Depl
 	return deps[rand.IntN(len(deps))]
 }
 
+// SeedLastUsedAt sets the lastUsedAt timestamp for a given key. Intended for testing.
+func (lu *LowestUtilization) SeedLastUsedAt(key string, t time.Time) {
+	lu.mu.Lock()
+	defer lu.mu.Unlock()
+	lu.lastUsedAt[key] = t
+}
+
 // pickTokenKey selects the best token key, switching from activeKey only when needed.
 func (lu *LowestUtilization) pickTokenKey(allKeys []string) string {
 	// Cold start: no active key yet → pick best or shuffle.
@@ -114,12 +121,12 @@ func (lu *LowestUtilization) pickTokenKey(allKeys []string) string {
 		return lu.switchToNewKey(allKeys)
 	}
 
-	// Check active key's utilization.
+	// Check active key's utilization (single store read to avoid TOCTOU).
 	if lu.store != nil {
-		util, ok := lu.store.GetUtilization(lu.activeKey)
-		if ok {
-			state, hasState := lu.store.Get(lu.activeKey)
-			isRateLimited := hasState && state.Unified5hStatus == "rate_limited"
+		state, ok := lu.store.Get(lu.activeKey)
+		if ok && state.Unified5hUtilization >= 0 {
+			util := state.Unified5hUtilization * 100
+			isRateLimited := state.Unified5hStatus == "rate_limited"
 
 			if isRateLimited || util >= lu.threshold {
 				return lu.switchToNewKey(allKeys)
@@ -148,37 +155,65 @@ func (lu *LowestUtilization) switchToNewKey(allKeys []string) string {
 
 // pickBestKey selects the key with the lowest utilization (excluding rate_limited).
 // On tie, picks the one with the oldest lastUsedAt (LRU).
+// When all tied candidates have zero lastUsedAt (cold start), picks randomly.
 func (lu *LowestUtilization) pickBestKey(keys []string) string {
 	if lu.store == nil {
 		return ""
 	}
 
-	bestKey := ""
+	type candidate struct {
+		key      string
+		util     float64
+		lastUsed time.Time
+	}
+
+	var candidates []candidate
 	bestUtil := float64(-1)
-	var bestLastUsed time.Time
 
 	for _, key := range keys {
 		state, ok := lu.store.Get(key)
-		if !ok {
-			continue
-		}
-		if state.Unified5hStatus == "rate_limited" {
-			continue
-		}
-		if state.Unified5hUtilization < 0 {
+		if !ok || state.Unified5hStatus == "rate_limited" || state.Unified5hUtilization < 0 {
 			continue
 		}
 
 		util := state.Unified5hUtilization * 100
 		lastUsed := lu.lastUsedAt[key]
 
-		if bestKey == "" || util < bestUtil || (util == bestUtil && lastUsed.Before(bestLastUsed)) {
-			bestKey = key
+		if bestUtil < 0 || util < bestUtil {
 			bestUtil = util
-			bestLastUsed = lastUsed
+			candidates = []candidate{{key, util, lastUsed}}
+		} else if util == bestUtil {
+			candidates = append(candidates, candidate{key, util, lastUsed})
 		}
 	}
-	return bestKey
+
+	if len(candidates) == 0 {
+		return ""
+	}
+	if len(candidates) == 1 {
+		return candidates[0].key
+	}
+
+	// Check if all candidates have zero lastUsedAt (cold start).
+	allZero := true
+	for _, c := range candidates {
+		if !c.lastUsed.IsZero() {
+			allZero = false
+			break
+		}
+	}
+	if allZero {
+		return candidates[rand.IntN(len(candidates))].key
+	}
+
+	// LRU: pick the candidate with the oldest lastUsedAt.
+	best := candidates[0]
+	for _, c := range candidates[1:] {
+		if c.lastUsed.Before(best.lastUsed) {
+			best = c
+		}
+	}
+	return best.key
 }
 
 // emitSwitchAlert logs and optionally sends a Discord alert about a token switch.
