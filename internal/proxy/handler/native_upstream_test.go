@@ -92,6 +92,7 @@ func TestResolveAllNativeUpstreams_NoMatch(t *testing.T) {
 // TestSelectUpstream_RoundRobin verifies that calling selectUpstream 6 times
 // with 3 entries cycles through all three in order.
 func TestSelectUpstream_RoundRobin(t *testing.T) {
+	resetNativeUtilInstances()
 	t.Parallel()
 	// Reset global counter for deterministic test.
 	// We can't reset directly since it's unexported; use a local counter pattern
