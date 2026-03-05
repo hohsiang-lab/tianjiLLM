@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/auth"
@@ -41,6 +42,11 @@ type TokenValidator interface {
 	ValidateToken(ctx context.Context, tokenHash string) (*TokenInfo, error)
 }
 
+// AuthErrorLogger records authentication failures to persistent storage.
+type AuthErrorLogger interface {
+	LogAuthError(ctx context.Context, requestID string, apiKeyHash string, statusCode int, errorMsg string)
+}
+
 // AuthConfig holds configuration for the auth middleware.
 type AuthConfig struct {
 	MasterKey     string
@@ -48,6 +54,7 @@ type AuthConfig struct {
 	JWTValidator  *auth.JWTValidator
 	RBACEngine    *auth.RBACEngine
 	EnableJWTAuth bool
+	ErrorLogger   AuthErrorLogger // optional: records auth failures to ErrorLogs
 }
 
 // NewAuthMiddleware creates an auth middleware that validates
@@ -59,10 +66,18 @@ type AuthConfig struct {
 func NewAuthMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 	masterKeyHash := hashToken(cfg.MasterKey)
 
+	logFailure := func(ctx context.Context, tokenHash string, status int, msg string) {
+		if cfg.ErrorLogger != nil {
+			reqID := chiMiddleware.GetReqID(ctx)
+			go cfg.ErrorLogger.LogAuthError(ctx, reqID, tokenHash, status, msg)
+		}
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := extractToken(r)
 			if token == "" {
+				logFailure(r.Context(), "", http.StatusUnauthorized, "missing API key")
 				authError(w, "missing API key", http.StatusUnauthorized)
 				return
 			}
@@ -83,6 +98,7 @@ func NewAuthMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 				claims, err := cfg.JWTValidator.ValidateToken(r.Context(), token)
 				if err != nil {
 					zerolog.Ctx(r.Context()).Warn().Err(err).Msg("JWT validation failed")
+					logFailure(r.Context(), tokenHash, http.StatusUnauthorized, "invalid JWT token")
 					authError(w, "invalid JWT token", http.StatusUnauthorized)
 					return
 				}
@@ -92,7 +108,9 @@ func NewAuthMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 				// RBAC route check
 				if cfg.RBACEngine != nil {
 					if err := cfg.RBACEngine.CheckRouteAccess(role, r.URL.Path); err != nil {
-						authError(w, fmt.Sprintf("access denied: %s", err), http.StatusForbidden)
+						msg := fmt.Sprintf("access denied: %s", err)
+						logFailure(r.Context(), tokenHash, http.StatusForbidden, msg)
+						authError(w, msg, http.StatusForbidden)
 						return
 					}
 				}
@@ -122,12 +140,14 @@ func NewAuthMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 						authError(w, "service temporarily unavailable", http.StatusServiceUnavailable)
 					} else {
 						zerolog.Ctx(r.Context()).Warn().Str("token_hash_prefix", tokenHash[:8]).Msg("auth failed: key not found")
+						logFailure(r.Context(), tokenHash, http.StatusUnauthorized, "invalid API key")
 						authError(w, "invalid API key", http.StatusUnauthorized)
 					}
 					return
 				}
 				if info.Blocked {
 					zerolog.Ctx(r.Context()).Warn().Str("token_hash_prefix", tokenHash[:8]).Msg("auth failed: key is blocked")
+					logFailure(r.Context(), tokenHash, http.StatusForbidden, "API key is blocked")
 					authError(w, "API key is blocked", http.StatusForbidden)
 					return
 				}
@@ -150,6 +170,7 @@ func NewAuthMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 				return
 			}
 
+			logFailure(r.Context(), tokenHash, http.StatusUnauthorized, "invalid API key")
 			authError(w, "invalid API key", http.StatusUnauthorized)
 		})
 	}
