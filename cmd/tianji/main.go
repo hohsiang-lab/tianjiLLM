@@ -452,13 +452,16 @@ func main() {
 
 	// Create server
 	var dbValidator middleware.TokenValidator
+	var authErrLogger middleware.AuthErrorLogger
 	if queries != nil {
 		dbValidator = &middleware.DBValidator{DB: queries}
+		authErrLogger = &middleware.DBAuthErrorLogger{DB: queries}
 	}
 	srv := proxy.NewServer(proxy.ServerConfig{
 		Handlers:           handlers,
 		MasterKey:          cfg.GeneralSettings.MasterKey,
 		DBQueries:          dbValidator,
+		AuthErrorLogger:    authErrLogger,
 		RedisClient:        redisClient,
 		PassthroughHandler: passthroughHandler,
 		MCPSSEHandler:      mcpSSEHandler,

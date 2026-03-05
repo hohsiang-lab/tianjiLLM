@@ -42,7 +42,8 @@ type ServerConfig struct {
 	Handlers           *handler.Handlers
 	MasterKey          string
 	DBQueries          middleware.TokenValidator
-	RedisClient        redis.UniversalClient // optional, enables rate limiting middleware
+	AuthErrorLogger    middleware.AuthErrorLogger // optional: records auth failures to ErrorLogs
+	RedisClient        redis.UniversalClient      // optional, enables rate limiting middleware
 	PassthroughHandler http.Handler
 	MCPSSEHandler      http.Handler
 	MCPStreamHandler   http.Handler
@@ -53,8 +54,9 @@ type ServerConfig struct {
 // NewServer creates a chi router with all routes configured.
 func NewServer(cfg ServerConfig) *Server {
 	return NewServerWithAuth(cfg, middleware.AuthConfig{
-		MasterKey: cfg.MasterKey,
-		Validator: cfg.DBQueries,
+		MasterKey:   cfg.MasterKey,
+		Validator:   cfg.DBQueries,
+		ErrorLogger: cfg.AuthErrorLogger,
 	})
 }
 

@@ -44,8 +44,31 @@ func (d *DBValidator) ValidateToken(ctx context.Context, tokenHash string) (*Tok
 	}, nil
 }
 
+// errorLogInserter is a narrow interface satisfied by *db.Queries.
+type errorLogInserter interface {
+	InsertErrorLog(ctx context.Context, arg db.InsertErrorLogParams) error
+}
+
+// DBAuthErrorLogger implements AuthErrorLogger by writing to the ErrorLogs table.
+type DBAuthErrorLogger struct {
+	DB errorLogInserter
+}
+
+// LogAuthError records an authentication failure to ErrorLogs (fire-and-forget).
+func (l *DBAuthErrorLogger) LogAuthError(_ context.Context, requestID string, apiKeyHash string, statusCode int, errorMsg string) {
+	_ = l.DB.InsertErrorLog(context.Background(), db.InsertErrorLogParams{
+		RequestID:    requestID,
+		ApiKeyHash:   apiKeyHash,
+		StatusCode:   int32(statusCode),
+		ErrorType:    "authentication_error",
+		ErrorMessage: errorMsg,
+	})
+}
+
 // Compile-time interface satisfaction checks.
 var _ TokenValidator = (*DBValidator)(nil)
+var _ AuthErrorLogger = (*DBAuthErrorLogger)(nil)
+var _ errorLogInserter = (*db.Queries)(nil)
 
 // Verify that *db.Queries satisfies the narrow querier interface.
 var _ verificationTokenQuerier = (*db.Queries)(nil)

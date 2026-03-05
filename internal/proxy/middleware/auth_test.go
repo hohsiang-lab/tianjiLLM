@@ -5,12 +5,29 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
 )
+
+// spyErrorLogger captures LogAuthError calls for testing.
+type spyErrorLogger struct {
+	calls []authErrorCall
+}
+
+type authErrorCall struct {
+	requestID  string
+	apiKeyHash string
+	statusCode int
+	errorMsg   string
+}
+
+func (s *spyErrorLogger) LogAuthError(_ context.Context, requestID string, apiKeyHash string, statusCode int, errorMsg string) {
+	s.calls = append(s.calls, authErrorCall{requestID, apiKeyHash, statusCode, errorMsg})
+}
 
 // mockValidator implements TokenValidator for auth middleware tests.
 type mockValidator struct {
@@ -175,6 +192,98 @@ func TestVirtualKey_DBUnavailableReturns503(t *testing.T) {
 	})).ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+}
+
+func TestErrorLogger_BlockedKeyLogs403(t *testing.T) {
+	spy := &spyErrorLogger{}
+	validator := &mockValidator{info: &TokenInfo{Blocked: true}}
+
+	authMW := NewAuthMiddleware(AuthConfig{
+		MasterKey:   "sk-master",
+		Validator:   validator,
+		ErrorLogger: spy,
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	req.Header.Set("Authorization", "Bearer sk-blocked-key")
+	rr := httptest.NewRecorder()
+
+	authMW(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})).ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	// logFailure is called in a goroutine; wait briefly for it
+	require.Eventually(t, func() bool { return len(spy.calls) == 1 }, time.Second, 10*time.Millisecond)
+	assert.Equal(t, 403, spy.calls[0].statusCode)
+	assert.Equal(t, "API key is blocked", spy.calls[0].errorMsg)
+}
+
+func TestErrorLogger_InvalidKeyLogs401(t *testing.T) {
+	spy := &spyErrorLogger{}
+	validator := &mockValidator{err: ErrKeyNotFound}
+
+	authMW := NewAuthMiddleware(AuthConfig{
+		MasterKey:   "sk-master",
+		Validator:   validator,
+		ErrorLogger: spy,
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	req.Header.Set("Authorization", "Bearer sk-bad-key")
+	rr := httptest.NewRecorder()
+
+	authMW(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})).ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	require.Eventually(t, func() bool { return len(spy.calls) == 1 }, time.Second, 10*time.Millisecond)
+	assert.Equal(t, 401, spy.calls[0].statusCode)
+}
+
+func TestErrorLogger_MissingKeyLogs401(t *testing.T) {
+	spy := &spyErrorLogger{}
+
+	authMW := NewAuthMiddleware(AuthConfig{
+		MasterKey:   "sk-master",
+		ErrorLogger: spy,
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	// No Authorization header
+	rr := httptest.NewRecorder()
+
+	authMW(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})).ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	require.Eventually(t, func() bool { return len(spy.calls) == 1 }, time.Second, 10*time.Millisecond)
+	assert.Equal(t, 401, spy.calls[0].statusCode)
+	assert.Equal(t, "missing API key", spy.calls[0].errorMsg)
+}
+
+func TestErrorLogger_SuccessNoLog(t *testing.T) {
+	spy := &spyErrorLogger{}
+
+	authMW := NewAuthMiddleware(AuthConfig{
+		MasterKey:   "sk-master",
+		ErrorLogger: spy,
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	req.Header.Set("Authorization", "Bearer sk-master")
+	rr := httptest.NewRecorder()
+
+	authMW(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})).ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	// Give goroutine time to fire (it shouldn't)
+	time.Sleep(50 * time.Millisecond)
+	assert.Empty(t, spy.calls, "no error log for successful auth")
 }
 
 // BenchmarkAuthMiddleware_VirtualKey measures end-to-end latency of the auth
