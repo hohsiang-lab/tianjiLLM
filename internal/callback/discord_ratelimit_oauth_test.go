@@ -40,7 +40,6 @@ func mockDiscordServerForOAuth(t *testing.T, statusCode int) (*httptest.Server, 
 	}
 }
 
-
 // --- OAuth Rate Limit Alert Tests ---
 
 // Test 1: unified_5h_utilization >= 80% -> should trigger alert
