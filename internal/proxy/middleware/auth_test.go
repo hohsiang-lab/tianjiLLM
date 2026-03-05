@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,8 +14,9 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
 )
 
-// spyErrorLogger captures LogAuthError calls for testing.
+// spyErrorLogger captures LogAuthError calls for testing (goroutine-safe).
 type spyErrorLogger struct {
+	mu    sync.Mutex
 	calls []authErrorCall
 }
 
@@ -26,7 +28,17 @@ type authErrorCall struct {
 }
 
 func (s *spyErrorLogger) LogAuthError(_ context.Context, requestID string, apiKeyHash string, statusCode int, errorMsg string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.calls = append(s.calls, authErrorCall{requestID, apiKeyHash, statusCode, errorMsg})
+}
+
+func (s *spyErrorLogger) snapshot() []authErrorCall {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cp := make([]authErrorCall, len(s.calls))
+	copy(cp, s.calls)
+	return cp
 }
 
 // mockValidator implements TokenValidator for auth middleware tests.
@@ -214,9 +226,10 @@ func TestErrorLogger_BlockedKeyLogs403(t *testing.T) {
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	// logFailure is called in a goroutine; wait briefly for it
-	require.Eventually(t, func() bool { return len(spy.calls) == 1 }, time.Second, 10*time.Millisecond)
-	assert.Equal(t, 403, spy.calls[0].statusCode)
-	assert.Equal(t, "API key is blocked", spy.calls[0].errorMsg)
+	require.Eventually(t, func() bool { return len(spy.snapshot()) == 1 }, time.Second, 10*time.Millisecond)
+	got := spy.snapshot()
+	assert.Equal(t, 403, got[0].statusCode)
+	assert.Equal(t, "API key is blocked", got[0].errorMsg)
 }
 
 func TestErrorLogger_InvalidKeyLogs401(t *testing.T) {
@@ -238,8 +251,8 @@ func TestErrorLogger_InvalidKeyLogs401(t *testing.T) {
 	})).ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
-	require.Eventually(t, func() bool { return len(spy.calls) == 1 }, time.Second, 10*time.Millisecond)
-	assert.Equal(t, 401, spy.calls[0].statusCode)
+	require.Eventually(t, func() bool { return len(spy.snapshot()) == 1 }, time.Second, 10*time.Millisecond)
+	assert.Equal(t, 401, spy.snapshot()[0].statusCode)
 }
 
 func TestErrorLogger_MissingKeyLogs401(t *testing.T) {
@@ -259,9 +272,10 @@ func TestErrorLogger_MissingKeyLogs401(t *testing.T) {
 	})).ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
-	require.Eventually(t, func() bool { return len(spy.calls) == 1 }, time.Second, 10*time.Millisecond)
-	assert.Equal(t, 401, spy.calls[0].statusCode)
-	assert.Equal(t, "missing API key", spy.calls[0].errorMsg)
+	require.Eventually(t, func() bool { return len(spy.snapshot()) == 1 }, time.Second, 10*time.Millisecond)
+	got := spy.snapshot()
+	assert.Equal(t, 401, got[0].statusCode)
+	assert.Equal(t, "missing API key", got[0].errorMsg)
 }
 
 func TestErrorLogger_SuccessNoLog(t *testing.T) {
@@ -283,7 +297,7 @@ func TestErrorLogger_SuccessNoLog(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	// Give goroutine time to fire (it shouldn't)
 	time.Sleep(50 * time.Millisecond)
-	assert.Empty(t, spy.calls, "no error log for successful auth")
+	assert.Empty(t, spy.snapshot(), "no error log for successful auth")
 }
 
 // BenchmarkAuthMiddleware_VirtualKey measures end-to-end latency of the auth
