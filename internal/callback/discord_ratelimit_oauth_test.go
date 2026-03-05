@@ -41,16 +41,6 @@ func mockDiscordServerForOAuth(t *testing.T, statusCode int) (*httptest.Server, 
 	}
 }
 
-// makeOAuthHeaders returns a valid set of Anthropic OAuth rate limit headers.
-func makeOAuthHeaders(unifiedStatus, unified5hStatus string, unified5hUtilization float64) http.Header {
-	h := http.Header{}
-	h.Set("anthropic-ratelimit-unified-status", unifiedStatus)
-	h.Set("anthropic-ratelimit-unified-reset", "1734067200")
-	h.Set("anthropic-ratelimit-unified-5h-status", unified5hStatus)
-	h.Set("anthropic-ratelimit-unified-5h-reset", "1734067200")
-	h.Set("anthropic-ratelimit-unified-5h-utilization", strconv.FormatFloat(unified5hUtilization, 'f', -1, 64))
-	return h
-}
 
 // --- OAuth Rate Limit Alert Tests ---
 
