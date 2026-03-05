@@ -43,6 +43,11 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 			})
 			return
 		}
+		log.Printf("ERROR upstream selection failed for %s: %v", providerName, throttleErr)
+		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
+			Error: model.ErrorDetail{Message: "upstream selection failed", Type: "internal_error"},
+		})
+		return
 	}
 	if upstream.BaseURL == "" {
 		writeJSON(w, http.StatusNotImplemented, model.ErrorResponse{

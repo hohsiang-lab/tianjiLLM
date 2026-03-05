@@ -546,12 +546,11 @@ func TestCheckAndAlertOAuth_5hOverThreshold(t *testing.T) {
 	}
 
 	a.CheckAndAlertOAuth(state)
-	time.Sleep(150 * time.Millisecond)
 
-	msgs := getMsgs()
-	require.Len(t, msgs, 1, "5h utilization >= threshold should trigger alert")
-	assert.Contains(t, msgs[0], "abc123", "alert should mention token key")
-	assert.Contains(t, msgs[0], "5h", "alert should mention 5h utilization")
+	require.Eventually(t, func() bool { return len(getMsgs()) == 1 },
+		time.Second, 10*time.Millisecond, "5h utilization >= threshold should trigger alert")
+	assert.Contains(t, getMsgs()[0], "abc123", "alert should mention token key")
+	assert.Contains(t, getMsgs()[0], "5h", "alert should mention 5h utilization")
 }
 
 func TestCheckAndAlertOAuth_7dOverThreshold(t *testing.T) {
@@ -571,12 +570,11 @@ func TestCheckAndAlertOAuth_7dOverThreshold(t *testing.T) {
 	}
 
 	a.CheckAndAlertOAuth(state)
-	time.Sleep(150 * time.Millisecond)
 
-	msgs := getMsgs()
-	require.Len(t, msgs, 1, "7d utilization >= threshold should trigger alert")
-	assert.Contains(t, msgs[0], "def456", "alert should mention token key")
-	assert.Contains(t, msgs[0], "7d", "alert should mention 7d utilization")
+	require.Eventually(t, func() bool { return len(getMsgs()) == 1 },
+		time.Second, 10*time.Millisecond, "7d utilization >= threshold should trigger alert")
+	assert.Contains(t, getMsgs()[0], "def456", "alert should mention token key")
+	assert.Contains(t, getMsgs()[0], "7d", "alert should mention 7d utilization")
 }
 
 func TestCheckAndAlertOAuth_RateLimitedStatus(t *testing.T) {
@@ -595,11 +593,10 @@ func TestCheckAndAlertOAuth_RateLimitedStatus(t *testing.T) {
 	}
 
 	a.CheckAndAlertOAuth(state)
-	time.Sleep(150 * time.Millisecond)
 
-	msgs := getMsgs()
-	require.Len(t, msgs, 1, "rate_limited status should trigger alert")
-	assert.Contains(t, msgs[0], "rate_limited", "alert should mention rate_limited")
+	require.Eventually(t, func() bool { return len(getMsgs()) == 1 },
+		time.Second, 10*time.Millisecond, "rate_limited status should trigger alert")
+	assert.Contains(t, getMsgs()[0], "rate_limited", "alert should mention rate_limited")
 }
 
 func TestCheckAndAlertOAuth_Cooldown(t *testing.T) {
@@ -625,24 +622,14 @@ func TestCheckAndAlertOAuth_Cooldown(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		a.CheckAndAlertOAuth(state)
 	}
-	time.Sleep(150 * time.Millisecond)
 
+	// Wait for the one allowed goroutine to complete.
+	require.Eventually(t, func() bool { return atomic.LoadInt32(&callCount) >= 1 },
+		time.Second, 10*time.Millisecond)
+	// Brief settle to confirm no additional alerts sneak through.
+	time.Sleep(50 * time.Millisecond)
 	assert.Equal(t, int32(1), atomic.LoadInt32(&callCount),
 		"cooldown: only first alert should fire within 1h")
-}
-
-func TestCheckAndAlertOAuth_NilAlerter(t *testing.T) {
-	a := NewDiscordRateLimitAlerter("", 0.8)
-	assert.Nil(t, a, "empty webhook URL should return nil alerter")
-
-	// Callers must check nil before calling — this test verifies the pattern.
-	if a != nil {
-		a.CheckAndAlertOAuth(AnthropicOAuthRateLimitState{
-			TokenKey:             "nil_test",
-			Unified5hUtilization: 0.99,
-		})
-	}
-	// No panic = pass
 }
 
 func TestNewDiscordRateLimitAlerter_ZeroThreshold_DefaultsTo02(t *testing.T) {

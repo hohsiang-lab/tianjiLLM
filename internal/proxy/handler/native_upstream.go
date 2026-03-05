@@ -157,7 +157,8 @@ func (h *Handlers) selectUpstreamWithThrottle(
 	return roundRobinSelect(providerName, available), nil
 }
 
-// trackNearestReset updates nearest with the earliest future reset time from the given timestamps.
+// trackNearestReset updates nearest with the earliest reset time from the given timestamps.
+// Does not filter past times — the caller handles stale resets (e.g. Retry-After floors to 60s).
 func trackNearestReset(nearest *time.Time, timestamps ...string) {
 	for _, ts := range timestamps {
 		t := parseUnixResetTime(ts)
