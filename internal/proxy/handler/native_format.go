@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,7 +27,23 @@ import (
 // nativeProxy creates a reverse proxy to a specific provider's base URL.
 func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerName string) {
 	upstreams := h.resolveAllNativeUpstreams(providerName)
-	upstream := selectUpstream(providerName, upstreams)
+	upstream, throttleErr := h.selectUpstreamWithThrottle(providerName, upstreams)
+	if throttleErr != nil {
+		if ate, ok := throttleErr.(*allTokensThrottledError); ok {
+			retryAfter := int(time.Until(ate.resetAt).Seconds())
+			if retryAfter < 1 {
+				retryAfter = 60
+			}
+			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+			writeJSON(w, http.StatusTooManyRequests, model.ErrorResponse{
+				Error: model.ErrorDetail{
+					Message: "all OAuth tokens throttled",
+					Type:    "rate_limit_error",
+				},
+			})
+			return
+		}
+	}
 	if upstream.BaseURL == "" {
 		writeJSON(w, http.StatusNotImplemented, model.ErrorResponse{
 			Error: model.ErrorDetail{Message: providerName + " not configured", Type: "not_supported"},
@@ -119,6 +136,9 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 					tokenKey := callback.RateLimitCacheKey(apiKey)
 					rlState := callback.ParseAnthropicOAuthRateLimitHeaders(resp.Header, tokenKey)
 					h.RateLimitStore.Set(tokenKey, rlState)
+					if h.DiscordAlerter != nil && anthropic.IsOAuthToken(apiKey) {
+						h.DiscordAlerter.CheckAndAlertOAuth(rlState)
+					}
 				}
 				return nil
 			}
@@ -132,6 +152,9 @@ func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerN
 					tokenKey := callback.RateLimitCacheKey(apiKey)
 					rlState := callback.ParseAnthropicOAuthRateLimitHeaders(resp.Header, tokenKey)
 					h.RateLimitStore.Set(tokenKey, rlState)
+					if h.DiscordAlerter != nil && anthropic.IsOAuthToken(apiKey) {
+						h.DiscordAlerter.CheckAndAlertOAuth(rlState)
+					}
 				}
 			}
 

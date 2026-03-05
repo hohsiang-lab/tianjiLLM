@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/callback"
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
@@ -95,7 +97,7 @@ func TestSelectUpstream_RoundRobin(t *testing.T) {
 
 	seen := make(map[string]int)
 	for i := 0; i < 6; i++ {
-		u := selectUpstream("test-rr-deterministic", upstreams)
+		u := roundRobinSelect("test-rr-deterministic", upstreams)
 		seen[u.APIKey]++
 	}
 
@@ -124,7 +126,7 @@ func TestSelectUpstream_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			results[idx] = selectUpstream("test-anthropic-rr", upstreams)
+			results[idx] = roundRobinSelect("test-anthropic-rr", upstreams)
 		}(i)
 	}
 	wg.Wait()
@@ -133,6 +135,289 @@ func TestSelectUpstream_Concurrent(t *testing.T) {
 	for i, u := range results {
 		assert.NotEmpty(t, u.APIKey, "goroutine %d got empty APIKey", i)
 	}
+}
+
+// ─── 079: selectUpstreamWithThrottle ─────────────────────────────────────────
+
+// helper: build Handlers with RateLimitStore and upstreams for throttle tests.
+func makeThrottleHandlers(upstreams []nativeUpstream, threshold float64) *Handlers {
+	// Build ModelList from upstreams so resolveAllNativeUpstreams works.
+	var models []config.ModelConfig
+	for _, u := range upstreams {
+		key := u.APIKey
+		base := u.BaseURL
+		models = append(models, config.ModelConfig{
+			ModelName: "anthropic/test",
+			TianjiParams: config.TianjiParams{
+				Model:   "anthropic/test",
+				APIKey:  &key,
+				APIBase: &base,
+			},
+		})
+	}
+	return &Handlers{
+		Config: &config.ProxyConfig{
+			ModelList:               models,
+			RatelimitAlertThreshold: threshold,
+		},
+		RateLimitStore: callback.NewInMemoryRateLimitStore(),
+	}
+}
+
+// oauthKey returns a fake OAuth token key for testing (sk-ant-oat prefix).
+func oauthKey(id string) string { return "sk-ant-oat-test-" + id }
+
+// --- US1: Skip high-utilization tokens ---
+
+func TestSelectUpstreamThrottle_Skips5hOverThreshold(t *testing.T) {
+	t.Parallel()
+	upstreams := []nativeUpstream{
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("A")},
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("B")},
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("C")},
+	}
+	h := makeThrottleHandlers(upstreams, 0.8)
+
+	// Token A: 5h utilization 85% (over threshold)
+	keyA := callback.RateLimitCacheKey(oauthKey("A"))
+	h.RateLimitStore.Set(keyA, callback.AnthropicOAuthRateLimitState{
+		TokenKey: keyA, UnifiedStatus: "allowed",
+		Unified5hUtilization: 0.85, Unified7dUtilization: 0.30,
+	})
+
+	// Call multiple times — should never select token A
+	for i := 0; i < 10; i++ {
+		u, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+		require.NoError(t, err)
+		assert.NotEqual(t, oauthKey("A"), u.APIKey, "token A (5h=85%%) should be skipped")
+	}
+}
+
+func TestSelectUpstreamThrottle_Skips7dOverThreshold(t *testing.T) {
+	t.Parallel()
+	upstreams := []nativeUpstream{
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("X")},
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("Y")},
+	}
+	h := makeThrottleHandlers(upstreams, 0.8)
+
+	keyX := callback.RateLimitCacheKey(oauthKey("X"))
+	h.RateLimitStore.Set(keyX, callback.AnthropicOAuthRateLimitState{
+		TokenKey: keyX, UnifiedStatus: "allowed",
+		Unified5hUtilization: 0.50, Unified7dUtilization: 0.90,
+	})
+
+	for i := 0; i < 10; i++ {
+		u, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+		require.NoError(t, err)
+		assert.Equal(t, oauthKey("Y"), u.APIKey, "token X (7d=90%%) should be skipped")
+	}
+}
+
+func TestSelectUpstreamThrottle_RecoversBelowThreshold(t *testing.T) {
+	t.Parallel()
+	upstreams := []nativeUpstream{
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("R1")},
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("R2")},
+	}
+	h := makeThrottleHandlers(upstreams, 0.8)
+
+	keyR1 := callback.RateLimitCacheKey(oauthKey("R1"))
+	h.RateLimitStore.Set(keyR1, callback.AnthropicOAuthRateLimitState{
+		TokenKey: keyR1, UnifiedStatus: "allowed",
+		Unified5hUtilization: 0.60, Unified7dUtilization: 0.40,
+	})
+
+	// Token R1 at 60% — should be available
+	selected := map[string]bool{}
+	for i := 0; i < 20; i++ {
+		u, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+		require.NoError(t, err)
+		selected[u.APIKey] = true
+	}
+	assert.True(t, selected[oauthKey("R1")], "token R1 (60%%) should be available")
+}
+
+func TestSelectUpstreamThrottle_SkipsRateLimitedStatus(t *testing.T) {
+	t.Parallel()
+	upstreams := []nativeUpstream{
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("RL1")},
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("RL2")},
+	}
+	h := makeThrottleHandlers(upstreams, 0.8)
+
+	keyRL1 := callback.RateLimitCacheKey(oauthKey("RL1"))
+	h.RateLimitStore.Set(keyRL1, callback.AnthropicOAuthRateLimitState{
+		TokenKey: keyRL1, UnifiedStatus: "rate_limited",
+		Unified5hUtilization: 0.50, Unified7dUtilization: 0.30,
+	})
+
+	for i := 0; i < 10; i++ {
+		u, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+		require.NoError(t, err)
+		assert.Equal(t, oauthKey("RL2"), u.APIKey, "rate_limited token should be skipped regardless of utilization")
+	}
+}
+
+func TestSelectUpstreamThrottle_UnknownStateIsAvailable(t *testing.T) {
+	t.Parallel()
+	upstreams := []nativeUpstream{
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("UNK")},
+	}
+	h := makeThrottleHandlers(upstreams, 0.8)
+	// No state set in store
+
+	u, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+	require.NoError(t, err)
+	assert.Equal(t, oauthKey("UNK"), u.APIKey, "unknown state token should be available")
+}
+
+func TestSelectUpstreamThrottle_SentinelNeg1IsAvailable(t *testing.T) {
+	t.Parallel()
+	upstreams := []nativeUpstream{
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("S1")},
+	}
+	h := makeThrottleHandlers(upstreams, 0.8)
+
+	keyS1 := callback.RateLimitCacheKey(oauthKey("S1"))
+	h.RateLimitStore.Set(keyS1, callback.AnthropicOAuthRateLimitState{
+		TokenKey: keyS1, UnifiedStatus: "allowed",
+		Unified5hUtilization: -1, Unified7dUtilization: -1,
+	})
+
+	u, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+	require.NoError(t, err)
+	assert.Equal(t, oauthKey("S1"), u.APIKey, "sentinel -1 utilization should be treated as available")
+}
+
+func TestSelectUpstreamThrottle_NonOAuthNotThrottled(t *testing.T) {
+	t.Parallel()
+	upstreams := []nativeUpstream{
+		{BaseURL: "https://api.anthropic.com", APIKey: "sk-regular-api-key"},
+	}
+	h := makeThrottleHandlers(upstreams, 0.8)
+
+	// Even if we somehow have state for this key, non-OAuth should not be throttled.
+	u, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+	require.NoError(t, err)
+	assert.Equal(t, "sk-regular-api-key", u.APIKey, "non-OAuth keys should never be throttled")
+}
+
+func TestSelectUpstreamThrottle_DeduplicatesByAPIKey(t *testing.T) {
+	t.Parallel()
+	sameKey := oauthKey("DUP")
+	upstreams := []nativeUpstream{
+		{BaseURL: "https://api.anthropic.com", APIKey: sameKey},
+		{BaseURL: "https://api.anthropic.com", APIKey: sameKey},
+		{BaseURL: "https://api.anthropic.com", APIKey: sameKey},
+	}
+	h := makeThrottleHandlers(upstreams, 0.8)
+
+	u, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+	require.NoError(t, err)
+	assert.Equal(t, sameKey, u.APIKey)
+}
+
+// --- US2: All tokens throttled → error ---
+
+func TestSelectUpstreamThrottle_AllThrottled_ReturnsError(t *testing.T) {
+	t.Parallel()
+	upstreams := []nativeUpstream{
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("AT1")},
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("AT2")},
+	}
+	h := makeThrottleHandlers(upstreams, 0.8)
+
+	for _, key := range []string{oauthKey("AT1"), oauthKey("AT2")} {
+		ck := callback.RateLimitCacheKey(key)
+		h.RateLimitStore.Set(ck, callback.AnthropicOAuthRateLimitState{
+			TokenKey: ck, UnifiedStatus: "allowed",
+			Unified5hUtilization: 0.90, Unified7dUtilization: 0.50,
+		})
+	}
+
+	_, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+	require.Error(t, err)
+	var ate *allTokensThrottledError
+	assert.ErrorAs(t, err, &ate, "should return allTokensThrottledError")
+}
+
+func TestSelectUpstreamThrottle_AllThrottled_NearestReset(t *testing.T) {
+	t.Parallel()
+	upstreams := []nativeUpstream{
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("NR1")},
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("NR2")},
+	}
+	h := makeThrottleHandlers(upstreams, 0.8)
+
+	now := time.Now()
+	near := now.Add(30 * time.Minute) // NR1 resets in 30 min
+	far := now.Add(120 * time.Minute) // NR2 resets in 2 hours
+
+	ck1 := callback.RateLimitCacheKey(oauthKey("NR1"))
+	h.RateLimitStore.Set(ck1, callback.AnthropicOAuthRateLimitState{
+		TokenKey: ck1, UnifiedStatus: "allowed",
+		Unified5hUtilization: 0.90, Unified5hReset: fmt.Sprintf("%d", near.Unix()),
+	})
+	ck2 := callback.RateLimitCacheKey(oauthKey("NR2"))
+	h.RateLimitStore.Set(ck2, callback.AnthropicOAuthRateLimitState{
+		TokenKey: ck2, UnifiedStatus: "allowed",
+		Unified5hUtilization: 0.95, Unified5hReset: fmt.Sprintf("%d", far.Unix()),
+	})
+
+	_, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+	require.Error(t, err)
+	var ate *allTokensThrottledError
+	require.ErrorAs(t, err, &ate)
+	// Nearest reset should be ~30 min from now (NR1), not 2 hours (NR2)
+	assert.WithinDuration(t, near, ate.resetAt, 2*time.Second, "should pick nearest reset time")
+}
+
+func TestSelectUpstreamThrottle_SingleTokenThrottled_Returns429(t *testing.T) {
+	t.Parallel()
+	upstreams := []nativeUpstream{
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("SOLO")},
+	}
+	h := makeThrottleHandlers(upstreams, 0.8)
+
+	ck := callback.RateLimitCacheKey(oauthKey("SOLO"))
+	h.RateLimitStore.Set(ck, callback.AnthropicOAuthRateLimitState{
+		TokenKey: ck, UnifiedStatus: "allowed",
+		Unified5hUtilization: 0.85, Unified7dUtilization: 0.50,
+	})
+
+	_, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+	require.Error(t, err)
+	var ate *allTokensThrottledError
+	assert.ErrorAs(t, err, &ate, "single throttled token should return error")
+}
+
+func TestSelectUpstreamThrottle_ConfigurableThreshold(t *testing.T) {
+	t.Parallel()
+	upstreams := []nativeUpstream{
+		{BaseURL: "https://api.anthropic.com", APIKey: oauthKey("CFG")},
+	}
+	// Threshold = 0.5
+	h := makeThrottleHandlers(upstreams, 0.5)
+
+	ck := callback.RateLimitCacheKey(oauthKey("CFG"))
+
+	// At 0.6 → over 0.5 threshold → throttled
+	h.RateLimitStore.Set(ck, callback.AnthropicOAuthRateLimitState{
+		TokenKey: ck, UnifiedStatus: "allowed",
+		Unified5hUtilization: 0.6, Unified7dUtilization: -1,
+	})
+	_, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+	require.Error(t, err, "0.6 utilization should be throttled at 0.5 threshold")
+
+	// At 0.4 → under 0.5 threshold → available
+	h.RateLimitStore.Set(ck, callback.AnthropicOAuthRateLimitState{
+		TokenKey: ck, UnifiedStatus: "allowed",
+		Unified5hUtilization: 0.4, Unified7dUtilization: -1,
+	})
+	u, err := h.selectUpstreamWithThrottle("anthropic", upstreams)
+	require.NoError(t, err, "0.4 utilization should be available at 0.5 threshold")
+	assert.Equal(t, oauthKey("CFG"), u.APIKey)
 }
 
 // ─── FR-019: rate limit headers parsed on non-200 responses ─────────────────
