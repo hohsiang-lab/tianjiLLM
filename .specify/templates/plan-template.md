@@ -94,6 +94,41 @@ ios/ or android/
 **Structure Decision**: [Document the selected structure and reference the real
 directories captured above]
 
+## Failing Tests
+
+<!--
+  MANDATORY (Constitution Principle IV): Every acceptance scenario and edge case
+  from the spec MUST have a corresponding test listed here. Tests are designed
+  during planning and implemented as Task 1 of each user story.
+
+  For each test, provide:
+  - Function name (e.g., TestSelectUpstream_SkipsThrottledToken)
+  - File path (e.g., internal/proxy/handler/native_upstream_test.go)
+  - Key assertion (what is checked, expected vs. actual)
+  - Which acceptance scenario or edge case it covers
+-->
+
+### User Story 1 Tests
+
+| Test Function | File | Assertion | Covers |
+|---------------|------|-----------|--------|
+| `[TestName]` | `[path/to/file_test.go]` | [expected behavior] | [AS-1.1 / Edge Case X] |
+
+### User Story 2 Tests
+
+| Test Function | File | Assertion | Covers |
+|---------------|------|-----------|--------|
+| `[TestName]` | `[path/to/file_test.go]` | [expected behavior] | [AS-2.1 / Edge Case X] |
+
+[Add more user story test tables as needed]
+
+### Verification Command
+
+```bash
+# Run all failing tests to confirm they compile and fail:
+[e.g., go test ./internal/... -run "TestSelectUpstream" -v]
+```
+
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**
