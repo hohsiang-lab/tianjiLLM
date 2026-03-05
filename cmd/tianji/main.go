@@ -414,6 +414,12 @@ func main() {
 		EventDispatcher: eventDispatcher,
 		DiscordAlerter:  discordAlerter,
 		RateLimitStore:  rateLimitStore,
+		MaxUpstreamRetries: func() int {
+			if cfg != nil && cfg.TianjiSettings.MaxUpstreamRetries != nil {
+				return *cfg.TianjiSettings.MaxUpstreamRetries
+			}
+			return 2
+		}(),
 	}
 
 	// Init scheduler
