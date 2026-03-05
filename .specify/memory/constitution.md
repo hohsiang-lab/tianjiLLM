@@ -1,17 +1,17 @@
 <!--
 Sync Impact Report:
-- Version: 1.1.0 → 1.2.0 (MINOR — new principle added)
-- Modified principles: none
-- Added principles:
-  - VII. sqlc-First Database Access (NON-NEGOTIABLE) — all DB queries
-    MUST be defined as .sql files and code-generated via sqlc; hand-written
-    query methods in Go are prohibited
+- Version: 1.2.0 → 1.3.0 (MINOR — new principle added, workflow updated)
+- Modified principles:
+  - IV. Test-Driven Migration → IV. Failing-Tests-First Development
+    (expanded scope from migration-only to all features; added
+    failing-tests-first mandate in plan phase)
+- Added principles: none (IV expanded instead of new principle)
 - Added sections: none
 - Removed sections: none
 - Templates requiring updates:
-  - .specify/templates/plan-template.md — ✅ no changes needed
+  - .specify/templates/plan-template.md — ✅ updated (added ## Failing Tests section)
   - .specify/templates/spec-template.md — ✅ no changes needed
-  - .specify/templates/tasks-template.md — ✅ no changes needed
+  - .specify/templates/tasks-template.md — ✅ updated (tests mandatory, not optional)
 - Follow-up TODOs: none
 -->
 
@@ -73,19 +73,36 @@ architecture patterns, and established conventions using external sources.
   implementations.
 - MUST NOT proceed to implementation until research is documented.
 
-### IV. Test-Driven Migration
+### IV. Failing-Tests-First Development (NON-NEGOTIABLE)
 
-Each migrated feature MUST have tests that verify behavior parity with
-the Python version.
+Every feature MUST follow a failing-tests-first workflow. Tests are
+designed during the plan phase, implemented before any feature code,
+and MUST fail before implementation begins.
 
-- Unit tests MUST cover translation layer format conversions using
-  real request/response fixtures extracted from Python test data.
-- Contract tests MUST verify API endpoint compatibility with
-  OpenAI SDK expectations.
-- Integration tests MUST verify end-to-end provider communication.
-- Use Python TianjiLLM's test cases as reference for test scenarios
-  and edge cases.
-- Test coverage for translation layers MUST be >= 90%.
+- **Plan phase** (`/speckit.plan`): The implementation plan MUST include
+  a `## Failing Tests` section that lists every test function with its
+  signature, file path, and expected assertion. Tests MUST be derived
+  from the spec's acceptance scenarios and edge cases.
+- **Tasks phase** (`/speckit.tasks`): Task 1 of every user story MUST
+  be "Write failing tests". This is NOT optional. No implementation
+  task may begin until the failing tests for that story are written
+  and confirmed to fail (compile but produce test failures).
+- Test functions MUST be concrete: include the function name
+  (e.g., `TestSelectUpstream_SkipsThrottledToken`), the file path,
+  and the key assertions (what is asserted, expected vs. actual).
+- Each acceptance scenario from the spec MUST map to at least one
+  test function in the plan's Failing Tests section.
+- Edge cases from the spec MUST each have a corresponding test.
+- After writing failing tests, run `go test` (or equivalent) to
+  confirm they compile and fail. Only then proceed to implementation.
+- Implementation is considered complete when all previously-failing
+  tests pass.
+
+**Rationale**: Writing tests first forces clarity of design — you
+cannot write a test for a function whose interface you haven't
+decided. It catches spec ambiguities early (during plan, not during
+implementation) and guarantees that every acceptance scenario is
+verified by an automated test.
 
 ### V. Go Best Practices & Idioms
 
@@ -207,13 +224,19 @@ Hand-written query methods in Go are prohibited.
 4. **Define SQL queries**: Write new database queries as named sqlc
    queries in `internal/db/queries/*.sql`, then run `make generate`
    to produce Go code. MUST NOT hand-write query methods.
-5. **Write tests**: Create test cases based on Python TianjiLLM's test
-   data and acceptance scenarios.
-6. **Implement**: Write Go code following Go best practices and
-   idioms, not Python transliteration.
-7. **Verify parity**: Confirm behavior matches Python version using
+5. **Design failing tests**: During `/speckit.plan`, list every test
+   function (name, file, assertions) in the plan's `## Failing Tests`
+   section. Each acceptance scenario and edge case MUST have a test.
+6. **Write failing tests**: Task 1 of every user story is to implement
+   the failing tests from step 5. Run `go test` to confirm they
+   compile and fail. MUST NOT proceed to implementation until this
+   step is complete.
+7. **Implement**: Write Go code following Go best practices and
+   idioms, not Python transliteration. Implementation is done when
+   all failing tests pass.
+8. **Verify parity**: Confirm behavior matches Python version using
    the same inputs and expected outputs.
-8. **Document deviations**: If Go implementation intentionally differs
+9. **Document deviations**: If Go implementation intentionally differs
    from Python (e.g., better error handling, Go-idiomatic streaming),
    document the deviation and rationale.
 
@@ -232,5 +255,8 @@ principles.
   verification (Context7, GitHub, web search) — not agent memory.
 - All database queries MUST go through the sqlc pipeline — any
   hand-written SQL in Go code is a governance violation.
+- All features MUST have failing tests written before implementation
+  begins — skipping the failing-tests-first workflow is a governance
+  violation.
 
-**Version**: 1.2.0 | **Ratified**: 2026-02-15 | **Last Amended**: 2026-02-17
+**Version**: 1.3.0 | **Ratified**: 2026-02-15 | **Last Amended**: 2026-03-05

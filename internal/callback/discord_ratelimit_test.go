@@ -527,6 +527,111 @@ func TestParseAnthropicHeaders_AllPresent_ReturnsParsedState(t *testing.T) {
 
 // --- Additional: threshold default 0.2 when 0 is passed ---
 
+// --- US3: CheckAndAlertOAuth tests ---
+
+func TestCheckAndAlertOAuth_5hOverThreshold(t *testing.T) {
+	srv, getMsgs := newMockDiscordServer(t, 200)
+	defer srv.Close()
+
+	a := NewDiscordRateLimitAlerter(srv.URL, 0.8)
+	require.NotNil(t, a)
+	a.cooldown = 0
+
+	state := AnthropicOAuthRateLimitState{
+		TokenKey:             "abc123",
+		UnifiedStatus:        "allowed",
+		Unified5hUtilization: 0.85,
+		Unified7dUtilization: -1,
+		Unified5hReset:       "1709600000",
+	}
+
+	a.CheckAndAlertOAuth(state)
+
+	require.Eventually(t, func() bool { return len(getMsgs()) == 1 },
+		time.Second, 10*time.Millisecond, "5h utilization >= threshold should trigger alert")
+	assert.Contains(t, getMsgs()[0], "abc123", "alert should mention token key")
+	assert.Contains(t, getMsgs()[0], "5h", "alert should mention 5h utilization")
+}
+
+func TestCheckAndAlertOAuth_7dOverThreshold(t *testing.T) {
+	srv, getMsgs := newMockDiscordServer(t, 200)
+	defer srv.Close()
+
+	a := NewDiscordRateLimitAlerter(srv.URL, 0.8)
+	require.NotNil(t, a)
+	a.cooldown = 0
+
+	state := AnthropicOAuthRateLimitState{
+		TokenKey:             "def456",
+		UnifiedStatus:        "allowed",
+		Unified5hUtilization: -1,
+		Unified7dUtilization: 0.90,
+		Unified7dReset:       "1709700000",
+	}
+
+	a.CheckAndAlertOAuth(state)
+
+	require.Eventually(t, func() bool { return len(getMsgs()) == 1 },
+		time.Second, 10*time.Millisecond, "7d utilization >= threshold should trigger alert")
+	assert.Contains(t, getMsgs()[0], "def456", "alert should mention token key")
+	assert.Contains(t, getMsgs()[0], "7d", "alert should mention 7d utilization")
+}
+
+func TestCheckAndAlertOAuth_RateLimitedStatus(t *testing.T) {
+	srv, getMsgs := newMockDiscordServer(t, 200)
+	defer srv.Close()
+
+	a := NewDiscordRateLimitAlerter(srv.URL, 0.8)
+	require.NotNil(t, a)
+	a.cooldown = 0
+
+	state := AnthropicOAuthRateLimitState{
+		TokenKey:             "ghi789",
+		UnifiedStatus:        "rate_limited",
+		Unified5hUtilization: 0.50,
+		Unified7dUtilization: 0.40,
+	}
+
+	a.CheckAndAlertOAuth(state)
+
+	require.Eventually(t, func() bool { return len(getMsgs()) == 1 },
+		time.Second, 10*time.Millisecond, "rate_limited status should trigger alert")
+	assert.Contains(t, getMsgs()[0], "rate_limited", "alert should mention rate_limited")
+}
+
+func TestCheckAndAlertOAuth_Cooldown(t *testing.T) {
+	var callCount int32
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&callCount, 1)
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	a := NewDiscordRateLimitAlerter(srv.URL, 0.8)
+	require.NotNil(t, a)
+	// Default 1h cooldown — do NOT set to 0
+
+	state := AnthropicOAuthRateLimitState{
+		TokenKey:             "cooldown_test",
+		UnifiedStatus:        "allowed",
+		Unified5hUtilization: 0.85,
+		Unified7dUtilization: -1,
+	}
+
+	for i := 0; i < 10; i++ {
+		a.CheckAndAlertOAuth(state)
+	}
+
+	// Wait for the one allowed goroutine to complete.
+	require.Eventually(t, func() bool { return atomic.LoadInt32(&callCount) >= 1 },
+		time.Second, 10*time.Millisecond)
+	// Brief settle to confirm no additional alerts sneak through.
+	time.Sleep(50 * time.Millisecond)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&callCount),
+		"cooldown: only first alert should fire within 1h")
+}
+
 func TestNewDiscordRateLimitAlerter_ZeroThreshold_DefaultsTo02(t *testing.T) {
 	srv, getMsgs := newMockDiscordServer(t, 200)
 	defer srv.Close()

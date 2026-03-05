@@ -156,6 +156,8 @@ Go 1.24.4, chi/v5 (router), pgx/v5 (PostgreSQL), go-redis/v9 (Redis), templ + te
 - PostgreSQL via pgx/v5 + sqlc codegen. Tables: `TeamTable`, `OrganizationTable`, `OrganizationMembership`. No new migrations. (001-team-org-admin-ui)
 - Go 1.24.4 + chi/v5 (router), pgx/v5 (PostgreSQL driver), sqlc (query codegen) (001-fix-api-key-auth)
 - PostgreSQL — existing `VerificationToken` table via sqlc-generated `*db.Queries` (001-fix-api-key-auth)
+- Go 1.24.4 + chi/v5 (router), testify (assertions) (079-oauth-token-throttle)
+- N/A（内存 `InMemoryRateLimitStore`，已存在） (079-oauth-token-throttle)
 
 ## Recent Changes
 - 009-request-logs: Added Go 1.24.4 + chi/v5（路由）、templ（模板）、HTMX 2.x（交互）、templUI v1.5.0（UI 組件）、Tailwind CSS v4
