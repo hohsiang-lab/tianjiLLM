@@ -111,6 +111,13 @@ type RateLimitStore interface {
 	Get(key string) (AnthropicOAuthRateLimitState, bool)
 	GetAll() map[string]AnthropicOAuthRateLimitState
 	Prune(ttl time.Duration)
+	// GetUtilization returns the 5h utilization percentage (0-100) for a token key.
+	// Returns (utilization, true) if data exists, or (0, false) if missing.
+	GetUtilization(tokenKey string) (float64, bool)
+	// GetLowestUtilization returns the token key with the lowest 5h utilization
+	// among the given keys. Skips keys with no data or rate_limited status.
+	// Returns ("", -1) if no valid candidate exists.
+	GetLowestUtilization(tokenKeys []string) (string, float64)
 }
 
 type rateLimitEntry struct {
@@ -161,4 +168,39 @@ func (s *InMemoryRateLimitStore) Prune(ttl time.Duration) {
 			delete(s.entries, k)
 		}
 	}
+}
+
+func (s *InMemoryRateLimitStore) GetUtilization(tokenKey string) (float64, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	e, ok := s.entries[tokenKey]
+	if !ok || e.state.Unified5hUtilization < 0 {
+		return 0, false
+	}
+	return e.state.Unified5hUtilization * 100, true
+}
+
+func (s *InMemoryRateLimitStore) GetLowestUtilization(tokenKeys []string) (string, float64) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	bestKey := ""
+	bestUtil := float64(-1)
+	for _, key := range tokenKeys {
+		e, ok := s.entries[key]
+		if !ok {
+			continue
+		}
+		if e.state.Unified5hStatus == "rate_limited" {
+			continue
+		}
+		if e.state.Unified5hUtilization < 0 {
+			continue
+		}
+		util := e.state.Unified5hUtilization * 100
+		if bestKey == "" || util < bestUtil {
+			bestKey = key
+			bestUtil = util
+		}
+	}
+	return bestKey, bestUtil
 }

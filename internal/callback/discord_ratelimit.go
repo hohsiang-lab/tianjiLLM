@@ -117,6 +117,28 @@ func (a *DiscordRateLimitAlerter) CheckAndAlert(state AnthropicRateLimitState) {
 	}
 }
 
+// SendRaw sends a raw message to the Discord webhook without cooldown checks.
+func (a *DiscordRateLimitAlerter) SendRaw(msg string) {
+	payload, err := json.Marshal(map[string]string{"content": msg})
+	if err != nil {
+		log.Printf("ERROR ratelimit: failed to marshal Discord payload: %v", err)
+		return
+	}
+	resp, err := a.client.Post(a.webhookURL, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		log.Printf("ERROR ratelimit: Discord webhook request failed: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var body bytes.Buffer
+		if _, err := body.ReadFrom(resp.Body); err != nil {
+			log.Printf("ERROR ratelimit: failed to read Discord webhook response: %v", err)
+		}
+		log.Printf("ERROR ratelimit: Discord webhook returned %d: %s", resp.StatusCode, body.String())
+	}
+}
+
 // sendIfNotCooling sends a Discord alert if the cooldown for the given key has elapsed.
 func (a *DiscordRateLimitAlerter) sendIfNotCooling(key, alertType string, state AnthropicRateLimitState) {
 	a.mu.Lock()

@@ -26,7 +26,12 @@ import (
 // nativeProxy creates a reverse proxy to a specific provider's base URL.
 func (h *Handlers) nativeProxy(w http.ResponseWriter, r *http.Request, providerName string) {
 	upstreams := h.resolveAllNativeUpstreams(providerName)
-	upstream := selectUpstream(providerName, upstreams)
+	var upstream nativeUpstream
+	if h.Config.RouterSettings != nil && h.Config.RouterSettings.RoutingStrategy == "lowest-utilization" {
+		upstream = h.selectUpstreamByUtilization(providerName, upstreams)
+	} else {
+		upstream = selectUpstream(providerName, upstreams)
+	}
 	if upstream.BaseURL == "" {
 		writeJSON(w, http.StatusNotImplemented, model.ErrorResponse{
 			Error: model.ErrorDetail{Message: providerName + " not configured", Type: "not_supported"},

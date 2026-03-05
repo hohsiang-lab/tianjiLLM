@@ -4,6 +4,9 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/callback"
+	"github.com/praxisllmlab/tianjiLLM/internal/router/strategy"
 )
 
 // nativeUpstream holds the resolved base URL and API key for a single upstream entry.
@@ -63,4 +66,71 @@ func selectUpstream(provider string, upstreams []nativeUpstream) nativeUpstream 
 	}
 	idx := counter.Add(1) - 1
 	return upstreams[idx%uint64(len(upstreams))]
+}
+
+// nativeUtilInstances holds per-provider LowestUtilization instances,
+// ensuring each provider tracks its own active token independently.
+var (
+	nativeUtilMu        sync.Mutex
+	nativeUtilInstances = map[string]*strategy.LowestUtilization{}
+)
+
+// selectUpstreamByUtilization picks the upstream with the lowest 5h utilization.
+// Delegates to strategy.LowestUtilization.PickKey (shared with router path).
+// Falls back to round-robin when store is nil.
+func (h *Handlers) selectUpstreamByUtilization(provider string, upstreams []nativeUpstream) nativeUpstream {
+	if len(upstreams) == 0 {
+		return nativeUpstream{}
+	}
+	if h.RateLimitStore == nil {
+		return selectUpstream(provider, upstreams)
+	}
+
+	keyToUpstream := make(map[string]nativeUpstream, len(upstreams))
+	var allKeys []string
+	for _, u := range upstreams {
+		key := callback.RateLimitCacheKey(u.APIKey)
+		keyToUpstream[key] = u
+		allKeys = append(allKeys, key)
+	}
+
+	lu := h.getNativeUtilInstance(provider)
+	picked := lu.PickKey(allKeys)
+
+	if u, ok := keyToUpstream[picked]; ok {
+		return u
+	}
+	return selectUpstream(provider, upstreams)
+}
+
+// getNativeUtilInstance returns (or lazily creates) a per-provider LowestUtilization instance.
+func (h *Handlers) getNativeUtilInstance(provider string) *strategy.LowestUtilization {
+	nativeUtilMu.Lock()
+	defer nativeUtilMu.Unlock()
+
+	if lu, ok := nativeUtilInstances[provider]; ok {
+		return lu
+	}
+
+	threshold := float64(80)
+	if h.Config != nil && h.Config.RouterSettings != nil {
+		if t, ok := h.Config.RouterSettings.RoutingStrategyArgs["utilization_threshold"]; ok {
+			if v, ok := t.(float64); ok {
+				threshold = v
+			} else if v, ok := t.(int); ok {
+				threshold = float64(v)
+			}
+		}
+	}
+
+	var alertFn strategy.AlertFunc
+	if h.DiscordAlerter != nil {
+		alertFn = func(msg string) {
+			go h.DiscordAlerter.SendRaw(msg)
+		}
+	}
+
+	lu := strategy.NewLowestUtilization(h.RateLimitStore, threshold, alertFn)
+	nativeUtilInstances[provider] = lu
+	return lu
 }
