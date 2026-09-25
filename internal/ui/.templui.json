@@ -1,0 +1,7 @@
+{
+  "componentsDir": "components",
+  "utilsDir": "utils",
+  "moduleName": "github.com/praxisllmlab/tianjiLLM/internal/ui",
+  "jsDir": "assets/js",
+  "jsPublicPath": "/ui/static/js"
+}

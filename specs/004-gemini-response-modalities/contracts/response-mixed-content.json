@@ -1,0 +1,33 @@
+{
+  "_comment": "OpenAI-compatible response after transformation — message.content is an array (mixed text+image)",
+  "id": "chatcmpl-gemini-abc123",
+  "object": "chat.completion",
+  "created": 1740518400,
+  "model": "gemini/gemini-2.0-flash-exp",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Here is a generated image of a sunset:"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+            }
+          }
+        ]
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 42,
+    "total_tokens": 54
+  }
+}

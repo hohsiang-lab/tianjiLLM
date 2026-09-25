@@ -1,0 +1,236 @@
+<!--
+Sync Impact Report:
+- Version: 1.3.0 → 1.4.0 (MINOR — added standards-first compatibility and
+  secure-by-default operations; clarified research, parity, testing, and
+  database rules)
+- Modified principles:
+  - I. Python-First Reference — scoped Python authority to parity and migration
+    work while preserving it as the reference for those surfaces
+  - II. Feature Parity — clarified the boundary between Python parity and new
+    standards-based interfaces
+  - III. Research Before Build → III. Evidence-Based Research Before Build —
+    replaced stale tool-specific instructions with the current documentation
+    verification workflow
+  - V. Go Best Practices & Idioms → V. Idiomatic Go & Simplicity — added
+    reuse-first, native-first, and minimal-diff rules
+  - VI. No Stale Knowledge → VI. Verified, Current Decisions — consolidated
+    freshness and live-evidence requirements
+  - VII. sqlc-First Database Access → VII. SQL-First Database Access —
+    documented the narrow exception for tested, parameterized queries that
+    sqlc cannot express
+- Added principles:
+  - VIII. Standards-First Compatibility
+  - IX. Secure-by-Default Operations
+- Added sections: none
+- Removed sections: none
+- Follow-up TODOs: none
+-->
+
+# TianjiLLM-Go Constitution
+
+## Core Principles
+
+### I. Python-First Reference (NON-NEGOTIABLE)
+
+For migration, parity, and compatibility work whose behavior already exists
+in the maintained Python TianjiLLM reference, that reference is the canonical
+behavioral source.
+
+- Read the corresponding Python implementation before changing a parity
+  surface.
+- Match its request and response shapes, configuration semantics, model-name
+  handling, error behavior, and edge cases unless a documented compatibility
+  decision says otherwise.
+- If the Python reference is unavailable or conflicts with a published
+  protocol, record the exact source and decision in the feature's design
+  artifacts. New standards-based interfaces follow Principle VIII.
+
+### II. Feature Parity
+
+Every existing Python-compatibility surface in TianjiLLM MUST preserve the
+client-visible behavior required by that surface.
+
+- Compatible routes, aliases, configuration files, environment-variable
+  syntax, model naming, status codes, and error payloads MUST remain stable
+  unless the change is explicitly versioned.
+- Python compatibility variants MAY be retained when real clients depend on
+  them, but they MUST NOT be invented for a single internal caller.
+- Regression tests MUST cover every changed compatibility contract and its
+  important failure paths.
+
+### III. Evidence-Based Research Before Build (NON-NEGOTIABLE)
+
+Technical decisions MUST be based on current primary-source evidence rather
+than agent memory.
+
+- For any library, framework, SDK, API, CLI tool, or cloud service, use the
+  current `ctx7` workflow first: run
+  `npx ctx7@latest library "<name>" "<full technical question>"`, then
+  `npx ctx7@latest docs "<library-id>" "<full technical question>"`.
+- Prefer official documentation, source repositories, standards, and
+  reproducible repository evidence. Mark unavailable or unverified claims
+  explicitly instead of presenting them as facts.
+- Record non-trivial technology decisions in `research.md` with the chosen
+  option, rationale, alternatives, and source references.
+- This requirement does not block ordinary refactors or business-logic
+  debugging that introduces no external technology decision.
+
+### IV. Failing-Tests-First Development (NON-NEGOTIABLE)
+
+Every user-facing behavior change MUST follow a failing-tests-first workflow.
+Documentation-only, formatting-only, and dependency-free refactors may use
+the smallest relevant verification instead.
+
+- The plan MUST contain a `## Failing Tests` section with concrete test
+  names, file paths, and expected assertions for each acceptance scenario
+  and important edge case.
+- The first implementation task for each user story MUST write those tests.
+- Run the tests and confirm the intended failure before implementing the
+  behavior whenever the test can compile independently.
+- Implementation is complete only when the previously failing tests pass and
+  the regression remains covered.
+
+### V. Idiomatic Go & Simplicity
+
+Go code MUST use clear, idiomatic boundaries and the smallest design that
+meets the contract.
+
+- Use the Go version declared by `go.mod` and enforced by CI; pass
+  `context.Context` through I/O and cancellation-sensitive paths.
+- Handle errors explicitly, wrap them with `%w` when adding context, and do
+  not silently discard failures.
+- Reuse existing helpers, standard-library behavior, and installed
+  dependencies before adding abstractions or packages. Interfaces belong at
+  real substitution boundaries, not speculative extension points.
+- Keep changes narrow and behavior-preserving. Do not mix unrelated
+  refactors with feature work.
+- Generated files MUST be regenerated by their owning tool and MUST NOT be
+  edited by hand.
+
+### VI. Verified, Current Decisions
+
+Claims about mutable systems and technical behavior MUST be verified at the
+layer that owns the truth.
+
+- Recheck current dependency versions, API contracts, CI status, credentials,
+  deployments, routes, and runtime configuration before claiming completion.
+- For incidents or authorization questions, inspect the owning service,
+  database, worker, or hardware; repository code, anonymous endpoints, and
+  database-superuser access alone do not prove application authorization.
+- Separate repository evidence, live evidence, and unverified assumptions in
+  plans, reviews, and incident reports.
+
+### VII. SQL-First Database Access (NON-NEGOTIABLE)
+
+Database behavior MUST remain reviewable as SQL and MUST use the existing
+sqlc pipeline whenever sqlc can express the query.
+
+- Put schema changes in `internal/db/schema/` and named queries in
+  `internal/db/queries/`; run `make generate` after changing either.
+- Application code MUST use generated `db.Queries` methods and parameter
+  types instead of constructing SQL in handlers or services.
+- A hand-written query helper is allowed only when sqlc cannot express the
+  required dynamic or conditional behavior. It MUST be parameterized,
+  isolated under `internal/db/`, covered by focused tests, and documented
+  in the plan or code.
+- Generated `internal/db/*.sql.go` files MUST NOT be edited manually.
+
+### VIII. Standards-First Compatibility (NON-NEGOTIABLE)
+
+TianjiLLM's public compatibility interfaces MUST be complete, general-purpose,
+and based on recognized protocols and route conventions.
+
+- Use standard routes and payloads such as the OpenAI-compatible `/v1`
+  surface, including `/v1/chat/completions`, `/v1/embeddings`,
+  `/v1/models`, and `/v1/responses`, when those contracts apply.
+- New integrations for Graphiti, Cognee, and other standard clients MUST use
+  the protocol and route paths those clients recognize. Do not create a
+  project-specific endpoint merely to satisfy one caller.
+- A compatibility change MUST define request validation, response and error
+  shapes, authentication, streaming, structured outputs, and other required
+  contract behavior before implementation. Add contract tests with a
+  representative standard client or fixture.
+- Internal-cluster access is the default. Public exposure requires an
+  explicit configuration and deployment decision with authentication,
+  authorization, and validation evidence.
+
+### IX. Secure-by-Default Operations (NON-NEGOTIABLE)
+
+Security controls MUST be applied at trust boundaries and MUST fail closed
+when authorization or secret resolution is missing.
+
+- Proxy, admin, UI, and management routes MUST use the existing
+  authentication, authorization, organization, and model-access controls
+  appropriate to the route.
+- Validate untrusted input, scope reads and writes to the authenticated
+  organization or tenant, and preserve auditability for sensitive changes.
+- Secrets, OAuth tokens, virtual keys, and upstream credentials MUST come
+  from approved secret or credential storage, MUST NOT be committed, and
+  MUST be redacted from logs, errors, telemetry, and API responses.
+- TLS verification bypasses, broad CORS, public ingress, and break-glass
+  access MUST be explicit, local/test-scoped where possible, and covered by
+  a reviewable risk note.
+
+## Technology Stack & Tooling
+
+- **Language**: Go; the authoritative version is the `go` directive in
+  `go.mod` plus the version pinned by CI.
+- **HTTP**: chi/v5 with the existing proxy, native passthrough, health, and
+  metrics routes.
+- **Database**: PostgreSQL via pgx/v5 and sqlc; Redis is optional for cache
+  and rate-limit state.
+- **UI**: templ, HTMX, Tailwind CSS, and the existing server-rendered UI
+  components.
+- **Testing**: `go test -race -cover ./...`, focused contract and integration
+  tests, and Playwright E2E tests where browser behavior is involved.
+- **Quality gates**: `make generate`, `make lint`, `make test`, `make build`,
+  and `make check` as applicable; CI coverage and compatibility gates remain
+  authoritative.
+- **Source of truth**: dependency versions, route registration, configuration
+  fields, and generated-code commands are defined by `go.mod`, CI, the
+  owning package, and `Makefile`, not by copied documentation.
+
+## Development Workflow
+
+1. Classify the change as documentation, bug fix, compatibility work, feature
+   work, migration, or deployment. Keep unrelated scopes separate.
+2. For feature work, use the Spec Kit flow:
+   `$speckit-specify` → `$speckit-clarify` when needed →
+   `$speckit-plan` → `$speckit-tasks` → `$speckit-implement`.
+3. Trace the existing callers, route registration, provider resolution,
+   authentication, database ownership, and tests before choosing a change
+   point. Use repository code search and the graph index when they answer the
+   question faster than broad file scanning.
+4. Apply the applicable principles in the plan: parity or standards contract,
+   research evidence, security boundaries, database path, failing tests, and
+   operational validation.
+5. Implement the smallest complete change. Preserve existing behavior outside
+   the declared contract and avoid speculative extension points.
+6. Run focused tests first, then the narrowest complete quality gates:
+   `make lint`, `make test`, `make build`, `make check`, or `make e2e` as
+   applicable. Run `make generate` after SQL changes.
+7. Before release or deployment, recheck generated artifacts, CI state,
+   configuration, access mode, secrets, health/readiness, logs, and a real
+   client request. A plan or local test is not deployment proof.
+
+## Governance
+
+This constitution supersedes other development practices for TianjiLLM.
+Every feature plan, code review, and release review MUST identify the
+principles that apply and record any exception.
+
+- Amendments MUST update the Sync Impact Report, use semantic versioning, set
+  the amendment date in ISO format, and explain changed, added, or removed
+  governance.
+- A MAJOR version changes or removes a principle or makes compliance
+  backward-incompatible. A MINOR version adds a principle or materially
+  expands guidance. A PATCH version fixes wording without changing intent.
+- Exceptions MUST record their scope, reason, risk, compensating control, and
+  expiry or removal condition in the relevant plan or review.
+- Complexity beyond the minimum design MUST be justified in the plan's
+  complexity tracking. Security, accessibility, data-loss prevention, and
+  trust-boundary validation MUST NOT be removed for simplicity.
+- Constitution updates govern future work only; they do not themselves
+  authorize application changes, feature implementation, or deployment.
+
+**Version**: 1.4.0 | **Ratified**: 2026-02-15 | **Last Amended**: 2026-08-07

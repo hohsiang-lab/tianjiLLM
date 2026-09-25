@@ -1,0 +1,12 @@
+{
+  "_comment": "OpenAI-compatible request with modalities: [\"text\", \"image\"] — User Story 1 (P1)",
+  "model": "gemini/gemini-2.0-flash-exp",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Generate an image of a sunset over the ocean."
+    }
+  ],
+  "modalities": ["text", "image"],
+  "temperature": 0.7
+}

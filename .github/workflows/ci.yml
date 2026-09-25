@@ -1,0 +1,368 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  lint:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    runs-on: staging-monster-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v7
+        with:
+          go-download-base-url: 'https://go.dev/dl'
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13.2
+
+  test:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    runs-on: staging-monster-ci
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: tianji
+          POSTGRES_USER: tianji
+          POSTGRES_PASSWORD: tianji
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U tianji"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc libc6-dev postgresql-client bc
+      - uses: actions/setup-go@v7
+        with:
+          go-download-base-url: 'https://go.dev/dl'
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Run DB migrations
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5433"
+          PGUSER: tianji
+          PGPASSWORD: tianji
+          PGDATABASE: tianji
+        run: |
+          set -euo pipefail
+
+          for f in internal/db/schema/*.up.sql; do
+            echo "Applying migration: $f"
+            psql -X --set=ON_ERROR_STOP=on -f "$f"
+          done
+      - name: Run tests with coverage
+        env:
+          CGO_ENABLED: "1"
+          TEST_DATABASE_URL: "postgres://tianji:tianji@127.0.0.1:5433/tianji?sslmode=disable"
+          COVERAGE_THRESHOLD: "50"
+        run: |
+          CODEX_CLIENT_VERSION="$(scripts/codex-client-version.sh candidate)"
+
+          # FR-1: Generate coverage profile, excluding UI packages
+          # -count=1 disables test result caching so every run reflects the current branch's coverage
+          go test \
+            -ldflags "-X github.com/praxisllmlab/tianjiLLM/internal/config.DefaultOpenAICodexBackendClientVersion=${CODEX_CLIENT_VERSION}" \
+            -race \
+            -count=1 \
+            -coverpkg=./internal/... \
+            -coverprofile=coverage.raw \
+            ./...
+          grep -v -E 'internal/ui/components|internal/ui/pages' coverage.raw > coverage.out
+
+          # FR-3: Coverage report to step summary
+          echo '## 📊 Test Coverage Report' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          go tool cover -func=coverage.out >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          # FR-2: Coverage gate
+          TOTAL=$(go tool cover -func=coverage.out | grep '^total:' | awk '{print $3}' | tr -d '%')
+          echo "Total coverage: ${TOTAL}%"
+          echo "Threshold: ${COVERAGE_THRESHOLD}%"
+
+          if [ "$(echo "$TOTAL < $COVERAGE_THRESHOLD" | bc -l)" -eq 1 ]; then
+            echo "::error::Coverage ${TOTAL}% is below threshold ${COVERAGE_THRESHOLD}%"
+            exit 1
+          fi
+
+          echo "✅ Coverage ${TOTAL}% meets threshold ${COVERAGE_THRESHOLD}%" >> "$GITHUB_STEP_SUMMARY"
+
+  codex-compatibility:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    runs-on: staging-monster-ci
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7
+        with:
+          go-download-base-url: 'https://go.dev/dl'
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Test Codex client version tooling
+        run: scripts/codex-client-version_test.sh
+
+      - name: Inspect Codex client version state
+        id: version
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: |
+          candidate="$(scripts/codex-client-version.sh candidate)"
+          reviewed="$(scripts/codex-client-version.sh reviewed)"
+          base_version="$(git show "origin/${BASE_REF}:.codex-client-version" 2>/dev/null | tr -d '[:space:]' || true)"
+
+          changed=false
+          if [[ -z "${base_version}" || "${candidate}" != "${base_version}" ]]; then
+            changed=true
+          elif [[ "${candidate}" != "${reviewed}" ]]; then
+            changed=true
+          fi
+
+          echo "candidate=${candidate}" >> "$GITHUB_OUTPUT"
+          echo "reviewed=${reviewed}" >> "$GITHUB_OUTPUT"
+          echo "base=${base_version}" >> "$GITHUB_OUTPUT"
+          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Codex client version"
+            echo
+            echo "- Base: \`${base_version:-unavailable}\`"
+            echo "- Candidate: \`${candidate}\`"
+            echo "- Reviewed: \`${reviewed}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run Codex compatibility tests
+        if: steps.version.outputs.changed == 'true'
+        env:
+          EXPECTED_CODEX_CLIENT_VERSION: ${{ steps.version.outputs.candidate }}
+        run: |
+          go test \
+            -ldflags "-X github.com/praxisllmlab/tianjiLLM/internal/config.DefaultOpenAICodexBackendClientVersion=${EXPECTED_CODEX_CLIENT_VERSION}" \
+            ./internal/config/... \
+            ./internal/provider/chatgptcodex \
+            ./internal/proxy/handler \
+            -run 'Codex|Responses|Compact|Image' \
+            -count=1
+
+      - name: Require migration review
+        run: scripts/codex-client-version.sh review-status
+
+  e2e:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    runs-on: staging-monster-ci
+    needs: [lint, test, codex-compatibility]
+    # Playwright official image — Chromium pre-installed, no download needed.
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
+      options: --user root
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: tianji_e2e
+          POSTGRES_USER: tianji
+          POSTGRES_PASSWORD: tianji
+        options: >-
+          --health-cmd "pg_isready -U tianji"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v7
+        with:
+          go-download-base-url: 'https://go.dev/dl'
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Install Playwright driver
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+          PLAYWRIGHT_NODEJS_PATH: /usr/bin/node
+        run: go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6100.0 install chromium
+      - name: Run E2E tests
+        env:
+          E2E_DATABASE_URL: "postgres://tianji:tianji@postgres:5432/tianji_e2e?sslmode=disable"
+          PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+          PLAYWRIGHT_NODEJS_PATH: /usr/bin/node
+        run: |
+          CODEX_CLIENT_VERSION="$(scripts/codex-client-version.sh review-status)"
+          go test \
+            -ldflags "-X github.com/praxisllmlab/tianjiLLM/internal/config.DefaultOpenAICodexBackendClientVersion=${CODEX_CLIENT_VERSION}" \
+            -tags e2e \
+            -count=1 \
+            -v \
+            -timeout 5m \
+            ./test/e2e/...
+
+  build:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    runs-on: staging-monster-ci
+    needs: [lint, test, codex-compatibility]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v7
+        with:
+          go-download-base-url: 'https://go.dev/dl'
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Install templ
+        run: go install github.com/a-h/templ/cmd/templ@v0.3.977
+      - name: Generate templ
+        run: templ generate ./internal/ui/...
+      - name: Resolve Codex client version
+        id: codex-version
+        run: echo "version=$(scripts/codex-client-version.sh review-status)" >> "$GITHUB_OUTPUT"
+      - name: Build
+        run: |
+          go build \
+            -ldflags "-X github.com/praxisllmlab/tianjiLLM/internal/config.DefaultOpenAICodexBackendClientVersion=${{ steps.codex-version.outputs.version }}" \
+            -o bin/tianji \
+            ./cmd/tianji
+
+  docker:
+    runs-on: [staging-monster-ci, "${{ matrix.arch }}"]
+    needs: [lint, test, codex-compatibility]
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/hohsiang-lab/tianjillm
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+
+      - name: Resolve Codex client version
+        id: codex-version
+        run: echo "version=$(scripts/codex-client-version.sh review-status)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          push: true
+          outputs: type=image,name=ghcr.io/hohsiang-lab/tianjillm,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            CODEX_CLIENT_VERSION=${{ steps.codex-version.outputs.version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=tianjillm-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=tianjillm-${{ matrix.arch }}
+
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          test -n "$DIGEST"
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-manifest:
+    runs-on: staging-monster-ci
+    needs: docker
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/hohsiang-lab/tianjillm
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digests-*
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+
+      - name: Merge manifest
+        env:
+          IMAGE: ghcr.io/hohsiang-lab/tianjillm
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          digest_refs=()
+          for digest_file in "$RUNNER_TEMP"/digests/*; do
+            [ -f "$digest_file" ] || continue
+            digest_refs+=("${IMAGE}@sha256:$(basename "$digest_file")")
+          done
+
+          # if [ "${#digest_refs[@]}" -ne 2 ]; then
+          #   echo "expected two platform digests, found ${#digest_refs[@]}" >&2
+          #   exit 1
+          # fi
+
+          tag_args=()
+          while IFS= read -r tag; do
+            [ -n "$tag" ] && tag_args+=(--tag "$tag")
+          done <<< "$TAGS"
+
+          docker buildx imagetools create \
+            "${tag_args[@]}" \
+            "${digest_refs[@]}"

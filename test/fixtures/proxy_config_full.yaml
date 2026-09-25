@@ -1,0 +1,80 @@
+model_list:
+  - model_name: gpt-4o
+    tianji_params:
+      model: openai/gpt-4o
+      api_key: $OPENAI_API_KEY
+      rpm: 100
+      tpm: 100000
+    model_info:
+      id: gpt-4o-deployment-1
+      mode: chat
+      input_cost_per_token: 0.000005
+      output_cost_per_token: 0.000015
+      max_tokens: 128000
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+    tags:
+      - region:us-east
+      - tier:premium
+
+  - model_name: gpt-4o
+    tianji_params:
+      model: azure/gpt-4o
+      api_key: $AZURE_API_KEY
+      api_base: https://my-deployment.openai.azure.com
+      api_version: "2024-02-15-preview"
+      timeout: 30
+
+  - model_name: claude-3-opus
+    tianji_params:
+      model: anthropic/claude-3-opus-20240229
+      api_key: $ANTHROPIC_API_KEY
+
+  - model_name: gemini-pro
+    tianji_params:
+      model: gemini/gemini-pro
+      api_key: $GEMINI_API_KEY
+
+  - model_name: local-llama
+    tianji_params:
+      model: ollama/llama3
+      api_base: http://localhost:11434
+
+tianji_settings:
+  cache: true
+  callbacks:
+    - webhook
+  success_callback:
+    - langfuse
+  failure_callback:
+    - slack
+  drop_params: true
+  context_window_fallbacks:
+    - gpt-3.5-turbo:
+      - gpt-4-turbo
+  default_fallbacks:
+    - gpt-4o
+
+general_settings:
+  master_key: sk-master-test
+  database_url: postgres://user:pass@localhost:5432/tianji
+  port: 4000
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 3
+  allowed_fails: 5
+  cooldown_time: 60
+  enable_tag_filtering: true
+  context_window_fallbacks:
+    - gpt-3.5-turbo:
+      - gpt-4-turbo
+
+environment_variables:
+  OPENAI_API_KEY: test-key
+
+guardrails:
+  - guardrail_name: prompt_injection
+    tianji_params:
+      mode: pre_call
+    default_on: true

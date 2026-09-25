@@ -1,0 +1,163 @@
+package pages
+
+import (
+	"strconv"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
+)
+
+// OpenAIDeviceAuthView is display-safe state; it never contains device_auth_id or tokens.
+type OpenAIDeviceAuthView struct {
+	FlowID          string
+	CSRFToken       string
+	VerificationURI string
+	UserCode        string
+	StatusURL       string
+	CancelURL       string
+	StatusValues    string
+	CallbackURL     string
+	OrganizationID  string
+	ExpiresAt       string
+	IntervalSeconds int64
+	Status          string
+	ErrorMessage    string
+	CredentialID    string
+	Polling         bool
+}
+
+func openAIDeviceAuthIntervalLabel(seconds int64) string {
+	if seconds <= 0 {
+		return "a few"
+	}
+	return strconv.FormatInt(seconds, 10)
+}
+
+func openAIDeviceAuthPollingTrigger(seconds int64) string {
+	if seconds <= 0 {
+		seconds = 5
+	}
+	return "every " + strconv.FormatInt(seconds, 10) + "s"
+}
+
+templ openAIDeviceAuthDialog(csrfToken string) {
+	@dialog.Dialog(dialog.Props{ID: "openai-device-auth-dialog"}) {
+		@dialog.Trigger(dialog.TriggerProps{}) {
+			@button.Button(button.Props{}) {
+				Sign in with Device Code
+			}
+		}
+		@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+			@dialog.Header() {
+				@dialog.Title() {
+					Connect OpenAI with a device code
+				}
+				@dialog.Description() {
+					Open the verification page on another device, then enter the code shown below.
+				}
+			}
+			<div id="openai-device-auth-dialog-content">
+				<form method="post" action="/ui/openai/device/start" hx-post="/ui/openai/device/start" hx-target="#openai-device-auth-dialog-content" hx-swap="innerHTML">
+					<input type="hidden" name="scope" value="global" />
+					<input type="hidden" name="csrf_token" value={ csrfToken } />
+					<p class="py-4 text-sm text-muted-foreground">
+						Only start this login from your own Tianji session. Never share the code with anyone.
+					</p>
+					@dialog.Footer() {
+						@dialog.Close() {
+							@button.Button(button.Props{Variant: button.VariantOutline}) { Cancel }
+						}
+						@button.Button(button.Props{Type: button.TypeSubmit}) { Get device code }
+					}
+				</form>
+			</div>
+		}
+	}
+}
+
+templ OpenAIDeviceAuthStarted(data OpenAIDeviceAuthView) {
+	@OpenAIDeviceAuthStatus(data)
+}
+
+templ OpenAIDeviceAuthStatus(data OpenAIDeviceAuthView) {
+	if data.Polling {
+		<div id="openai-device-auth-status" class="space-y-4" role="status" aria-live="polite" aria-atomic="true" aria-busy="true" hx-post={ data.StatusURL } hx-vals={ data.StatusValues } hx-trigger={ openAIDeviceAuthPollingTrigger(data.IntervalSeconds) } hx-target="#openai-device-auth-status" hx-swap="outerHTML">
+			<div class="space-y-2">
+				if data.Status == "exchanging" {
+					<p class="text-sm font-medium">Saving the OpenAI credential…</p>
+				} else if data.ErrorMessage != "" {
+					<p class="text-sm font-medium">{ data.ErrorMessage }</p>
+				} else {
+					<p class="text-sm font-medium">Waiting for OpenAI authorization…</p>
+				}
+				<p class="rounded-md border border-yellow-500/50 bg-yellow-500/10 p-3 text-xs text-yellow-700">Only enter this code on the official OpenAI verification page.</p>
+				<p class="text-sm text-muted-foreground">
+					Open <a class="underline" href={ templ.URL(data.VerificationURI) } target="_blank" rel="noopener">the OpenAI verification page</a>.
+				</p>
+				<p class="text-sm text-muted-foreground">Enter this code:</p>
+				<code class="block select-all rounded-md border bg-muted px-3 py-2 text-center text-lg font-semibold tracking-widest">{ data.UserCode }</code>
+				<p class="text-xs text-muted-foreground">The code expires at <time datetime={ data.ExpiresAt }>{ data.ExpiresAt }</time>. Tianji checks every { openAIDeviceAuthIntervalLabel(data.IntervalSeconds) } seconds.</p>
+			</div>
+			if data.Status != "exchanging" {
+				<form method="post" action={ data.CancelURL } hx-post={ data.CancelURL } hx-target="#openai-device-auth-dialog-content" hx-swap="innerHTML">
+					<input type="hidden" name="flow_id" value={ data.FlowID } />
+					<input type="hidden" name="csrf_token" value={ data.CSRFToken } />
+					@button.Button(button.Props{Variant: button.VariantOutline, Type: button.TypeSubmit}) { Cancel device login }
+				</form>
+			}
+		</div>
+	} else {
+		{{ statusRole := "status" }}
+		{{ statusLive := "polite" }}
+		if data.Status == "failed" || data.Status == "denied" || data.Status == "expired" {
+			{{ statusRole = "alert" }}
+			{{ statusLive = "assertive" }}
+		}
+		<div id="openai-device-auth-status" class="space-y-4" role={ statusRole } aria-live={ statusLive } aria-atomic="true">
+			if data.Status == "success" {
+				<p class="text-sm font-medium text-green-600">OpenAI credential connected.</p>
+				<p class="text-sm text-muted-foreground">Credential ID: { data.CredentialID }</p>
+			} else if data.Status == "cancelled" {
+				<p class="text-sm text-muted-foreground">Device login cancelled.</p>
+			} else if data.Status == "pending" {
+				<p class="text-sm text-muted-foreground">{ data.ErrorMessage }</p>
+			} else {
+				<p class="text-sm font-medium text-foreground">Device login failed.</p>
+				<p class="text-sm text-muted-foreground">{ data.ErrorMessage }</p>
+				if data.CallbackURL != "" {
+					<a class="text-sm underline" href={ templ.URL(data.CallbackURL) } target="_blank" rel="noopener">Use browser callback instead</a>
+				}
+			}
+			if data.Status != "success" && data.CallbackURL != "" {
+				<form method="post" action="/ui/openai/device/start" hx-post="/ui/openai/device/start" hx-target="#openai-device-auth-dialog-content" hx-swap="innerHTML">
+					if data.OrganizationID == "" {
+						<input type="hidden" name="scope" value="global" />
+					} else {
+						<input type="hidden" name="org_id" value={ data.OrganizationID } />
+					}
+					<input type="hidden" name="csrf_token" value={ data.CSRFToken } />
+					@button.Button(button.Props{Variant: button.VariantOutline, Type: button.TypeSubmit}) { Start a new device login }
+				</form>
+			}
+		</div>
+	}
+}
+
+templ OpenAIDeviceAuthError(data OpenAIDeviceAuthView) {
+	<div class="space-y-4" aria-live="polite">
+		<p class="text-sm font-medium text-foreground">Device login is unavailable.</p>
+		<p class="text-sm text-muted-foreground">{ data.ErrorMessage }</p>
+		if data.CallbackURL != "" {
+			<a class="text-sm underline" href={ templ.URL(data.CallbackURL) } target="_blank" rel="noopener">Use browser callback instead</a>
+			<form method="post" action="/ui/openai/device/start" hx-post="/ui/openai/device/start" hx-target="#openai-device-auth-dialog-content" hx-swap="innerHTML">
+				if data.OrganizationID == "" {
+					<input type="hidden" name="scope" value="global" />
+				} else {
+					<input type="hidden" name="org_id" value={ data.OrganizationID } />
+				}
+				<input type="hidden" name="csrf_token" value={ data.CSRFToken } />
+				@button.Button(button.Props{Variant: button.VariantOutline, Type: button.TypeSubmit}) { Try device login again }
+			</form>
+		}
+	</div>
+}

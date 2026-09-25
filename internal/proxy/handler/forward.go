@@ -1,0 +1,149 @@
+package handler
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/provider"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/model"
+	"github.com/praxisllmlab/tianjiLLM/internal/proxy/middleware"
+)
+
+// forwardToProvider proxies a request to the upstream provider, copying the
+// request body and returning the upstream response verbatim. This is used by
+// Files, Batches, Fine-tuning, and similar pass-through endpoints.
+func (h *Handlers) forwardToProvider(w http.ResponseWriter, r *http.Request, upstreamURL, apiKey, contentType string) {
+	// Phase 2: provider.resolved (for passthrough endpoints)
+	middleware.LogProviderResolved(r.Context(), "passthrough", upstreamURL, "passthrough", "")
+
+	upstreamReq, err := http.NewRequestWithContext(r.Context(), r.Method, upstreamURL, r.Body)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, model.ErrorResponse{
+			Error: model.ErrorDetail{
+				Message: "create upstream request: " + err.Error(),
+				Type:    "internal_error",
+			},
+		})
+		return
+	}
+
+	if contentType != "" {
+		upstreamReq.Header.Set("Content-Type", contentType)
+	} else {
+		upstreamReq.Header.Set("Content-Type", r.Header.Get("Content-Type"))
+	}
+	upstreamReq.Header.Set("Authorization", "Bearer "+apiKey)
+
+	// Copy Content-Length for multipart uploads
+	if r.ContentLength > 0 {
+		upstreamReq.ContentLength = r.ContentLength
+	}
+
+	upstreamStart := time.Now()
+	resp, err := http.DefaultClient.Do(upstreamReq)
+	upstreamLatency := middleware.UpstreamLatencyMs(upstreamStart)
+	if err != nil {
+		middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+			LatencyMs: upstreamLatency,
+			Error:     err.Error(),
+		})
+		writeJSON(w, http.StatusBadGateway, model.ErrorResponse{
+			Error: model.ErrorDetail{
+				Message: "upstream request failed: " + err.Error(),
+				Type:    "internal_error",
+			},
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Phase 3: upstream.responded
+	middleware.LogUpstreamResponded(r.Context(), middleware.UpstreamResult{
+		StatusCode: resp.StatusCode,
+		LatencyMs:  upstreamLatency,
+	})
+
+	// Copy upstream response headers
+	for k, vv := range resp.Header {
+		for _, v := range vv {
+			w.Header().Add(k, v)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	_, _ = io.Copy(w, resp.Body)
+}
+
+// resolveProviderBaseURL finds the model config and returns the provider's base URL and API key.
+// For APIs like Files/Batches, the model param may be empty, so we fall back to
+// finding any OpenAI-compatible provider in the config.
+func (h *Handlers) resolveProviderBaseURL(modelName string) (baseURL, apiKey string, err error) {
+	return h.resolveProviderBaseURLWithContext(context.Background(), modelName)
+}
+
+func (h *Handlers) resolveProviderBaseURLWithContext(ctx context.Context, modelName string) (baseURL, apiKey string, err error) {
+	if modelName != "" {
+		cfg, _ := h.findModelConfig(modelName)
+		if cfg != nil {
+			providerName, _ := provider.ParseModelName(cfg.TianjiParams.Model)
+			if providerName == "openai" {
+				return "", "", fmt.Errorf("official OpenAI models require the ChatGPT Codex backend; passthrough endpoint is unsupported")
+			}
+			if !supportsOpenAICompatibleProvider(providerName, cfg.TianjiParams) {
+				return "", "", fmt.Errorf("provider %q does not support OpenAI-compatible passthrough", providerName)
+			}
+			apiKey, err := h.resolveOpenAIAPIKeyForParams(ctx, cfg.TianjiParams)
+			if err != nil {
+				return "", "", err
+			}
+			baseURL := ""
+			if cfg.TianjiParams.APIBase != nil {
+				baseURL = *cfg.TianjiParams.APIBase
+			}
+			if baseURL == "" {
+				var ok bool
+				_, providerModel := provider.ParseModelName(cfg.TianjiParams.Model)
+				baseURL, ok = defaultOpenAICompatibleProviderBaseURL(providerName, providerModel)
+				if !ok {
+					return "", "", fmt.Errorf("no OpenAI-compatible provider configured")
+				}
+			}
+			return baseURL, apiKey, nil
+		}
+	}
+
+	// Fallback: find first OpenAI-compatible runtime model.
+	for _, m := range h.runtimeModelList(ctx) {
+		if m.TianjiParams.Model == "" {
+			continue
+		}
+		provName, providerModel := provider.ParseModelName(m.TianjiParams.Model)
+		if provName == "openai" {
+			continue
+		}
+		if !supportsOpenAICompatibleProvider(provName, m.TianjiParams) {
+			continue
+		}
+		apiKey, err := h.resolveOpenAIAPIKeyForParams(ctx, m.TianjiParams)
+		if err != nil {
+			continue
+		}
+		baseURL := ""
+		if m.TianjiParams.APIBase != nil {
+			baseURL = *m.TianjiParams.APIBase
+		}
+		if baseURL == "" {
+			var ok bool
+			baseURL, ok = defaultOpenAICompatibleProviderBaseURL(provName, providerModel)
+			if !ok {
+				continue
+			}
+		}
+		return baseURL, apiKey, nil
+	}
+
+	return "", "", fmt.Errorf("no OpenAI-compatible provider configured")
+}

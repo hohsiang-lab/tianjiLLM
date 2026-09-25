@@ -1,0 +1,59 @@
+-- ============================================================
+-- CreateSpendLog: add upstream_token_key parameter
+-- File: internal/db/queries/spend_logs.sql
+-- ============================================================
+-- Add upstream_token_key to the INSERT column list and VALUES:
+--   INSERT INTO "SpendLogs" (..., upstream_token_key) VALUES (..., $25)
+
+-- ============================================================
+-- InsertErrorLog: add upstream_token_key, end_user, organization_id
+-- File: internal/db/queries/error_log.sql
+-- ============================================================
+-- Change from:
+--   INSERT INTO "ErrorLogs" (request_id, api_key_hash, model, provider,
+--     status_code, error_type, error_message, traceback, team_id)
+--   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+-- To:
+--   INSERT INTO "ErrorLogs" (request_id, api_key_hash, model, provider,
+--     status_code, error_type, error_message, traceback, team_id,
+--     upstream_token_key, end_user, organization_id)
+--   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+
+-- ============================================================
+-- ListRequestLogs: add LEFT JOIN VerificationToken + upstream_token_key + key_alias
+-- File: internal/db/queries/spend_views.sql
+-- ============================================================
+-- SpendLogs half:
+--   SELECT ..., COALESCE(vt.key_alias, '') AS key_alias, sl.upstream_token_key, ...
+--   FROM "SpendLogs" sl
+--   LEFT JOIN "ErrorLogs" el ON sl.request_id = el.request_id
+--   LEFT JOIN "VerificationToken" vt ON sl.api_key = vt.token
+--   WHERE ... AND (sqlc.narg(filter_upstream_token)::text IS NULL OR sl.upstream_token_key = sqlc.narg(filter_upstream_token))
+--
+-- ErrorLogs half:
+--   SELECT ..., COALESCE(vt2.key_alias, '') AS key_alias, el.upstream_token_key, ...
+--   FROM "ErrorLogs" el
+--   LEFT JOIN "VerificationToken" vt2 ON el.api_key_hash = vt2.token
+--   WHERE ... AND (sqlc.narg(filter_upstream_token)::text IS NULL OR el.upstream_token_key = sqlc.narg(filter_upstream_token))
+--
+-- NOTE: ErrorLogs half now uses el.upstream_token_key (real column, not hardcoded '')
+--       because ErrorLogs also records upstream_token_key after migration 019.
+
+-- ============================================================
+-- CountRequestLogs: add same filter_upstream_token parameter
+-- File: internal/db/queries/spend_views.sql
+-- ============================================================
+-- Both halves add:
+--   AND (sqlc.narg(filter_upstream_token)::text IS NULL OR ...)
+
+-- ============================================================
+-- GetSpendLogDetail (log detail): add key_alias JOIN
+-- File: internal/db/queries/spend_logs.sql
+-- ============================================================
+-- upstream_token_key is auto-included via sl.* after migration.
+-- Only change needed: add LEFT JOIN for key_alias:
+--   SELECT sl.*, COALESCE(vt.key_alias, '') AS key_alias, ...
+--   FROM "SpendLogs" sl
+--   LEFT JOIN "VerificationToken" vt ON sl.api_key = vt.token
+--   LEFT JOIN "ErrorLogs" el ON ...
+--   WHERE sl.request_id = $1

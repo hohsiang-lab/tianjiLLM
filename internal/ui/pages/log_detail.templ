@@ -1,0 +1,297 @@
+package pages
+
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
+)
+
+type LogDetailData struct {
+	RequestID        string
+	CallType         string
+	Status           string // "Success" or "Failed"
+	Model            string
+	ReasoningEffort  string
+	Provider         *string
+	ApiBase          string
+	Spend            float64
+	TotalTokens      int
+	PromptTokens     int
+	CompletionTokens int
+	DurationSec      float64
+	CacheHit         string
+	StartTime        time.Time
+	EndTime          time.Time
+	KeyHash          string
+	KeyAlias         string
+	UpstreamTokenKey string
+	TeamID           *string
+	EndUser          *string
+	User             string
+	Metadata         string // raw JSON
+
+	// Error fields (from ErrorLogs LEFT JOIN)
+	ErrorStatusCode *int32
+	ErrorType       *string
+	ErrorMessage    *string
+	ErrorTraceback  *string
+
+	// Payload fields (from RequestPayloads)
+	StorePromptsEnabled bool
+	PayloadMessages     string // raw JSON
+	PayloadResponse     string // raw JSON
+}
+
+func (d LogDetailData) hasMetadata() bool {
+	return d.Metadata != "" && d.Metadata != "{}" && d.Metadata != "null"
+}
+
+func (d LogDetailData) hasPayload() bool {
+	return d.PayloadMessages != "" && d.PayloadMessages != "{}"
+}
+
+func (d LogDetailData) prettyJSON(raw string) string {
+	var v any
+	if err := json.Unmarshal([]byte(raw), &v); err != nil {
+		return raw
+	}
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return raw
+	}
+	return string(b)
+}
+
+templ LogDetailPanel(data LogDetailData) {
+	{{ displayModel := modelWithReasoningEffort(data.Model, data.ReasoningEffort) }}
+	<div class="h-full flex flex-col overflow-hidden">
+		<!-- Header -->
+		<div class="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+			<div class="flex items-center gap-2 min-w-0">
+				if data.Provider != nil {
+					<span class="text-sm font-medium text-muted-foreground">{ *data.Provider }/</span>
+				}
+				<span class="text-sm font-semibold truncate">{ displayModel }</span>
+			</div>
+			<div class="flex items-center gap-2">
+				if data.Status == "Failed" {
+					@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+						Failed
+					}
+				} else {
+					@badge.Badge(badge.Props{Variant: badge.VariantDefault}) {
+						Success
+					}
+				}
+				@button.Button(button.Props{
+					Size:    button.SizeSm,
+					Variant: button.VariantGhost,
+					Attributes: templ.Attributes{
+						"onclick":  "closeLogDetail()",
+						"aria-label": "Close",
+					},
+				}) {
+					@icon.X(icon.Props{Size: 14})
+				}
+			</div>
+		</div>
+		<!-- Scrollable content -->
+		<div class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+			<!-- Request ID + Timestamp -->
+			<div class="flex items-center justify-between text-xs text-muted-foreground">
+				<div class="flex items-center gap-1">
+					<span class="font-mono select-all" id="request-id-text">{ data.RequestID }</span>
+					<button
+						class="p-0.5 rounded hover:bg-muted"
+						onclick="navigator.clipboard.writeText(document.getElementById('request-id-text').textContent).then(function(){var b=event.currentTarget;b.classList.add('text-emerald-500');setTimeout(function(){b.classList.remove('text-emerald-500')},1000)})"
+						title="Copy Request ID"
+					>
+						@icon.Copy(icon.Props{Size: 12})
+					</button>
+				</div>
+				<span>{ data.StartTime.Format("Jan 02, 2006 03:04:05 PM") }</span>
+			</div>
+			<!-- Error Alert (for failed requests) -->
+			if data.Status == "Failed" && data.ErrorMessage != nil {
+				<div class="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+					<div class="flex items-center gap-2 mb-1">
+						@icon.CircleAlert(icon.Props{Size: 16, Class: "text-destructive"})
+						<span class="text-sm font-semibold text-destructive">Request Failed</span>
+						if data.ErrorStatusCode != nil {
+							<span class="text-xs text-muted-foreground">Error Code: { fmt.Sprintf("%d", *data.ErrorStatusCode) }</span>
+						}
+					</div>
+					if data.ErrorType != nil && *data.ErrorType != "" {
+						<div class="text-xs text-muted-foreground mb-1">Type: { *data.ErrorType }</div>
+					}
+					<div class="text-sm text-foreground">{ *data.ErrorMessage }</div>
+					if data.ErrorTraceback != nil && *data.ErrorTraceback != "" {
+						<details class="mt-2">
+							<summary class="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Traceback</summary>
+							<pre class="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto max-h-48 overflow-y-auto font-mono">{ *data.ErrorTraceback }</pre>
+						</details>
+					}
+				</div>
+			}
+			<!-- Request Details -->
+			@card.Card() {
+				@card.Header(card.HeaderProps{Class: "pb-2"}) {
+					@card.Title() {
+						Request Details
+					}
+				}
+				@card.Content() {
+					<div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+						<div>
+							<span class="text-muted-foreground">Model</span>
+							<div class="font-medium truncate" title={ displayModel }>{ displayModel }</div>
+						</div>
+						<div>
+							<span class="text-muted-foreground">Provider</span>
+							<div class="font-medium">
+								if data.Provider != nil {
+									{ *data.Provider }
+								} else {
+									<span class="text-muted-foreground">–</span>
+								}
+							</div>
+						</div>
+						<div>
+							<span class="text-muted-foreground">Call Type</span>
+							<div class="font-medium">{ data.CallType }</div>
+						</div>
+						<div>
+							<span class="text-muted-foreground">API Base</span>
+							<div class="font-medium truncate" title={ data.ApiBase }>
+								if data.ApiBase != "" {
+									{ data.ApiBase }
+								} else {
+									<span class="text-muted-foreground">–</span>
+								}
+							</div>
+						</div>
+						<div>
+							<span class="text-muted-foreground">Key Alias</span>
+							<div class="font-medium">
+								if data.KeyAlias != "" {
+									{ data.KeyAlias }
+								} else {
+									<span class="text-muted-foreground">–</span>
+								}
+							</div>
+						</div>
+						<div>
+							<span class="text-muted-foreground">Upstream Token</span>
+							<div class="font-medium font-mono">
+								if data.UpstreamTokenKey != "" {
+									{ data.UpstreamTokenKey }
+								} else {
+									<span class="text-muted-foreground">N/A</span>
+								}
+							</div>
+						</div>
+					</div>
+				}
+			}
+			<!-- Metrics -->
+			@card.Card() {
+				@card.Header(card.HeaderProps{Class: "pb-2"}) {
+					@card.Title() {
+						Metrics
+					}
+				}
+				@card.Content() {
+					<div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+						<div>
+							<span class="text-muted-foreground">Tokens</span>
+							<div class="font-medium font-mono">
+								{ fmt.Sprintf("%d", data.TotalTokens) }
+								<span class="text-muted-foreground text-xs">({ fmt.Sprintf("%d", data.PromptTokens) } prompt + { fmt.Sprintf("%d", data.CompletionTokens) } completion)</span>
+							</div>
+						</div>
+						<div>
+							<span class="text-muted-foreground">Cost</span>
+							<div class="font-medium font-mono">{ fmt.Sprintf("$%.6f", data.Spend) }</div>
+						</div>
+						<div>
+							<span class="text-muted-foreground">Duration</span>
+							<div class="font-medium font-mono">{ fmt.Sprintf("%.3f s", data.DurationSec) }</div>
+						</div>
+						<div>
+							<span class="text-muted-foreground">Cache Hit</span>
+							<div class="font-medium">
+								if strings.EqualFold(data.CacheHit, "true") {
+									<span class="text-emerald-600">Hit</span>
+								} else if data.CacheHit != "" {
+									<span class="text-muted-foreground">Miss</span>
+								} else {
+									<span class="text-muted-foreground">–</span>
+								}
+							</div>
+						</div>
+						<div>
+							<span class="text-muted-foreground">Start Time</span>
+							<div class="font-medium text-xs">{ data.StartTime.Format(time.RFC3339) }</div>
+						</div>
+						<div>
+							<span class="text-muted-foreground">End Time</span>
+							<div class="font-medium text-xs">{ data.EndTime.Format(time.RFC3339) }</div>
+						</div>
+					</div>
+				}
+			}
+			<!-- Request & Response (Payload) -->
+			if data.StorePromptsEnabled {
+				@card.Card() {
+					@card.Header(card.HeaderProps{Class: "pb-2"}) {
+						@card.Title() {
+							Request & Response
+						}
+					}
+					@card.Content() {
+						if data.hasPayload() {
+							<div class="space-y-3">
+								<details>
+									<summary class="text-sm font-medium cursor-pointer hover:text-foreground text-muted-foreground">Messages</summary>
+									<pre class="mt-1 p-3 bg-muted rounded text-xs overflow-x-auto max-h-64 overflow-y-auto font-mono">{ data.prettyJSON(data.PayloadMessages) }</pre>
+								</details>
+								if data.PayloadResponse != "" && data.PayloadResponse != "{}" {
+									<details>
+										<summary class="text-sm font-medium cursor-pointer hover:text-foreground text-muted-foreground">Response</summary>
+										<pre class="mt-1 p-3 bg-muted rounded text-xs overflow-x-auto max-h-64 overflow-y-auto font-mono">{ data.prettyJSON(data.PayloadResponse) }</pre>
+									</details>
+								}
+							</div>
+						} else {
+							<div class="text-sm text-muted-foreground">No payload data stored for this request.</div>
+						}
+					}
+				}
+			} else {
+				<div class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+					<strong>Request/Response Data Not Available</strong>
+					<p class="mt-1 text-xs">To view request and response details, enable prompt storage by adding <code class="bg-amber-100 px-1 rounded">store_prompts_in_spend_logs: true</code> to your <code>general_settings</code> in proxy_config.yaml.</p>
+				</div>
+			}
+			<!-- Metadata -->
+			if data.hasMetadata() {
+				@card.Card() {
+					@card.Header(card.HeaderProps{Class: "pb-2"}) {
+						@card.Title() {
+							Metadata
+						}
+					}
+					@card.Content() {
+						<pre class="p-3 bg-muted rounded text-xs overflow-x-auto max-h-64 overflow-y-auto font-mono">{ data.prettyJSON(data.Metadata) }</pre>
+					}
+				}
+			}
+		</div>
+	</div>
+}

@@ -1,0 +1,35 @@
+{
+  "tools": [
+    {
+      "name": "weather-get_weather",
+      "description": "Get the current weather for a location",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "City name or coordinates"
+          }
+        },
+        "required": ["location"]
+      }
+    },
+    {
+      "name": "weather-get_forecast",
+      "description": "Get 5-day forecast for a location",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "default": 5
+          }
+        },
+        "required": ["location"]
+      }
+    }
+  ]
+}

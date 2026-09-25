@@ -1,0 +1,388 @@
+package pages
+
+import (
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/toast"
+)
+
+type CodexUsageTabData struct {
+	UsagePageData
+	Cards    []CodexUsageCredentialCard
+	Strategy string
+}
+
+func (CodexUsageTabData) usageTab() {}
+
+type CodexUsageCredentialCard struct {
+	CredentialID          string
+	Name                  string
+	Email                 string
+	OrganizationID        string
+	PlanType              string
+	StatusLabel           string
+	StatusVariant         string
+	PrimaryWindow         CodexUsageWindowView
+	WeeklyWindow          CodexUsageWindowView
+	AdditionalBuckets     []CodexUsageBucketView
+	CreditsStatus         string
+	ResetCreditsAvailable *int
+	LastUpdated           string
+	CacheState            string
+	SafeError             string
+	RefreshDisabledReason string
+	LifecycleAction       string
+	LifecycleActionLabel  string
+	LifecycleActionPrompt string
+	SelectionScore        *float64
+}
+
+type CodexUsageWindowView struct {
+	Name        string
+	UsedPercent *float64
+	Reset       string
+	Status      string
+}
+
+type CodexUsageBucketView struct {
+	Name          string
+	PrimaryWindow CodexUsageWindowView
+	WeeklyWindow  CodexUsageWindowView
+}
+
+templ UsageCodexTab(data CodexUsageTabData) {
+	<div id="codex-usage-tab-content" class="space-y-4">
+		<h3 class="text-sm font-semibold">
+			Codex — Plan Usage Limits
+			if data.Strategy != "" {
+				<span class="font-normal text-muted-foreground"> · { codexStrategyLabel(data.Strategy) }</span>
+			}
+		</h3>
+		if len(data.Cards) == 0 {
+			<div class="text-sm text-muted-foreground py-4">
+				No OpenAI subscription credentials configured.
+			</div>
+		} else {
+			for _, cardData := range data.Cards {
+				@codexUsageCard(cardData, false)
+			}
+		}
+	</div>
+}
+
+templ UsageCodexTabWithToast(data CodexUsageTabData, toastMsg string, toastVariant toast.Variant) {
+	@UsageCodexTab(data)
+	if toastMsg != "" {
+		<div id="toast-oob" hx-swap-oob="afterbegin:body">
+			@toast.Toast(toast.Props{
+				Title:         toastMsg,
+				Variant:       toastVariant,
+				Duration:      5000,
+				ShowIndicator: true,
+			})
+		</div>
+	}
+}
+
+templ codexUsageCard(cardData CodexUsageCredentialCard, compact bool) {
+	<div class="rounded-lg border bg-card text-card-foreground shadow-xs p-5 space-y-4">
+		@codexUsageCardBody(cardData, compact)
+	</div>
+}
+
+templ codexUsageCardBody(cardData CodexUsageCredentialCard, compact bool) {
+	<div class="space-y-4">
+		<div class="flex items-start justify-between gap-2">
+			<div class="min-w-0">
+				if !compact {
+					<div class="font-medium break-words">{ fallbackText(cardData.Name, cardData.CredentialID) }</div>
+					if cardData.CredentialID != "" {
+						<div class="font-mono text-xs text-muted-foreground break-all">{ cardData.CredentialID }</div>
+					}
+				}
+				<div class="mt-1 flex flex-wrap items-center gap-2 text-sm">
+					<span>{ fallbackText(cardData.Email, "Unknown email") }</span>
+					if cardData.PlanType != "" {
+						<span class="text-muted-foreground">· { cardData.PlanType }</span>
+					}
+					if cardData.OrganizationID != "" {
+						<span class="text-muted-foreground">· { cardData.OrganizationID }</span>
+					}
+				</div>
+			</div>
+			<div class="flex items-center gap-2">
+				if cardData.ResetCreditsAvailable != nil {
+					<span class="rounded-full border border-input px-2 py-0.5 text-xs text-muted-foreground">
+						Reset credits: { codexResetCreditsCount(cardData.ResetCreditsAvailable) }
+					</span>
+				}
+				<span class={ "rounded-full px-2 py-0.5 text-xs font-medium", codexUsageStatusClass(cardData.StatusVariant) }>
+					{ fallbackText(cardData.StatusLabel, "No data") }
+				</span>
+				if cardData.CredentialID != "" {
+					<form hx-post={ "/ui/credentials/" + cardData.CredentialID + "/codex-usage/reset" } hx-confirm="Consume one Codex reset credit now?" hx-target={ ternary(compact, "#credential-detail-content", "#codex-usage-tab-content") } hx-swap="outerHTML">
+						<button type="submit" class="rounded px-2 py-0.5 text-xs border hover:bg-muted cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled?={ !codexCanResetUsage(cardData) } title={ codexResetUsageDisabledReason(cardData) }>
+							Reset usage
+						</button>
+					</form>
+					<form hx-post={ "/ui/credentials/" + cardData.CredentialID + "/" + fallbackLifecycleAction(cardData.LifecycleAction) } hx-target={ ternary(compact, "#credential-detail-content", "#codex-usage-tab-content") } hx-swap="outerHTML" { credentialActionConfirmAttributes(cardData.LifecycleActionPrompt)... }>
+						<button type="submit" class="rounded px-2 py-0.5 text-xs border hover:bg-muted cursor-pointer">
+							{ fallbackLifecycleLabel(cardData.LifecycleActionLabel) }
+						</button>
+					</form>
+				}
+			</div>
+		</div>
+		if cardData.SafeError != "" {
+			<div class="text-sm text-destructive">{ cardData.SafeError }</div>
+		}
+		if !codexHasUsageData(cardData) {
+			<div class="text-sm text-muted-foreground">
+				No data yet for this credential.
+			</div>
+		} else {
+			<div class="space-y-3">
+				<div class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Plan usage limits</div>
+				if codexUsageWindowHasData(cardData.PrimaryWindow) || codexUsageWindowHasData(cardData.WeeklyWindow) {
+					<div class="text-xs font-medium text-muted-foreground">All models</div>
+					if codexUsageWindowHasData(cardData.PrimaryWindow) {
+						@codexUsageWindow("Current session", cardData.PrimaryWindow)
+					}
+					if codexUsageWindowHasData(cardData.WeeklyWindow) {
+						<div class="pt-2 border-t border-border">
+							<div class="text-xs font-medium text-muted-foreground mb-2">Weekly limits</div>
+							@codexUsageWindow("Weekly", cardData.WeeklyWindow)
+						</div>
+					}
+				}
+				if len(cardData.AdditionalBuckets) > 0 {
+					<div class="pt-2 border-t border-border space-y-3">
+						<div class="text-xs font-medium text-muted-foreground">Additional model limits</div>
+						for _, bucket := range cardData.AdditionalBuckets {
+							if codexUsageWindowHasData(bucket.PrimaryWindow) || codexUsageWindowHasData(bucket.WeeklyWindow) {
+								<div class="space-y-2">
+									<div class="text-xs font-medium text-muted-foreground">{ fallbackText(bucket.Name, "Additional model") }</div>
+									if codexUsageWindowHasData(bucket.PrimaryWindow) {
+										@codexUsageWindow("5-hour limit", bucket.PrimaryWindow)
+									}
+									if codexUsageWindowHasData(bucket.WeeklyWindow) {
+										@codexUsageWindow("Weekly limit", bucket.WeeklyWindow)
+									}
+								</div>
+							}
+						}
+					</div>
+				}
+			</div>
+		}
+		<div class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+			<span>Last updated: { fallbackText(cardData.LastUpdated, "never") }</span>
+			if cardData.CreditsStatus != "" {
+				<span>Credits: { cardData.CreditsStatus }</span>
+			}
+			if cardData.CacheState != "" {
+				<span>{ cardData.CacheState }</span>
+			}
+			if cardData.SelectionScore != nil {
+				<span>Selection score: <span style={ codexSelectionScoreStyle(cardData.SelectionScore) }>{ fmt.Sprintf("%.2f", *cardData.SelectionScore) }</span></span>
+			}
+		</div>
+	</div>
+}
+
+templ codexUsageWindow(label string, window CodexUsageWindowView) {
+	<div>
+		<div class="flex items-center justify-between mb-1">
+			<div class="flex items-center gap-2">
+				<span class="text-xs text-muted-foreground">{ fallbackText(label, fallbackText(window.Name, "Usage window")) }</span>
+				if codexResetCountdown(window.Reset) != "" {
+					<span class="text-xs text-muted-foreground/60">{ codexResetCountdown(window.Reset) }</span>
+				}
+			</div>
+			<span class="text-xs font-medium">{ codexUsagePercent(window.UsedPercent) } used</span>
+		</div>
+		<div class="h-2 w-full rounded-full bg-muted overflow-hidden" role="progressbar">
+			if window.UsedPercent != nil {
+				<div class="h-full rounded-full transition-all" style={ "width:" + codexBarWidth(window.UsedPercent) + ";" + codexBarColorStyle(window.UsedPercent) }></div>
+			}
+		</div>
+		if window.Status != "" {
+			<div class="mt-1 text-xs text-muted-foreground">{ window.Status }</div>
+		}
+	</div>
+}
+
+func codexUsagePercent(value *float64) string {
+	if value == nil {
+		return "—"
+	}
+	return fmt.Sprintf("%.0f%%", clampPercent(*value)*100)
+}
+
+func codexResetCreditsCount(value *int) string {
+	if value == nil {
+		return "—"
+	}
+	return fmt.Sprintf("%d", *value)
+}
+
+func codexCanResetUsage(cardData CodexUsageCredentialCard) bool {
+	return cardData.CredentialID != "" &&
+		cardData.RefreshDisabledReason == "" &&
+		cardData.ResetCreditsAvailable != nil &&
+		*cardData.ResetCreditsAvailable > 0
+}
+
+func codexResetUsageDisabledReason(cardData CodexUsageCredentialCard) string {
+	if cardData.CredentialID == "" {
+		return "Credential missing"
+	}
+	if cardData.RefreshDisabledReason != "" {
+		return cardData.RefreshDisabledReason
+	}
+	if cardData.ResetCreditsAvailable == nil {
+		return "Reset credits unavailable"
+	}
+	if *cardData.ResetCreditsAvailable <= 0 {
+		return "No reset credits available"
+	}
+	return ""
+}
+
+func codexBarWidth(value *float64) string {
+	if value == nil {
+		return "0%"
+	}
+	return fmt.Sprintf("%.1f%%", clampPercent(*value)*100)
+}
+
+func codexBarColorStyle(value *float64) string {
+	if value == nil {
+		return ""
+	}
+	switch {
+	case *value < 0.6:
+		return "background-color:#0ea5e9"
+	case *value < 0.8:
+		return "background-color:#f59e0b"
+	default:
+		return "background-color:#ef4444"
+	}
+}
+
+func clampPercent(value float64) float64 {
+	if value < 0 {
+		return 0
+	}
+	if value > 1 {
+		return 1
+	}
+	return value
+}
+
+func codexUsageStatusClass(variant string) string {
+	switch variant {
+	case "destructive":
+		return "bg-destructive/10 text-destructive"
+	case "outline":
+		return "border border-input text-muted-foreground"
+	default:
+		return "bg-primary/10 text-primary"
+	}
+}
+
+func codexStrategyLabel(s string) string {
+	switch s {
+	case "lowest_utilization":
+		return "Lowest Utilization"
+	case "round_robin":
+		return "Round Robin"
+	case "sticky":
+		return "Sticky"
+	default:
+		return s
+	}
+}
+
+func codexSelectionScoreStyle(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	switch {
+	case *v < 0.6:
+		return "color:#22c55e"
+	case *v < 0.8:
+		return "color:#f97316"
+	default:
+		return "color:#ef4444"
+	}
+}
+
+func fallbackText(value, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func codexHasUsageData(cardData CodexUsageCredentialCard) bool {
+	if codexUsageWindowHasData(cardData.PrimaryWindow) || codexUsageWindowHasData(cardData.WeeklyWindow) {
+		return true
+	}
+	return len(cardData.AdditionalBuckets) > 0
+}
+
+func codexUsageWindowHasData(window CodexUsageWindowView) bool {
+	return window.UsedPercent != nil
+}
+
+func codexResetCountdown(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	t, ok := codexParseResetTime(raw)
+	if !ok {
+		return raw
+	}
+	d := time.Until(t)
+	if d <= 0 {
+		return "Reset now"
+	}
+	hours := int(d.Hours())
+	mins := int(d.Minutes()) % 60
+	if hours >= 24 {
+		return fmt.Sprintf("Resets in %dd %dh %dm", hours/24, hours%24, mins)
+	}
+	if hours > 0 {
+		return fmt.Sprintf("Resets in %dh %dm", hours, mins)
+	}
+	return fmt.Sprintf("Resets in %dm", mins)
+}
+
+func codexParseResetTime(raw string) (time.Time, bool) {
+	if raw == "" {
+		return time.Time{}, false
+	}
+	layouts := []string{
+		time.RFC3339,
+		"2006-01-02 15:04 MST",
+	}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t, true
+		}
+	}
+	if ts, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		return time.Unix(ts, 0), true
+	}
+	return time.Time{}, false
+}
+
+func ternary(cond bool, a, b string) string {
+	if cond {
+		return a
+	}
+	return b
+}

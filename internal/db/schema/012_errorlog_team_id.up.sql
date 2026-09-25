@@ -1,0 +1,1 @@
+ALTER TABLE "ErrorLogs" ADD COLUMN IF NOT EXISTS team_id TEXT;

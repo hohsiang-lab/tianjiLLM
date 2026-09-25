@@ -1,0 +1,101 @@
+package pages
+
+import (
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/input"
+)
+
+type LoginPageData struct {
+	Error                 string
+	Providers             []string
+	MasterKeyLoginEnabled bool
+}
+
+templ LoginPage(data LoginPageData) {
+	@document("Login") {
+		<div class="flex min-h-full items-center justify-center px-4 py-12">
+			@card.Card(card.Props{Class: "w-full max-w-sm"}) {
+				@card.Header() {
+					@card.Title() {
+						TianjiLLM Admin
+					}
+					@card.Description() {
+						if len(data.Providers) > 0 {
+							Sign in with an approved account.
+						} else {
+							Enter the master key to access the dashboard.
+						}
+					}
+				}
+				@card.Content() {
+					<div class="space-y-4">
+						if data.Error != "" {
+							<div role="alert" class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+								{ data.Error }
+							</div>
+						}
+						if len(data.Providers) > 0 {
+							<div class="space-y-2">
+								for _, provider := range data.Providers {
+									@button.Button(button.Props{
+										Href:      "/auth/" + provider,
+										Variant:   button.VariantOutline,
+										FullWidth: true,
+									}) {
+										Continue with { providerLabel(provider) }
+									}
+								}
+							</div>
+						}
+						if len(data.Providers) > 0 && data.MasterKeyLoginEnabled {
+							<div class="relative">
+								<div class="absolute inset-0 flex items-center">
+									<span class="w-full border-t"></span>
+								</div>
+								<div class="relative flex justify-center text-xs uppercase">
+									<span class="bg-card px-2 text-muted-foreground">Break glass</span>
+								</div>
+							</div>
+						}
+						if data.MasterKeyLoginEnabled {
+							<form method="post" action="/ui/login" class="space-y-4">
+								<div class="space-y-2">
+									<label for="api_key" class="text-sm font-medium">Master Key</label>
+									@input.Input(input.Props{
+										ID:          "api_key",
+										Name:        "api_key",
+										Type:        "password",
+										Placeholder: "sk-...",
+										Attributes: templ.Attributes{
+											"autofocus":    len(data.Providers) == 0,
+											"required":     true,
+											"autocomplete": "current-password",
+										},
+									})
+								</div>
+								@button.Button(button.Props{
+									Type:      button.TypeSubmit,
+									FullWidth: true,
+								}) {
+									Sign in with master key
+								}
+							</form>
+						}
+					</div>
+				}
+			}
+		</div>
+	}
+}
+
+func providerLabel(provider string) string {
+	switch provider {
+	case "github":
+		return "GitHub"
+	case "discord":
+		return "Discord"
+	default:
+		return provider
+	}
+}

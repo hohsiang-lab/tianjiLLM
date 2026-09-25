@@ -1,0 +1,46 @@
+package callback
+
+import (
+	"time"
+
+	"github.com/praxisllmlab/tianjiLLM/internal/model"
+)
+
+// LogData holds all information about an LLM call for logging.
+type LogData struct {
+	Model                    string
+	Provider                 string
+	APIKey                   string
+	Request                  *model.ChatCompletionRequest
+	Response                 *model.ModelResponse
+	RequestPayload           any
+	ResponsePayload          any
+	Error                    error
+	StartTime                time.Time
+	EndTime                  time.Time
+	Latency                  time.Duration
+	LLMAPILatency            time.Duration
+	TimeToFirstToken         time.Duration
+	PromptTokens             int
+	CompletionTokens         int
+	TotalTokens              int
+	Cost                     float64
+	UserID                   string
+	TeamID                   string
+	OrganizationID           string
+	CallType                 string
+	RequestTags              []string
+	CacheHit                 bool
+	CacheReadInputTokens     int
+	CacheCreationInputTokens int
+	RequesterIPAddress       string
+	UpstreamTokenKey         string
+	ReasoningEffort          string
+	OpenAISubscription       *OpenAISubscriptionAttribution
+}
+
+// CustomLogger is the interface for observability callbacks.
+type CustomLogger interface {
+	LogSuccess(data LogData)
+	LogFailure(data LogData)
+}

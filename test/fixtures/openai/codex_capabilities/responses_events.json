@@ -1,0 +1,171 @@
+{
+  "json_object": [
+    {
+      "type": "response.output_text.delta",
+      "response_id": "resp_json_object",
+      "item_id": "msg_json_object",
+      "output_index": 0,
+      "content_index": 0,
+      "delta": "{\"ok\":true}"
+    },
+    {
+      "type": "response.completed",
+      "response": {
+        "id": "resp_json_object",
+        "model": "gpt-fixture",
+        "status": "completed",
+        "text": {
+          "format": {
+            "type": "json_object"
+          }
+        },
+        "usage": {
+          "input_tokens": 7,
+          "output_tokens": 3,
+          "total_tokens": 10
+        }
+      }
+    }
+  ],
+  "json_schema": [
+    {
+      "type": "response.output_text.delta",
+      "response_id": "resp_json_schema",
+      "item_id": "msg_json_schema",
+      "output_index": 0,
+      "content_index": 0,
+      "delta": "{\"name\":\"Alice\",\"pet_count\":2}"
+    },
+    {
+      "type": "response.completed",
+      "response": {
+        "id": "resp_json_schema",
+        "model": "gpt-fixture",
+        "status": "completed",
+        "text": {
+          "format": {
+            "type": "json_schema",
+            "name": "entity",
+            "strict": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "pet_count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "name",
+                "pet_count"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "usage": {
+          "input_tokens": 8,
+          "output_tokens": 6,
+          "total_tokens": 14
+        }
+      }
+    }
+  ],
+  "stream_semantics": [
+    {
+      "type": "response.output_text.delta",
+      "response_id": "resp_stream",
+      "item_id": "msg_stream",
+      "output_index": 0,
+      "content_index": 0,
+      "delta": "hello"
+    },
+    {
+      "type": "response.output_item.added",
+      "output_index": 1,
+      "item": {
+        "id": "fc_fixture",
+        "type": "function_call",
+        "status": "in_progress",
+        "call_id": "call_fixture",
+        "name": "lookup",
+        "arguments": ""
+      }
+    },
+    {
+      "type": "response.function_call_arguments.delta",
+      "item_id": "fc_fixture",
+      "output_index": 1,
+      "delta": "{\"id\":"
+    },
+    {
+      "type": "response.function_call_arguments.delta",
+      "item_id": "fc_fixture",
+      "output_index": 1,
+      "delta": "\"42\"}"
+    },
+    {
+      "type": "response.function_call_arguments.done",
+      "item_id": "fc_fixture",
+      "output_index": 1,
+      "name": "lookup",
+      "arguments": "{\"id\":\"42\"}"
+    },
+    {
+      "type": "response.output_item.done",
+      "output_index": 1,
+      "item": {
+        "id": "fc_fixture",
+        "type": "function_call",
+        "status": "completed",
+        "call_id": "call_fixture",
+        "name": "lookup",
+        "arguments": "{\"id\":\"42\"}"
+      }
+    },
+    {
+      "type": "response.refusal.delta",
+      "item_id": "msg_stream",
+      "output_index": 0,
+      "content_index": 1,
+      "delta": "cannot comply"
+    },
+    {
+      "type": "response.refusal.done",
+      "item_id": "msg_stream",
+      "output_index": 0,
+      "content_index": 1,
+      "refusal": "cannot comply"
+    },
+    {
+      "type": "response.completed",
+      "response": {
+        "id": "resp_stream",
+        "model": "gpt-fixture",
+        "status": "completed",
+        "usage": {
+          "input_tokens": 7,
+          "output_tokens": 3,
+          "total_tokens": 10
+        }
+      }
+    }
+  ],
+  "usage_only_terminal": [
+    {
+      "type": "response.completed",
+      "response": {
+        "id": "resp_usage",
+        "model": "gpt-fixture",
+        "status": "completed",
+        "usage": {
+          "input_tokens": 5,
+          "output_tokens": 2,
+          "total_tokens": 7
+        }
+      }
+    }
+  ]
+}

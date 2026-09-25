@@ -1,0 +1,151 @@
+name: Codex Client Version
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: codex-client-version-update
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: staging-monster-ci
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve latest stable Codex version
+        id: versions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          current="$(scripts/codex-client-version.sh candidate)"
+          latest="$(scripts/codex-client-version.sh latest)"
+          echo "current=${current}" >> "$GITHUB_OUTPUT"
+          echo "latest=${latest}" >> "$GITHUB_OUTPUT"
+          if [[ "${current}" == "${latest}" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          elif scripts/codex-client-version.sh is-newer "${latest}" "${current}"; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "error: refusing Codex client version downgrade ${current} -> ${latest}" >&2
+            exit 1
+          fi
+
+      - name: Create or update compatibility review PR
+        if: steps.versions.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CURRENT_VERSION: ${{ steps.versions.outputs.current }}
+          LATEST_VERSION: ${{ steps.versions.outputs.latest }}
+        run: |
+          branch="automation/codex-client-version"
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}"
+          api_headers=(
+            -H "Accept: application/vnd.github+json"
+            -H "Authorization: Bearer ${GITHUB_TOKEN}"
+            -H "Content-Type: application/json"
+            -H "X-GitHub-Api-Version: 2022-11-28"
+          )
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          branch_updated=false
+          if git ls-remote --exit-code --heads origin "${branch}" >/dev/null 2>&1; then
+            git fetch origin "${branch}:refs/remotes/origin/${branch}"
+            previous_head="$(git rev-parse "origin/${branch}")"
+            git switch --force-create "${branch}" --track "origin/${branch}"
+            git merge --no-edit -X theirs origin/main
+            if [[ "$(git rev-parse HEAD)" != "${previous_head}" ]]; then
+              branch_updated=true
+            fi
+          else
+            git switch --force-create "${branch}"
+          fi
+
+          printf '%s\n' "${LATEST_VERSION}" > .codex-client-version
+          if ! git diff --quiet -- .codex-client-version; then
+            git add .codex-client-version
+            git commit -m "chore(codex): update client version to ${LATEST_VERSION}"
+            branch_updated=true
+          fi
+          git push --force-with-lease origin "HEAD:${branch}"
+
+          body_file="$(mktemp)"
+          cat >"${body_file}" <<EOF
+          ## Codex client compatibility update
+
+          - Previous reviewed version: \`${CURRENT_VERSION}\`
+          - Latest stable version: \`${LATEST_VERSION}\`
+          - Upstream comparison: https://github.com/openai/codex/compare/rust-v${CURRENT_VERSION}...rust-v${LATEST_VERSION}
+
+          This PR intentionally updates only \`.codex-client-version\`. CI remains
+          blocked until compatibility and migration review is complete.
+
+          Review:
+
+          - [ ] Model catalog and minimal client versions
+          - [ ] Responses HTTP payload and response events
+          - [ ] Responses WebSocket handshake and sequential turns
+          - [ ] Remote compact request/response contract
+          - [ ] Image generation request contract
+          - [ ] Required headers and originator behavior
+          - [ ] Migration implemented, or confirmed unnecessary
+          - [ ] \`.codex-client-version-reviewed\` updated to \`${LATEST_VERSION}\`
+          EOF
+
+          pr_number="$(
+            curl --fail --silent --show-error --get \
+              "${api_headers[@]}" \
+              --data-urlencode "state=open" \
+              --data-urlencode "head=${GITHUB_REPOSITORY_OWNER}:${branch}" \
+              "${api}/pulls" |
+              jq --raw-output '.[0].number // empty'
+          )"
+          dispatch_ci=false
+          if [[ -z "${pr_number}" ]]; then
+            jq --null-input \
+              --arg title "chore(codex): update client version to ${LATEST_VERSION}" \
+              --arg head "${branch}" \
+              --arg base "main" \
+              --rawfile body "${body_file}" \
+              '{title: $title, head: $head, base: $base, body: $body}' |
+              curl --fail --silent --show-error \
+                --request POST \
+                "${api_headers[@]}" \
+                --data-binary @- \
+                "${api}/pulls" >/dev/null
+            dispatch_ci=true
+          elif [[ "${branch_updated}" == "true" ]]; then
+            jq --null-input \
+              --arg title "chore(codex): update client version to ${LATEST_VERSION}" \
+              --rawfile body "${body_file}" \
+              '{title: $title, body: $body}' |
+              curl --fail --silent --show-error \
+                --request PATCH \
+                "${api_headers[@]}" \
+                --data-binary @- \
+                "${api}/pulls/${pr_number}" >/dev/null
+            dispatch_ci=true
+          fi
+
+          # Events created with GITHUB_TOKEN do not reliably start normal PR
+          # workflows. workflow_dispatch is an explicit exception, so dispatch
+          # CI for the bot-owned branch after every update.
+          if [[ "${dispatch_ci}" == "true" ]]; then
+            jq --null-input --arg ref "${branch}" '{ref: $ref}' |
+              curl --fail --silent --show-error \
+                --request POST \
+                "${api_headers[@]}" \
+                --data-binary @- \
+                "${api}/actions/workflows/ci.yml/dispatches" >/dev/null
+          fi
