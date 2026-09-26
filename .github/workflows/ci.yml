@@ -16,7 +16,7 @@ concurrency:
 jobs:
   lint:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
-    runs-on: staging-monster-ci
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v7
@@ -30,7 +30,7 @@ jobs:
 
   test:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
-    runs-on: staging-monster-ci
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16-alpine
@@ -107,7 +107,7 @@ jobs:
 
   codex-compatibility:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
-    runs-on: staging-monster-ci
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -169,7 +169,7 @@ jobs:
 
   e2e:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
-    runs-on: staging-monster-ci
+    runs-on: ubuntu-24.04
     needs: [lint, test, codex-compatibility]
     # Playwright official image — Chromium pre-installed, no download needed.
     container:
@@ -216,7 +216,7 @@ jobs:
 
   build:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
-    runs-on: staging-monster-ci
+    runs-on: ubuntu-24.04
     needs: [lint, test, codex-compatibility]
     steps:
       - uses: actions/checkout@v4
@@ -240,7 +240,7 @@ jobs:
             ./cmd/tianji
 
   docker:
-    runs-on: [staging-monster-ci, "${{ matrix.arch }}"]
+    runs-on: ubuntu-24.04
     needs: [lint, test, codex-compatibility]
     if: github.event_name == 'push'
     strategy:
@@ -308,7 +308,7 @@ jobs:
           retention-days: 1
 
   docker-manifest:
-    runs-on: staging-monster-ci
+    runs-on: ubuntu-24.04
     needs: docker
     if: github.event_name == 'push'
     permissions:
