@@ -240,19 +240,44 @@ jobs:
             ./cmd/tianji
 
   docker:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     needs: [lint, test, codex-compatibility]
     if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64]
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
 
       - uses: docker/setup-buildx-action@v3
+
+      - name: Verify native runner architecture
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          case "$TARGET_ARCH" in
+            amd64) expected_machine=x86_64 ;;
+            arm64) expected_machine=aarch64 ;;
+            *) echo "unsupported target architecture: $TARGET_ARCH" >&2; exit 1 ;;
+          esac
+
+          machine="$(uname -m)"
+          docker_arch="$(docker info --format '{{.Architecture}}')"
+          printf 'Runner architecture: %s; Docker architecture: %s; target: %s\n' \
+            "$machine" "$docker_arch" "$TARGET_ARCH"
+          test "$machine" = "$expected_machine"
+          test "$docker_arch" = "$expected_machine"
+
+          builder="$(docker buildx inspect --bootstrap)"
+          printf '%s\n' "$builder"
+          grep -F "linux/$TARGET_ARCH" <<<"$builder" >/dev/null
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -353,10 +378,10 @@ jobs:
             digest_refs+=("${IMAGE}@sha256:$(basename "$digest_file")")
           done
 
-          # if [ "${#digest_refs[@]}" -ne 2 ]; then
-          #   echo "expected two platform digests, found ${#digest_refs[@]}" >&2
-          #   exit 1
-          # fi
+          if [ "${#digest_refs[@]}" -ne 2 ]; then
+            echo "expected two platform digests, found ${#digest_refs[@]}" >&2
+            exit 1
+          fi
 
           tag_args=()
           while IFS= read -r tag; do
