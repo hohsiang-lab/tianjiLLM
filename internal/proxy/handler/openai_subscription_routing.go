@@ -323,7 +323,8 @@ func (h *Handlers) selectOpenAISubscriptionCandidateWithRouteKey(
 			return h.lowestUtilizationOpenAISubscriptionSelect(candidates)
 		}
 	}
-	return h.roundRobinOpenAISubscriptionSelect(routeKey, candidates)
+	// Round-robin state is per org/model, never per client-controlled session.
+	return h.roundRobinOpenAISubscriptionSelect(openAISubscriptionRouteKey(ctx, params), candidates)
 }
 
 func (h *Handlers) roundRobinOpenAISubscriptionSelect(key string, candidates []openAISubscriptionCandidate) openAISubscriptionCandidate {

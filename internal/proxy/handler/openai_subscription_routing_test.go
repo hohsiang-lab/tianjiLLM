@@ -1059,9 +1059,10 @@ func TestOrderCodexCandidates_RoundRobinRotatesWithoutRefreshOrBlocking(t *testi
 	}
 	done := make(chan []resolvedOpenAISubscriptionCredential, 1)
 
-	for _, want := range []string{"cred-a", "cred-b", "cred-c", "cred-a"} {
+	for i, want := range []string{"cred-a", "cred-b", "cred-c", "cred-a"} {
+		identity := codexSessionIdentity{SessionID: fmt.Sprintf("session-%d", i), Source: "direct"}
 		go func() {
-			done <- h.orderOpenAISubscriptionCodexCandidates(context.Background(), params, resolved)
+			done <- h.orderOpenAISubscriptionCodexCandidatesWithIdentity(context.Background(), params, resolved, identity)
 		}()
 
 		select {
@@ -1073,6 +1074,8 @@ func TestOrderCodexCandidates_RoundRobinRotatesWithoutRefreshOrBlocking(t *testi
 			t.Fatal("round-robin Codex ordering blocked request routing")
 		}
 	}
+	assert.Len(t, h.openAISubscriptionRR, 1)
+	assert.Equal(t, uint64(4), h.openAISubscriptionRR[openAISubscriptionRouteKey(context.Background(), params)])
 	assert.Equal(t, "cred-a", resolved[0].CredentialID)
 	assert.Never(t, func() bool { return fetcher.startedCount() > 0 }, 100*time.Millisecond, 10*time.Millisecond)
 }
