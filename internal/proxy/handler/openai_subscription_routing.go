@@ -219,10 +219,7 @@ func (h *Handlers) orderOpenAISubscriptionCodexCandidatesWithIdentity(
 }
 
 func (h *Handlers) shouldOrderOpenAISubscriptionCodexCandidates(candidates []openAISubscriptionCandidate) bool {
-	if len(candidates) <= 1 || h == nil || h.Config == nil {
-		return false
-	}
-	return h.Config.NativeUpstreamStrategy == config.StrategySticky || h.Config.NativeUpstreamStrategy == config.StrategyLowestUtilization
+	return len(candidates) > 1 && h != nil && h.Config != nil
 }
 
 func (h *Handlers) refreshOpenAISubscriptionCodexUsageAfterResponse(ctx context.Context, resolved []resolvedOpenAISubscriptionCredential) {
