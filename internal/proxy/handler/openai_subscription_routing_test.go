@@ -1038,10 +1038,11 @@ func TestOpenAISubscriptionRouting_StickyCodexLoadsSharedCacheAfterRestart(t *te
 	assert.Equal(t, 0, shared.getCount())
 }
 
-func TestOrderCodexCandidates_RoundRobinDoesNotRefreshOrBlock(t *testing.T) {
+func TestOrderCodexCandidates_RoundRobinRotatesWithoutRefreshOrBlocking(t *testing.T) {
 	h := newOpenAISubscriptionRoutingHarness(t, map[string]openAISubscriptionTestCredential{
 		"cred-a": {AccessToken: "access-a", AccountID: "acct-a"},
 		"cred-b": {AccessToken: "access-b", AccountID: "acct-b"},
+		"cred-c": {AccessToken: "access-c", AccountID: "acct-c"},
 	})
 	h.Config.NativeUpstreamStrategy = config.StrategyRoundRobin
 	fetcher := newBlockingCodexUsageFetcher()
@@ -1049,25 +1050,33 @@ func TestOrderCodexCandidates_RoundRobinDoesNotRefreshOrBlock(t *testing.T) {
 	resolved := []resolvedOpenAISubscriptionCredential{
 		{CredentialID: "cred-a", BearerToken: "access-a", AccountID: "acct-a"},
 		{CredentialID: "cred-b", BearerToken: "access-b", AccountID: "acct-b"},
+		{CredentialID: "cred-c", BearerToken: "access-c", AccountID: "acct-c"},
 	}
 	params := config.TianjiParams{
 		Model:                           "openai/gpt-5.5",
-		OpenAISubscriptionCredentialIDs: []string{"cred-a", "cred-b"},
+		OpenAISubscriptionCredentialIDs: []string{"cred-a", "cred-b", "cred-c"},
+		OpenAISubscriptionTransport:     config.OpenAISubscriptionTransportChatGPTCodexBackend,
 	}
 	done := make(chan []resolvedOpenAISubscriptionCredential, 1)
 
-	go func() {
-		done <- h.orderOpenAISubscriptionCodexCandidates(context.Background(), params, resolved)
-	}()
+	for i, want := range []string{"cred-a", "cred-b", "cred-c", "cred-a"} {
+		identity := codexSessionIdentity{SessionID: fmt.Sprintf("session-%d", i), Source: "direct"}
+		go func() {
+			done <- h.orderOpenAISubscriptionCodexCandidatesWithIdentity(context.Background(), params, resolved, identity)
+		}()
 
-	select {
-	case got := <-done:
-		require.Len(t, got, 2)
-		assert.Equal(t, "cred-a", got[0].CredentialID)
-		assert.Equal(t, "cred-b", got[1].CredentialID)
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("round-robin Codex ordering blocked request routing")
+		select {
+		case got := <-done:
+			require.Len(t, got, 3)
+			assert.Equal(t, want, got[0].CredentialID)
+			assert.ElementsMatch(t, resolved, got)
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("round-robin Codex ordering blocked request routing")
+		}
 	}
+	assert.Len(t, h.openAISubscriptionRR, 1)
+	assert.Equal(t, uint64(4), h.openAISubscriptionRR[openAISubscriptionRouteKey(context.Background(), params)])
+	assert.Equal(t, "cred-a", resolved[0].CredentialID)
 	assert.Never(t, func() bool { return fetcher.startedCount() > 0 }, 100*time.Millisecond, 10*time.Millisecond)
 }
 
