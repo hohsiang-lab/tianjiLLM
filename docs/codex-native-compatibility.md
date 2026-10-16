@@ -1,0 +1,16 @@
+# Codex native compatibility
+
+This opt-in path preserves native wire data instead of reconstructing response history.
+
+- Native WebSocket relay requires the existing `responses_websockets=2026-02-06` beta header and the client Lite metadata field `ws_request_header_x_openai_internal_codex_responses_lite: "true"` in the first create frame. Other clients retain the existing HTTP/SSE adapter. One socket binds one model and credential/account; no replay or failover after forwarding. Unknown upstream events are forwarded, and only actual terminal usage is observed.
+- Authenticated `/backend-api/files` JSON create, `/backend-api/files/{file_id}/uploaded`, `/download`, and DELETE preserve the Codex Files protocol. Public multipart Files endpoints are unchanged. The client uploads directly to the upstream-provided file-scoped URL; Tianji does not store blob bytes or signed URLs.
+- JSON `/v1/images/edits` and `/backend-api/codex/images/edits` require finalized owner-bound file references on a Codex backend route. Raw JSON, Content-Type and the existing approved client headers are preserved. Unknown nested file references also require ownership. Multipart editing keeps its previous adapter. Native masks and non-file input forms are not enabled in this JSON path.
+- Ownership metadata uses the existing Cache, with a 24-hour maximum lifetime. Missing cache, cache eviction/restart, expired metadata, changed account, removed route membership, foreign tenant/token/user and unknown IDs fail closed. Multi-replica installations need the existing shared cache; memory-only cache intentionally does not recover file access after restart. No cross-account file search or server-side blob fetch is performed. Declared input size and finalization size must agree and fit the existing 32 MiB limit; upstream capability uploads remain upstream-enforced. Metadata and native responses are bounded; signed responses are no-store and not callback payloads.
+
+## Evidence and remaining gates
+
+Focused local regression: 139 selected test/subtest pass records, including native mechanics, existing HTTP/SSE/WebSocket and image routes; also passed with race detector. These are mechanics/regression evidence, not provider capability proof.
+
+A task-authorized pinned subscription account passed real usage eligibility and local-handler-to-upstream WS create, correlated interrupt accepted, output item interrupted, incomplete terminal with usage, and same-socket next create completed. Another real local-handler flow passed Files create 200, direct blob PUT 201, finalize 200, source bytes readback equality, native JSON image edit 200 and output PNG decoding.
+
+Native DELETE currently returns upstream 404 and a subsequent owned download remains 200. The handler preserves that refusal and does not erase local ownership or claim cleanup. Successful deletion is NOT established. Previous test metadata/owned upload residuals are tracked privately; there is no inference of cleanup from socket closure or HTTP 404. Overall task acceptance remains incomplete pending cleanup contract resolution, independent review and hosted CI. No deployment or merge is part of this change.

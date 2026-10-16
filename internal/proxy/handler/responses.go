@@ -226,7 +226,7 @@ func (h *Handlers) handleResponsesWebSocket(w http.ResponseWriter, r *http.Reque
 
 	ctx := r.Context()
 	clientHeaders := make(http.Header)
-	for _, name := range []string{"Accept", "OpenAI-Beta", "Version", "originator", "x-codex-turn-state", "x-codex-turn-metadata", "x-codex-routing-hint"} {
+	for _, name := range []string{"Accept", "OpenAI-Beta", "Version", "originator", "x-codex-turn-state", "x-codex-turn-metadata", "x-codex-routing-hint", "session_id", "conversation_id", "x-client-request-id", "x-codex-beta-features"} {
 		for _, value := range r.Header.Values(name) {
 			clientHeaders.Add(name, value)
 		}
@@ -235,6 +235,10 @@ func (h *Handlers) handleResponsesWebSocket(w http.ResponseWriter, r *http.Reque
 	for {
 		_, frameData, err := conn.Read(ctx)
 		if err != nil {
+			return
+		}
+		if strings.Contains(clientHeaders.Get("OpenAI-Beta"), "responses_websockets=2026-02-06") && nativeResponsesLiteFrame(frameData) {
+			h.handleNativeResponsesSocket(ctx, conn, frameData, clientHeaders)
 			return
 		}
 		if !h.handleResponsesWebSocketFrame(ctx, conn, frameData, state, clientHeaders) {

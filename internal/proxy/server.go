@@ -132,6 +132,14 @@ func (s *Server) setupRoutes() {
 		r.Use(s.dynamicRateMW)
 		r.Use(s.cacheControlMW)
 	}
+	r.Route("/backend-api", func(r chi.Router) {
+		llmMiddleware(r)
+		r.Post("/files", s.Handlers.NativeFilesCreate)
+		r.Post("/files/{file_id}/uploaded", s.Handlers.NativeFilesFinalize)
+		r.Get("/files/{file_id}/download", s.Handlers.NativeFilesDownload)
+		r.Delete("/files/{file_id}", s.Handlers.NativeFilesDelete)
+		r.Post("/codex/images/edits", s.Handlers.ImagesEdit)
+	})
 	registerLLMRoutes := func(r chi.Router) {
 		r.Post("/chat/completions", s.Handlers.ChatCompletion)
 		r.Post("/completions", s.Handlers.Completion)
