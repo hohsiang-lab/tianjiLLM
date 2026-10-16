@@ -117,10 +117,7 @@ func (h *Handlers) nativeFileCandidate(ctx context.Context, b nativeFileBinding)
 	if e != nil || c.AccountID != b.AccountID {
 		return resolvedOpenAISubscriptionCredential{}, errNativeFile
 	}
-	selectable, _ := h.filterOpenAISubscriptionCodexUsageSelectable(ctx, openAISubscriptionCandidatesFromResolved([]resolvedOpenAISubscriptionCredential{c}), h.openAISubscriptionNowUTC())
-	if len(selectable) != 1 {
-		return resolvedOpenAISubscriptionCredential{}, errNativeFile
-	}
+	// Bound maintenance does not generate tokens; inference keeps its route usage gate.
 	return c, nil
 }
 
@@ -236,8 +233,16 @@ func (h *Handlers) nativeFilesOwnedOperation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	defer resp.Body.Close()
-	raw, e := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
-	if e != nil || len(raw) > 1<<20 {
+	limit := int64(1 << 20)
+	if suffix == "/download" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if b.Size < 1 || b.Size > maxOpenAIRequestBodyBytes {
+			nativeFileError(w, 502, "invalid native file size binding")
+			return
+		}
+		limit = max(limit, b.Size)
+	}
+	raw, e := io.ReadAll(io.LimitReader(resp.Body, limit+1))
+	if e != nil || int64(len(raw)) > limit {
 		nativeFileError(w, 502, "native file response unavailable")
 		return
 	}

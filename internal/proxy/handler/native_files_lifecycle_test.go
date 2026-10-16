@@ -90,6 +90,58 @@ func TestNativeFilesLocalLifecycle(t *testing.T) {
 	require.Equal(t, 4, calls)
 }
 
+func TestNativeFilesBoundMaintenanceWithUsageDenied(t *testing.T) {
+	const size = 2 << 20
+	for _, tc := range []struct {
+		name, method, suffix string
+		bodySize, status     int
+	}{
+		{"large download", "GET", "/download", size, 200},
+		{"oversize download", "GET", "/download", size + 1, 502},
+		{"finalize", "POST", "/uploaded", 0, 200},
+		{"delete", "DELETE", "", 0, 200},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				require.Equal(t, "/backend-api/files/file_owned"+tc.suffix, r.URL.Path)
+				require.Equal(t, "Bearer access-secret", r.Header.Get("Authorization"))
+				require.Equal(t, "acct_image", r.Header.Get("ChatGPT-Account-Id"))
+				if tc.suffix == "/uploaded" {
+					_, _ = io.WriteString(w, `{"status":"success","file_size_bytes":2097152}`)
+				} else {
+					_, _ = io.WriteString(w, strings.Repeat("x", tc.bodySize))
+				}
+			}))
+			defer backend.Close()
+			h := newImageCodexHarness(t, backend.URL)
+			h.Cache = cache.NewMemoryCache()
+			ctx := context.WithValue(context.Background(), middleware.ContextKeyTokenHash, "owner")
+			now := time.Now().UTC()
+			denied := `{"credential_id":"cred-a","status":"fresh","snapshot":{"rate_limit":{"allowed":false,"limit_reached":true}},"fetched_at":"` + now.Format(time.RFC3339) + `","expires_at":"` + now.Add(time.Hour).Format(time.RFC3339) + `"}`
+			require.NoError(t, h.Cache.Set(ctx, codexUsageCacheKey("cred-a"), []byte(denied), time.Hour))
+			h.hydrateCachedOpenAISubscriptionCodexUsageResults(ctx, []string{"cred-a"}, now)
+			meta := h.codexStickyMetadata("cred-a", now)
+			require.True(t, meta.Known)
+			require.False(t, meta.Selectable)
+			binding := nativeFileBinding{Owner: nativeFileOwner(ctx), CredentialID: "cred-a", AccountID: "acct_image", Size: size, ExpiresAt: now.Add(time.Hour)}
+			require.NoError(t, h.saveNativeFileBinding(ctx, "file_owned", binding))
+			r := httptest.NewRequest(tc.method, "/files/file_owned"+tc.suffix, strings.NewReader(`{}`)).WithContext(ctx)
+			route := chi.NewRouteContext()
+			route.URLParams.Add("file_id", "file_owned")
+			r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, route))
+			w := httptest.NewRecorder()
+			h.nativeFilesOwnedOperation(w, r, tc.suffix)
+			require.Equal(t, tc.status, w.Code, w.Body.String())
+			require.Equal(t, 1, calls)
+			if tc.name == "large download" {
+				require.Equal(t, size, w.Body.Len())
+			}
+		})
+	}
+}
+
 func TestNativeImageAffinityFailsClosed(t *testing.T) {
 	h := &Handlers{Cache: cache.NewMemoryCache()}
 	ctx := context.WithValue(context.Background(), middleware.ContextKeyTokenHash, "owner")
