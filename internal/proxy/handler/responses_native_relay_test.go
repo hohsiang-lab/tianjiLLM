@@ -2,12 +2,13 @@ package handler
 
 import (
 	"context"
-	"github.com/coder/websocket"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/coder/websocket"
 )
 
 func TestResponsesNativeLiteDispatch(t *testing.T) {
@@ -32,7 +33,7 @@ func TestResponsesNativeRelayDuplex(t *testing.T) {
 		if e != nil {
 			return
 		}
-		defer c.CloseNow()
+		defer func() { _ = c.CloseNow() }()
 		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer cancel()
 		for _, expected := range []string{`{"type":"response.create","native":true}`, `{"type":"response.interrupt","mode":"discard_partial_items"}`, `{"type":"response.create","next":true}`} {
@@ -52,13 +53,13 @@ func TestResponsesNativeRelayDuplex(t *testing.T) {
 		if e != nil {
 			return
 		}
-		defer down.CloseNow()
+		defer func() { _ = down.CloseNow() }()
 		up, _, e := websocket.Dial(r.Context(), "ws"+strings.TrimPrefix(upstream.URL, "http"), nil)
 		if e != nil {
 			t.Error(e)
 			return
 		}
-		defer up.CloseNow()
+		defer func() { _ = up.CloseNow() }()
 		relayNativeResponses(r.Context(), down, up, nil)
 	}))
 	defer relay.Close()
@@ -68,7 +69,7 @@ func TestResponsesNativeRelayDuplex(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	defer c.CloseNow()
+	defer func() { _ = c.CloseNow() }()
 	for _, frame := range []string{`{"type":"response.create","native":true}`, `{"type":"response.interrupt","mode":"discard_partial_items"}`, `{"type":"response.create","next":true}`} {
 		if e = c.Write(ctx, websocket.MessageText, []byte(frame)); e != nil {
 			t.Fatal(e)

@@ -103,7 +103,7 @@ func (h *Handlers) handleNativeResponsesSocket(ctx context.Context, conn *websoc
 		_ = conn.Close(websocket.StatusTryAgainLater, "native upstream unavailable")
 		return
 	}
-	defer up.CloseNow()
+	defer func() { _ = up.CloseNow() }()
 	up.SetReadLimit(responsesWebSocketReadLimit)
 	if err = up.Write(ctx, websocket.MessageText, first); err != nil {
 		return
