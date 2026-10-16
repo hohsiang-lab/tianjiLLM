@@ -219,10 +219,7 @@ func (h *Handlers) orderOpenAISubscriptionCodexCandidatesWithIdentity(
 }
 
 func (h *Handlers) shouldOrderOpenAISubscriptionCodexCandidates(candidates []openAISubscriptionCandidate) bool {
-	if len(candidates) <= 1 || h == nil || h.Config == nil {
-		return false
-	}
-	return h.Config.NativeUpstreamStrategy == config.StrategySticky || h.Config.NativeUpstreamStrategy == config.StrategyLowestUtilization
+	return len(candidates) > 1 && h != nil && h.Config != nil
 }
 
 func (h *Handlers) refreshOpenAISubscriptionCodexUsageAfterResponse(ctx context.Context, resolved []resolvedOpenAISubscriptionCredential) {
@@ -326,7 +323,8 @@ func (h *Handlers) selectOpenAISubscriptionCandidateWithRouteKey(
 			return h.lowestUtilizationOpenAISubscriptionSelect(candidates)
 		}
 	}
-	return h.roundRobinOpenAISubscriptionSelect(routeKey, candidates)
+	// Round-robin state is per org/model, never per client-controlled session.
+	return h.roundRobinOpenAISubscriptionSelect(openAISubscriptionRouteKey(ctx, params), candidates)
 }
 
 func (h *Handlers) roundRobinOpenAISubscriptionSelect(key string, candidates []openAISubscriptionCandidate) openAISubscriptionCandidate {
