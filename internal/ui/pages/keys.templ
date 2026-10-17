@@ -228,7 +228,6 @@ templ modelsMultiSelect(formPrefix string, available []string, selected []string
 
 templ KeysPage(data KeysPageData) {
 	@AppLayout("API Keys", "/ui/keys") {
-		@dialog.Script()
 		@input.Script()
 		@toast.Script()
 		<div class="space-y-3">
