@@ -135,7 +135,7 @@ func (h *Handlers) handleImagesEdit(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	body, err := io.ReadAll(r.Body)
+	body, err := readOpenAIRequestBody(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, model.ErrorResponse{
 			Error: model.ErrorDetail{Message: "read request body: " + err.Error(), Type: "invalid_request_error"},
@@ -156,6 +156,10 @@ func (h *Handlers) handleImagesEdit(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, model.ErrorResponse{
 			Error: model.ErrorDetail{Message: err.Error(), Type: "invalid_request_error"},
 		})
+		return
+	}
+	if nativeJSON(r) {
+		h.handleNativeImageEdit(w, r, body, route.SubscriptionCandidates, route.ChatGPTCodexBackend)
 		return
 	}
 	if !route.ChatGPTCodexBackend {
@@ -557,8 +561,17 @@ func imageGenerationResponseAuditPayloadFromResult(result model.ImageGenerationR
 
 func imageEditRequestModel(body []byte, contentType string) (string, error) {
 	mediaType, params, err := mime.ParseMediaType(contentType)
+	if err == nil && mediaType == "application/json" {
+		var request struct {
+			Model string `json:"model"`
+		}
+		if json.Unmarshal(body, &request) != nil || strings.TrimSpace(request.Model) == "" {
+			return "", errors.New("valid JSON model is required")
+		}
+		return request.Model, nil
+	}
 	if err != nil || mediaType != "multipart/form-data" {
-		return "", errors.New("image edit request must use multipart/form-data")
+		return "", errors.New("image edit request must use multipart/form-data or application/json")
 	}
 	boundary := params["boundary"]
 	if strings.TrimSpace(boundary) == "" {

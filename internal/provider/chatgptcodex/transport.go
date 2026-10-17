@@ -75,7 +75,7 @@ func (t Transport) BuildPreparedResponsesRequest(ctx context.Context, prepared P
 		return nil, fmt.Errorf("create ChatGPT Codex backend responses request: %w", err)
 	}
 	t.applyHeaders(httpReq, bearerToken, accountID)
-	copyCodexClientHeaders(httpReq, clientHeaders)
+	CopyCodexClientHeaders(httpReq, clientHeaders)
 	return httpReq, nil
 }
 
@@ -96,7 +96,7 @@ func (t Transport) BuildCompactRequest(ctx context.Context, prepared PreparedCom
 		return nil, fmt.Errorf("create ChatGPT Codex backend compact request: %w", err)
 	}
 	t.applyHeaders(httpReq, bearerToken, accountID)
-	copyCodexClientHeaders(httpReq, clientHeaders)
+	CopyCodexClientHeaders(httpReq, clientHeaders)
 	return httpReq, nil
 }
 
@@ -123,7 +123,7 @@ func (t Transport) applyHeaders(httpReq *http.Request, bearerToken, accountID st
 	}
 }
 
-func copyCodexClientHeaders(httpReq *http.Request, clientHeaders []http.Header) {
+func CopyCodexClientHeaders(httpReq *http.Request, clientHeaders []http.Header) {
 	if httpReq == nil || len(clientHeaders) == 0 {
 		return
 	}
@@ -172,6 +172,9 @@ func (t Transport) TransformResponse(resp *http.Response, fallbackModel string) 
 	}
 	return transformCodexResponseBody(body, fallbackModel)
 }
+
+// NativeResponsesURL shares routing with HTTP without preparing or mutating frames.
+func (t Transport) NativeResponsesURL() string { return t.responsesURL() }
 
 func (t Transport) responsesURL() string {
 	base := strings.TrimRight(strings.TrimSpace(t.BaseURL), "/")
