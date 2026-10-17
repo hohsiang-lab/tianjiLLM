@@ -71,7 +71,6 @@ func (d KeyDetailData) metadataPretty() string {
 
 templ KeyDetailPage(data KeyDetailData) {
 	@AppLayout(data.displayName()+" — Key Detail", "/ui/keys") {
-		@dialog.Script()
 		@input.Script()
 		@tabs.Script()
 		@toast.Script()
