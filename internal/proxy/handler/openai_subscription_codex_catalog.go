@@ -770,22 +770,18 @@ func (h *Handlers) codexCatalogForParamsWithLookup(params config.TianjiParams, l
 	}
 	credentialIDs = eligibleCredentialIDs
 	for _, candidate := range candidates {
-		var selected chatgptcodex.CatalogModel
+		entries := make([]chatgptcodex.CatalogModel, 0, len(credentialIDs))
 		availableToAll := true
-		for index, credentialID := range credentialIDs {
+		for _, credentialID := range credentialIDs {
 			entry, ok := catalogs[credentialID].Catalog.Model(candidate)
 			if !ok {
 				availableToAll = false
 				break
 			}
-			if index == 0 {
-				selected = entry
-				continue
-			}
-			selected = mergeCodexCatalogModels(selected, entry)
+			entries = append(entries, entry)
 		}
 		if availableToAll {
-			return selected, true
+			return mergeCodexCatalogModels(entries[0], entries[1:]...), true
 		}
 	}
 	if strings.Contains(params.Model, "*") {

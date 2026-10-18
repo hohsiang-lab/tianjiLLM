@@ -7,29 +7,36 @@ import (
 )
 
 // Account entitlements may differ even when their context limits agree.
-func mergeCodexCatalogModels(a, b chatgptcodex.CatalogModel) chatgptcodex.CatalogModel {
-	a.ContextWindow = minimumKnownCodexLimit(a.ContextWindow, b.ContextWindow)
-	a.MaxContextWindow = minimumKnownCodexLimit(a.MaxContextWindow, b.MaxContextWindow)
-	a.AutoCompactTokenLimit.Present = a.AutoCompactTokenLimit.Present || b.AutoCompactTokenLimit.Present
-	if a.AutoCompactTokenLimit.Value == nil {
-		a.AutoCompactTokenLimit.Value = b.AutoCompactTokenLimit.Value
-	} else if b.AutoCompactTokenLimit.Value != nil {
-		a.AutoCompactTokenLimit.Value = minimumKnownCodexLimit(a.AutoCompactTokenLimit.Value, b.AutoCompactTokenLimit.Value)
+func mergeCodexCatalogModels(a chatgptcodex.CatalogModel, others ...chatgptcodex.CatalogModel) chatgptcodex.CatalogModel {
+	if len(others) == 0 {
+		return a
 	}
-	a.EffectiveContextWindowPercent = min(a.EffectiveContextWindowPercent, b.EffectiveContextWindowPercent)
-	a.SupportedReasoningLevels = intersectCodexCapabilities(a.SupportedReasoningLevels, b.SupportedReasoningLevels, func(v chatgptcodex.ReasoningEffortPreset) string { return v.Effort })
-	a.AdditionalSpeedTiers = intersectCodexCapabilities(a.AdditionalSpeedTiers, b.AdditionalSpeedTiers, func(v string) string { return v })
-	a.InputModalities = intersectCodexCapabilities(a.InputModalities, b.InputModalities, func(v string) string { return v })
-	a.ServiceTiers = intersectCodexCapabilities(a.ServiceTiers, b.ServiceTiers, func(v chatgptcodex.ModelServiceTier) string { return v.ID })
-	a.UseResponsesLite = a.UseResponsesLite && b.UseResponsesLite
-	if a.TruncationPolicy.Mode != b.TruncationPolicy.Mode {
-		a.TruncationPolicy = chatgptcodex.TruncationPolicy{}
-	} else {
-		a.TruncationPolicy.Limit = min(a.TruncationPolicy.Limit, b.TruncationPolicy.Limit)
+	defaults := []string{a.DefaultReasoningLevel}
+	for _, b := range others {
+		defaults = append(defaults, b.DefaultReasoningLevel)
+		a.ContextWindow = minimumKnownCodexLimit(a.ContextWindow, b.ContextWindow)
+		a.MaxContextWindow = minimumKnownCodexLimit(a.MaxContextWindow, b.MaxContextWindow)
+		a.AutoCompactTokenLimit.Present = a.AutoCompactTokenLimit.Present || b.AutoCompactTokenLimit.Present
+		if a.AutoCompactTokenLimit.Value == nil {
+			a.AutoCompactTokenLimit.Value = b.AutoCompactTokenLimit.Value
+		} else if b.AutoCompactTokenLimit.Value != nil {
+			value := min(*a.AutoCompactTokenLimit.Value, *b.AutoCompactTokenLimit.Value)
+			a.AutoCompactTokenLimit.Value = &value
+		}
+		a.EffectiveContextWindowPercent = min(a.EffectiveContextWindowPercent, b.EffectiveContextWindowPercent)
+		a.SupportedReasoningLevels = intersectCodexCapabilities(a.SupportedReasoningLevels, b.SupportedReasoningLevels, func(v chatgptcodex.ReasoningEffortPreset) string { return v.Effort })
+		a.AdditionalSpeedTiers = intersectCodexCapabilities(a.AdditionalSpeedTiers, b.AdditionalSpeedTiers, func(v string) string { return v })
+		a.InputModalities = intersectCodexCapabilities(a.InputModalities, b.InputModalities, func(v string) string { return v })
+		a.ServiceTiers = intersectCodexCapabilities(a.ServiceTiers, b.ServiceTiers, func(v chatgptcodex.ModelServiceTier) string { return v.ID })
+		a.UseResponsesLite = a.UseResponsesLite && b.UseResponsesLite
+		if a.TruncationPolicy.Mode != b.TruncationPolicy.Mode {
+			a.TruncationPolicy = chatgptcodex.TruncationPolicy{}
+		} else {
+			a.TruncationPolicy.Limit = min(a.TruncationPolicy.Limit, b.TruncationPolicy.Limit)
+		}
 	}
-	// Defaults are preferences, not capabilities; choose the lower common default.
+	// Select once: pairwise selection loses defaults before the final intersection.
 	levels := []string{"none", "minimal", "low", "medium", "high", "xhigh", "ultra", "max"}
-	defaults := []string{a.DefaultReasoningLevel, b.DefaultReasoningLevel}
 	a.DefaultReasoningLevel = ""
 	for _, level := range levels {
 		if slices.Contains(defaults, level) && slices.ContainsFunc(a.SupportedReasoningLevels, func(v chatgptcodex.ReasoningEffortPreset) bool { return v.Effort == level }) {

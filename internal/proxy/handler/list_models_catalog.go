@@ -10,6 +10,8 @@ import (
 	"github.com/praxisllmlab/tianjiLLM/internal/provider/chatgptcodex"
 )
 
+const maxCodexContextWindowPercent = 100
+
 type listModelsResponse struct {
 	Object string                `json:"object"`
 	Data   []openAIModelListItem `json:"data"`
@@ -68,13 +70,13 @@ type codexModelInfo struct {
 	DefaultVerbosity              any                          `json:"default_verbosity"`
 	ApplyPatchToolType            string                       `json:"apply_patch_tool_type"`
 	WebSearchToolType             string                       `json:"web_search_tool_type"`
-	TruncationPolicy              codexTruncationPolicy        `json:"truncation_policy"`
+	TruncationPolicy              codexTruncationPolicy        `json:"truncation_policy,omitzero"`
 	SupportsParallelToolCalls     bool                         `json:"supports_parallel_tool_calls"`
 	SupportsImageDetailOriginal   bool                         `json:"supports_image_detail_original"`
 	ContextWindow                 *int64                       `json:"context_window,omitempty"`
 	MaxContextWindow              *int64                       `json:"max_context_window,omitempty"`
 	AutoCompactTokenLimit         *int64                       `json:"auto_compact_token_limit"`
-	EffectiveContextWindowPercent int64                        `json:"effective_context_window_percent"`
+	EffectiveContextWindowPercent int64                        `json:"effective_context_window_percent,omitempty"`
 	ExperimentalSupportedTools    []string                     `json:"experimental_supported_tools"`
 	InputModalities               []string                     `json:"input_modalities"`
 	SupportsSearchTool            bool                         `json:"supports_search_tool"`
@@ -100,8 +102,17 @@ func (h *Handlers) buildListModelsResponse(ctx context.Context, models []config.
 	for index, model := range models {
 		if catalog, ok := h.codexCatalogForModel(ctx, model); ok {
 			response.Models[index] = codexModelInfoFromCatalog(response.Models[index], catalog)
-			if !strings.Contains(model.ModelName, "*") && (catalog.ContextWindow == nil || catalog.MaxContextWindow == nil) {
+			if strings.Contains(model.ModelName, "*") {
+				continue
+			}
+			if catalog.ContextWindow == nil || catalog.MaxContextWindow == nil {
 				log.Printf("warn: Codex catalog context metadata incomplete model=%s; unknown limits omitted", model.ModelName)
+			}
+			if response.Models[index].EffectiveContextWindowPercent == 0 {
+				log.Printf("warn: Codex catalog effective_context_window_percent missing or invalid model=%s; field omitted", model.ModelName)
+			}
+			if response.Models[index].TruncationPolicy.Mode == "" {
+				log.Printf("warn: Codex catalog truncation_policy missing, invalid, or conflicting model=%s; field omitted", model.ModelName)
 			}
 		} else if strings.HasPrefix(model.TianjiParams.Model, "openai/") {
 			log.Printf("warn: Codex catalog metadata unavailable model=%s; no context limits inferred", model.ModelName)
@@ -177,8 +188,14 @@ func codexModelInfoFromCatalog(base codexModelInfo, upstream chatgptcodex.Catalo
 	base.ContextWindow = upstream.ContextWindow
 	base.MaxContextWindow = upstream.MaxContextWindow
 	base.EffectiveContextWindowPercent = upstream.EffectiveContextWindowPercent
+	if base.EffectiveContextWindowPercent < 0 || base.EffectiveContextWindowPercent > maxCodexContextWindowPercent {
+		base.EffectiveContextWindowPercent = 0
+	}
 	base.AutoCompactTokenLimit = upstream.AutoCompactTokenLimit.Value
 	base.TruncationPolicy = codexTruncationPolicy{Mode: upstream.TruncationPolicy.Mode, Limit: upstream.TruncationPolicy.Limit}
+	if strings.TrimSpace(base.TruncationPolicy.Mode) == "" || base.TruncationPolicy.Limit <= 0 {
+		base.TruncationPolicy = codexTruncationPolicy{}
+	}
 	base.DefaultReasoningLevel = upstream.DefaultReasoningLevel
 	base.SupportedReasoningLevels = make([]codexReasoningEffortPreset, len(upstream.SupportedReasoningLevels))
 	for i, level := range upstream.SupportedReasoningLevels {

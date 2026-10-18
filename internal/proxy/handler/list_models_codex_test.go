@@ -74,7 +74,7 @@ func TestListModelsIncludesCodexModelsResponse(t *testing.T) {
 	require.Equal(t, "list", resp.Models[0].Visibility)
 	require.True(t, resp.Models[0].SupportedInAPI)
 	require.Equal(t, 1, resp.Models[0].Priority)
-	require.NotNil(t, resp.Models[0].TruncationPolicy)
+	require.Nil(t, resp.Models[0].TruncationPolicy)
 	require.True(t, resp.Models[0].SupportsParallelToolCalls)
 }
 
