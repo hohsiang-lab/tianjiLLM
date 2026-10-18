@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -783,10 +782,7 @@ func (h *Handlers) codexCatalogForParamsWithLookup(params config.TianjiParams, l
 				selected = entry
 				continue
 			}
-			if !reflect.DeepEqual(selected, entry) {
-				availableToAll = false
-				break
-			}
+			selected = mergeCodexCatalogModels(selected, entry)
 		}
 		if availableToAll {
 			return selected, true
