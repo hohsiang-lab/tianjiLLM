@@ -44,7 +44,7 @@ type CatalogModel struct {
 	TruncationPolicy              TruncationPolicy        `json:"truncation_policy"`
 	ContextWindow                 *int64                  `json:"context_window"`
 	MaxContextWindow              *int64                  `json:"max_context_window"`
-	AutoCompactTokenLimit         NullableInt64           `json:"auto_compact_token_limit"`
+	AutoCompactTokenLimit         NullableInt64           `json:"auto_compact_token_limit,omitzero"`
 	EffectiveContextWindowPercent int64                   `json:"effective_context_window_percent"`
 	InputModalities               []string                `json:"input_modalities"`
 	UseResponsesLite              bool                    `json:"use_responses_lite"`

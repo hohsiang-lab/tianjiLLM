@@ -279,7 +279,8 @@ func TestListModelsSubscriptionCatalogEnrichesSolTerraLuna(t *testing.T) {
 	require.Equal(t, int64(872000), *response.Models[0].MaxContextWindow)
 	require.True(t, response.Models[0].UseResponsesLite)
 	require.False(t, response.Models[0].SupportsParallelToolCalls)
-	require.Nil(t, response.Models[0].AutoCompactTokenLimit)
+	require.True(t, response.Models[0].AutoCompactTokenLimit.Present)
+	require.Nil(t, response.Models[0].AutoCompactTokenLimit.Value)
 	require.Equal(t, int64(10000), response.Models[0].TruncationPolicy.Limit)
 	require.Equal(t, []string{"text", "image"}, response.Models[0].InputModalities)
 	require.Equal(t, "ultra", response.Models[1].DefaultReasoningLevel)
@@ -396,7 +397,8 @@ func TestListModelsSubscriptionCatalogMatchesProviderPrefixedOpenAIModel(t *test
 	require.Len(t, response.Models, 1)
 	require.Equal(t, "gpt-5.6-sol", response.Models[0].Slug)
 	require.Equal(t, int64(372000), *response.Models[0].ContextWindow)
-	require.Nil(t, response.Models[0].AutoCompactTokenLimit)
+	require.True(t, response.Models[0].AutoCompactTokenLimit.Present)
+	require.Nil(t, response.Models[0].AutoCompactTokenLimit.Value)
 	require.Equal(t, int64(10000), response.Models[0].TruncationPolicy.Limit)
 	require.Equal(t, []string{"text", "image"}, response.Models[0].InputModalities)
 }
@@ -498,7 +500,8 @@ func TestCodexModelInfoFromConfigPreservesExplicitUpstreamNullAutoCompact(t *tes
 	sol, ok := catalog.Model("gpt-5.6-sol")
 	require.True(t, ok)
 	info := codexModelInfoFromCatalog(codexModelInfoFromConfig(config.ModelConfig{ModelName: "sol-alias"}, 1), sol)
-	require.Nil(t, info.AutoCompactTokenLimit)
+	require.True(t, info.AutoCompactTokenLimit.Present)
+	require.Nil(t, info.AutoCompactTokenLimit.Value)
 }
 
 func TestListModelsSubscriptionCatalogSerializesExplicitUpstreamNullAutoCompact(t *testing.T) {

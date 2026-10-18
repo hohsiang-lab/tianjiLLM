@@ -32,7 +32,8 @@ func TestListModelsMergesLowestCommonCatalogCapabilities(t *testing.T) {
 			result := h.buildListModelsResponse(context.Background(), []config.ModelConfig{{ModelName: "gpt-6.1-sol", TianjiParams: config.TianjiParams{Model: "openai/gpt-6.1-sol"}}}).Models[0]
 			require.Equal(t, int64(500000), *result.ContextWindow)
 			require.Equal(t, int64(872000), *result.MaxContextWindow)
-			require.Nil(t, result.AutoCompactTokenLimit)
+			require.True(t, result.AutoCompactTokenLimit.Present)
+			require.Nil(t, result.AutoCompactTokenLimit.Value)
 			require.Equal(t, "low", result.DefaultReasoningLevel)
 			require.Equal(t, []codexReasoningEffortPreset{{Effort: "low"}, {Effort: "medium"}}, result.SupportedReasoningLevels)
 			require.Equal(t, []string{"text"}, result.InputModalities)
@@ -48,13 +49,13 @@ func TestCodexMissingMetadataDoesNotInventLimits(t *testing.T) {
 	result := codexModelInfoFromConfig(config.ModelConfig{ModelName: "missing"}, 1)
 	require.Nil(t, result.ContextWindow)
 	require.Nil(t, result.MaxContextWindow)
-	require.Nil(t, result.AutoCompactTokenLimit)
+	require.False(t, result.AutoCompactTokenLimit.Present)
 	require.Zero(t, result.TruncationPolicy.Limit)
 	require.Zero(t, result.EffectiveContextWindowPercent)
 	raw, err := json.Marshal(result)
 	require.NoError(t, err)
 	require.NotContains(t, string(raw), `"context_window"`)
-	require.Contains(t, string(raw), `"auto_compact_token_limit":null`)
+	require.NotContains(t, string(raw), `"auto_compact_token_limit"`)
 }
 
 func TestMergeCodexCatalogLimitsAndMissingValues(t *testing.T) {

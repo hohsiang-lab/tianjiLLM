@@ -75,7 +75,7 @@ type codexModelInfo struct {
 	SupportsImageDetailOriginal   bool                         `json:"supports_image_detail_original"`
 	ContextWindow                 *int64                       `json:"context_window,omitempty"`
 	MaxContextWindow              *int64                       `json:"max_context_window,omitempty"`
-	AutoCompactTokenLimit         *int64                       `json:"auto_compact_token_limit"`
+	AutoCompactTokenLimit         chatgptcodex.NullableInt64   `json:"auto_compact_token_limit,omitzero"`
 	EffectiveContextWindowPercent int64                        `json:"effective_context_window_percent,omitempty"`
 	ExperimentalSupportedTools    []string                     `json:"experimental_supported_tools"`
 	InputModalities               []string                     `json:"input_modalities"`
@@ -105,11 +105,14 @@ func (h *Handlers) buildListModelsResponse(ctx context.Context, models []config.
 			if strings.Contains(model.ModelName, "*") {
 				continue
 			}
-			if catalog.ContextWindow == nil || catalog.MaxContextWindow == nil {
+			if response.Models[index].ContextWindow == nil || response.Models[index].MaxContextWindow == nil {
 				log.Printf("warn: Codex catalog context metadata incomplete model=%s; unknown limits omitted", model.ModelName)
 			}
 			if response.Models[index].EffectiveContextWindowPercent == 0 {
 				log.Printf("warn: Codex catalog effective_context_window_percent missing or invalid model=%s; field omitted", model.ModelName)
+			}
+			if !response.Models[index].AutoCompactTokenLimit.Present {
+				log.Printf("warn: Codex catalog auto_compact_token_limit missing model=%s; field omitted", model.ModelName)
 			}
 			if response.Models[index].TruncationPolicy.Mode == "" {
 				log.Printf("warn: Codex catalog truncation_policy missing, invalid, or conflicting model=%s; field omitted", model.ModelName)
@@ -172,6 +175,7 @@ func codexModelInfoFromConfig(model config.ModelConfig, priority int) codexModel
 }
 
 func codexModelInfoFromCatalog(base codexModelInfo, upstream chatgptcodex.CatalogModel) codexModelInfo {
+	upstream = normalizeCodexCatalogLimits(upstream)
 	if strings.Contains(base.Slug, "*") {
 		base.UseResponsesLite = upstream.UseResponsesLite
 		if upstream.UseResponsesLite {
@@ -188,10 +192,7 @@ func codexModelInfoFromCatalog(base codexModelInfo, upstream chatgptcodex.Catalo
 	base.ContextWindow = upstream.ContextWindow
 	base.MaxContextWindow = upstream.MaxContextWindow
 	base.EffectiveContextWindowPercent = upstream.EffectiveContextWindowPercent
-	if base.EffectiveContextWindowPercent < 0 || base.EffectiveContextWindowPercent > maxCodexContextWindowPercent {
-		base.EffectiveContextWindowPercent = 0
-	}
-	base.AutoCompactTokenLimit = upstream.AutoCompactTokenLimit.Value
+	base.AutoCompactTokenLimit = upstream.AutoCompactTokenLimit
 	base.TruncationPolicy = codexTruncationPolicy{Mode: upstream.TruncationPolicy.Mode, Limit: upstream.TruncationPolicy.Limit}
 	if strings.TrimSpace(base.TruncationPolicy.Mode) == "" || base.TruncationPolicy.Limit <= 0 {
 		base.TruncationPolicy = codexTruncationPolicy{}
