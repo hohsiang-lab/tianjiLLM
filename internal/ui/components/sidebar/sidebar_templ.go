@@ -211,7 +211,7 @@ func Layout(props ...LayoutProps) templ.Component {
 		}
 		var templ_7745c5c3_Var2 = []any{utils.TwMerge(
 			"flex min-h-svh relative",
-			"has-[[data-tui-sidebar-variant=inset]]:bg-sidebar",
+			"has-[[data-tui-sidebar-variant=inset]]:bg-sidebar-background",
 			p.Class,
 		)}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var2...)
@@ -410,7 +410,7 @@ func Sidebar(props ...Props) templ.Component {
 				return nil
 			})
 			templ_7745c5c3_Err = sheet.Content(sheet.ContentProps{
-				Class:           "md:hidden bg-sidebar text-sidebar-foreground !p-0 !gap-0 flex flex-col h-full",
+				Class:           "md:hidden bg-sidebar-background text-sidebar-foreground !p-0 !gap-0 flex flex-col h-full",
 				HideCloseButton: true,
 			}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
@@ -623,7 +623,7 @@ func Sidebar(props ...Props) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var23 = []any{utils.TwMerge(
-			"bg-sidebar group-data-[tui-sidebar-variant=floating]:border-sidebar-border flex h-full w-full flex-col",
+			"bg-sidebar-background group-data-[tui-sidebar-variant=floating]:border-sidebar-border flex h-full w-full flex-col",
 			"group-data-[tui-sidebar-variant=floating]:rounded-lg group-data-[tui-sidebar-variant=floating]:border group-data-[tui-sidebar-variant=floating]:shadow-sm",
 		)}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var23...)

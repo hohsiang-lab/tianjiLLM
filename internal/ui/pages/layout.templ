@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/dialog"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/sidebar"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/icon"
 )
@@ -93,6 +94,7 @@ templ AppLayout(title string, activePath string) {
 				</main>
 			}
 		}
+		@dialog.Script()
 	}
 }
 

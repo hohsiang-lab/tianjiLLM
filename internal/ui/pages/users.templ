@@ -118,7 +118,6 @@ templ UserRoleBadge(role string) {
 
 templ UsersPage(data UsersPageData) {
 	@AppLayout("Users", "/ui/users") {
-		@dialog.Script()
 		@input.Script()
 		@toast.Script()
 		<div class="space-y-3">
@@ -535,7 +534,6 @@ func userLimitStr(l *int64) string {
 
 templ UserDetailPage(data UserDetailData) {
 	@AppLayout(userDetailTitle(data.User)+" — User Detail", "/ui/users") {
-		@dialog.Script()
 		@input.Script()
 		@toast.Script()
 		@UserDetailHeader(data)
