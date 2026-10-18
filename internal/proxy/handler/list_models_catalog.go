@@ -3,14 +3,11 @@ package handler
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/config"
 	"github.com/praxisllmlab/tianjiLLM/internal/provider/chatgptcodex"
-)
-
-const (
-	codexDefaultContextWindow = int64(128000)
 )
 
 type listModelsResponse struct {
@@ -103,6 +100,11 @@ func (h *Handlers) buildListModelsResponse(ctx context.Context, models []config.
 	for index, model := range models {
 		if catalog, ok := h.codexCatalogForModel(ctx, model); ok {
 			response.Models[index] = codexModelInfoFromCatalog(response.Models[index], catalog)
+			if !strings.Contains(model.ModelName, "*") && (catalog.ContextWindow == nil || catalog.MaxContextWindow == nil) {
+				log.Printf("warn: Codex catalog context metadata incomplete model=%s; unknown limits omitted", model.ModelName)
+			}
+		} else if strings.HasPrefix(model.TianjiParams.Model, "openai/") {
+			log.Printf("warn: Codex catalog metadata unavailable model=%s; no context limits inferred", model.ModelName)
 		}
 	}
 	return response
@@ -121,7 +123,6 @@ func codexModelInfoFromConfig(model config.ModelConfig, priority int) codexModel
 	}
 
 	contextWindow := codexContextWindow(model.ModelInfo)
-	autoCompact := (contextWindow * 9) / 10
 
 	return codexModelInfo{
 		Slug:                  slug,
@@ -134,35 +135,28 @@ func codexModelInfoFromConfig(model config.ModelConfig, priority int) codexModel
 			{Effort: "high", Description: "Higher reasoning effort."},
 			{Effort: "xhigh", Description: "Extra high reasoning effort."},
 		},
-		ShellType:                  "default",
-		Visibility:                 "list",
-		SupportedInAPI:             true,
-		Priority:                   priority,
-		AdditionalSpeedTiers:       []string{},
-		ServiceTiers:               []codexModelServiceTier{},
-		AvailabilityNux:            nil,
-		Upgrade:                    nil,
-		BaseInstructions:           "",
-		ModelMessages:              nil,
-		SupportsReasoningSummaries: true,
-		DefaultReasoningSummary:    "auto",
-		SupportVerbosity:           true,
-		DefaultVerbosity:           nil,
-		ApplyPatchToolType:         "freeform",
-		WebSearchToolType:          "text",
-		TruncationPolicy: codexTruncationPolicy{
-			Mode:  "tokens",
-			Limit: contextWindow,
-		},
-		SupportsParallelToolCalls:     true,
-		SupportsImageDetailOriginal:   false,
-		ContextWindow:                 &contextWindow,
-		MaxContextWindow:              &contextWindow,
-		AutoCompactTokenLimit:         &autoCompact,
-		EffectiveContextWindowPercent: 95,
-		ExperimentalSupportedTools:    []string{},
-		InputModalities:               []string{"text"},
-		SupportsSearchTool:            false,
+		ShellType:                   "default",
+		Visibility:                  "list",
+		SupportedInAPI:              true,
+		Priority:                    priority,
+		AdditionalSpeedTiers:        []string{},
+		ServiceTiers:                []codexModelServiceTier{},
+		AvailabilityNux:             nil,
+		Upgrade:                     nil,
+		BaseInstructions:            "",
+		ModelMessages:               nil,
+		SupportsReasoningSummaries:  true,
+		DefaultReasoningSummary:     "auto",
+		SupportVerbosity:            true,
+		DefaultVerbosity:            nil,
+		ApplyPatchToolType:          "freeform",
+		WebSearchToolType:           "text",
+		SupportsParallelToolCalls:   true,
+		SupportsImageDetailOriginal: false,
+		ContextWindow:               contextWindow,
+		ExperimentalSupportedTools:  []string{},
+		InputModalities:             []string{"text"},
+		SupportsSearchTool:          false,
 	}
 }
 
@@ -180,24 +174,12 @@ func codexModelInfoFromCatalog(base codexModelInfo, upstream chatgptcodex.Catalo
 	if upstream.Description != nil {
 		base.Description = upstream.Description
 	}
-	if upstream.ContextWindow != nil {
-		base.ContextWindow = upstream.ContextWindow
-	}
-	if upstream.MaxContextWindow != nil {
-		base.MaxContextWindow = upstream.MaxContextWindow
-	}
-	if upstream.EffectiveContextWindowPercent != 0 {
-		base.EffectiveContextWindowPercent = upstream.EffectiveContextWindowPercent
-	}
-	if upstream.AutoCompactTokenLimit.Present {
-		base.AutoCompactTokenLimit = upstream.AutoCompactTokenLimit.Value
-	}
-	if upstream.TruncationPolicy.Mode != "" {
-		base.TruncationPolicy = codexTruncationPolicy{Mode: upstream.TruncationPolicy.Mode, Limit: upstream.TruncationPolicy.Limit}
-	}
-	if upstream.DefaultReasoningLevel != "" {
-		base.DefaultReasoningLevel = upstream.DefaultReasoningLevel
-	}
+	base.ContextWindow = upstream.ContextWindow
+	base.MaxContextWindow = upstream.MaxContextWindow
+	base.EffectiveContextWindowPercent = upstream.EffectiveContextWindowPercent
+	base.AutoCompactTokenLimit = upstream.AutoCompactTokenLimit.Value
+	base.TruncationPolicy = codexTruncationPolicy{Mode: upstream.TruncationPolicy.Mode, Limit: upstream.TruncationPolicy.Limit}
+	base.DefaultReasoningLevel = upstream.DefaultReasoningLevel
 	base.SupportedReasoningLevels = make([]codexReasoningEffortPreset, len(upstream.SupportedReasoningLevels))
 	for i, level := range upstream.SupportedReasoningLevels {
 		base.SupportedReasoningLevels[i] = codexReasoningEffortPreset{Effort: level.Effort, Description: level.Description}
@@ -215,16 +197,18 @@ func codexModelInfoFromCatalog(base codexModelInfo, upstream chatgptcodex.Catalo
 	return base
 }
 
-func codexContextWindow(info *config.ModelInfo) int64 {
+func codexContextWindow(info *config.ModelInfo) *int64 {
 	if info == nil {
-		return codexDefaultContextWindow
+		return nil
 	}
 	switch {
 	case info.MaxInputTokens != nil && *info.MaxInputTokens > 0:
-		return int64(*info.MaxInputTokens)
+		value := int64(*info.MaxInputTokens)
+		return &value
 	case info.MaxTokens != nil && *info.MaxTokens > 0:
-		return int64(*info.MaxTokens)
+		value := int64(*info.MaxTokens)
+		return &value
 	default:
-		return codexDefaultContextWindow
+		return nil
 	}
 }

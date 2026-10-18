@@ -154,8 +154,8 @@ func TestCodexModelInfoFromConfigUsesExplicitDefaults(t *testing.T) {
 	require.Equal(t, "list", model.Visibility)
 	require.True(t, model.SupportedInAPI)
 	require.Equal(t, 7, model.Priority)
-	require.Equal(t, "tokens", model.TruncationPolicy.Mode)
-	require.Equal(t, int64(128000), model.TruncationPolicy.Limit)
+	require.Empty(t, model.TruncationPolicy.Mode)
+	require.Zero(t, model.TruncationPolicy.Limit)
 	require.Equal(t, int64(128000), *model.ContextWindow)
 	require.True(t, model.SupportsParallelToolCalls)
 	require.Equal(t, []string{"text"}, model.InputModalities)
@@ -256,7 +256,7 @@ func TestListModelsSubscriptionCatalogRejectsNonOfficialSubscriptionFields(t *te
 
 	response := h.buildListModelsResponse(context.Background(), h.Config.ModelList)
 
-	require.Equal(t, int64(128000), *response.Models[0].ContextWindow)
+	require.Nil(t, response.Models[0].ContextWindow)
 }
 
 func TestListModelsSubscriptionCatalogEnrichesSolTerraLuna(t *testing.T) {
@@ -463,11 +463,11 @@ func TestListModelsSubscriptionCatalogFallsBackWhenCredentialsDisagree(t *testin
 
 	response := h.buildListModelsResponse(context.Background(), h.Config.ModelList)
 	require.Len(t, response.Models, 1)
-	require.Equal(t, int64(128000), *response.Models[0].ContextWindow)
+	require.Nil(t, response.Models[0].ContextWindow)
 	require.Equal(t, []string{"text"}, response.Models[0].InputModalities)
 }
 
-func TestListModelsSubscriptionCatalogFallsBackWhenCredentialCapabilitiesDiffer(t *testing.T) {
+func TestListModelsSubscriptionCatalogIntersectsCredentialCapabilities(t *testing.T) {
 	h := newCodexCatalogHarness(t, map[string]openAISubscriptionTestCredential{
 		"cred-a": {AccessToken: "access-a", AccountID: "acct-a"},
 		"cred-b": {AccessToken: "access-b", AccountID: "acct-b"},
@@ -489,7 +489,7 @@ func TestListModelsSubscriptionCatalogFallsBackWhenCredentialCapabilitiesDiffer(
 
 	response := h.buildListModelsResponse(context.Background(), h.Config.ModelList)
 	require.Len(t, response.Models, 1)
-	require.Equal(t, int64(128000), *response.Models[0].ContextWindow)
+	require.Equal(t, int64(372000), *response.Models[0].ContextWindow)
 	require.Equal(t, []string{"text"}, response.Models[0].InputModalities)
 }
 
@@ -542,6 +542,6 @@ func TestListModelsSubscriptionCatalogFallsBackToStaticMetadataWithoutCache(t *t
 
 	response := h.buildListModelsResponse(context.Background(), h.Config.ModelList)
 	require.Len(t, response.Models, 1)
-	require.Equal(t, int64(128000), *response.Models[0].ContextWindow)
+	require.Nil(t, response.Models[0].ContextWindow)
 	require.Equal(t, []string{"text"}, response.Models[0].InputModalities)
 }
