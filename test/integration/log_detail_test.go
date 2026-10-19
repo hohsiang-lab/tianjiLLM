@@ -48,8 +48,10 @@ func TestGetSpendLogDetail_IncludesDuration(t *testing.T) {
 	assert.Equal(t, requestID, row.RequestID)
 	assert.Equal(t, "anthropic/claude-opus-4-6", row.Model)
 	assert.Equal(t, "high", row.ReasoningEffort)
-	assert.Equal(t, int32(1000), row.PromptTokens)
-	assert.Equal(t, int32(200), row.CompletionTokens)
+	require.NotNil(t, row.PromptTokens)
+	assert.Equal(t, int32(1000), *row.PromptTokens)
+	require.NotNil(t, row.CompletionTokens)
+	assert.Equal(t, int32(200), *row.CompletionTokens)
 	assert.NotNil(t, row.RequestDurationMs)
 	assert.Equal(t, int32(1500), *row.RequestDurationMs)
 
