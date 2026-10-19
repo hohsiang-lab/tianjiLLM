@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/praxisllmlab/tianjiLLM/internal/security/redact"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/badge"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/button"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/components/card"
@@ -20,11 +21,12 @@ type LogDetailData struct {
 	ReasoningEffort  string
 	Provider         *string
 	ApiBase          string
-	Spend            float64
-	TotalTokens      int
-	PromptTokens     int
-	CompletionTokens int
-	DurationSec      float64
+	HasSpendLog      bool
+	Spend            *float64
+	TotalTokens      *int32
+	PromptTokens     *int32
+	CompletionTokens *int32
+	DurationSec      *float64
 	CacheHit         string
 	StartTime        time.Time
 	EndTime          time.Time
@@ -33,6 +35,7 @@ type LogDetailData struct {
 	UpstreamTokenKey string
 	TeamID           *string
 	EndUser          *string
+	OrganizationID   *string
 	User             string
 	Metadata         string // raw JSON
 
@@ -53,17 +56,20 @@ func (d LogDetailData) hasMetadata() bool {
 }
 
 func (d LogDetailData) hasPayload() bool {
-	return d.PayloadMessages != "" && d.PayloadMessages != "{}"
+	messages := strings.TrimSpace(d.PayloadMessages)
+	response := strings.TrimSpace(d.PayloadResponse)
+	return (messages != "" && messages != "{}") || (response != "" && response != "{}")
 }
 
 func (d LogDetailData) prettyJSON(raw string) string {
+	safeRaw := string(redact.RawJSON([]byte(raw)))
 	var v any
-	if err := json.Unmarshal([]byte(raw), &v); err != nil {
-		return raw
+	if err := json.Unmarshal([]byte(safeRaw), &v); err != nil {
+		return safeRaw
 	}
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		return raw
+		return safeRaw
 	}
 	return string(b)
 }
@@ -118,7 +124,7 @@ templ LogDetailPanel(data LogDetailData) {
 				<span>{ data.StartTime.Format("Jan 02, 2006 03:04:05 PM") }</span>
 			</div>
 			<!-- Error Alert (for failed requests) -->
-			if data.Status == "Failed" && data.ErrorMessage != nil {
+			if data.Status == "Failed" {
 				<div class="rounded-md border border-destructive/30 bg-destructive/5 p-3">
 					<div class="flex items-center gap-2 mb-1">
 						@icon.CircleAlert(icon.Props{Size: 16, Class: "text-destructive"})
@@ -130,7 +136,11 @@ templ LogDetailPanel(data LogDetailData) {
 					if data.ErrorType != nil && *data.ErrorType != "" {
 						<div class="text-xs text-muted-foreground mb-1">Type: { *data.ErrorType }</div>
 					}
-					<div class="text-sm text-foreground">{ *data.ErrorMessage }</div>
+					if data.ErrorMessage != nil && *data.ErrorMessage != "" {
+						<div class="text-sm text-foreground">{ *data.ErrorMessage }</div>
+					} else {
+						<div class="text-sm text-muted-foreground">No additional error details were stored.</div>
+					}
 					if data.ErrorTraceback != nil && *data.ErrorTraceback != "" {
 						<details class="mt-2">
 							<summary class="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Traceback</summary>
@@ -164,7 +174,13 @@ templ LogDetailPanel(data LogDetailData) {
 						</div>
 						<div>
 							<span class="text-muted-foreground">Call Type</span>
-							<div class="font-medium">{ data.CallType }</div>
+							<div class="font-medium">
+								if data.CallType != "" {
+									{ data.CallType }
+								} else {
+									<span class="text-muted-foreground">–</span>
+								}
+							</div>
 						</div>
 						<div>
 							<span class="text-muted-foreground">API Base</span>
@@ -196,6 +212,36 @@ templ LogDetailPanel(data LogDetailData) {
 								}
 							</div>
 						</div>
+					<div>
+						<span class="text-muted-foreground">Team ID</span>
+						<div class="font-medium font-mono">
+							if data.TeamID != nil && *data.TeamID != "" {
+								{ *data.TeamID }
+							} else {
+								<span class="text-muted-foreground">–</span>
+							}
+						</div>
+					</div>
+					<div>
+						<span class="text-muted-foreground">End User</span>
+						<div class="font-medium font-mono">
+							if data.EndUser != nil && *data.EndUser != "" {
+								{ *data.EndUser }
+							} else {
+								<span class="text-muted-foreground">–</span>
+							}
+						</div>
+					</div>
+					<div>
+						<span class="text-muted-foreground">Organization ID</span>
+						<div class="font-medium font-mono">
+							if data.OrganizationID != nil && *data.OrganizationID != "" {
+								{ *data.OrganizationID }
+							} else {
+								<span class="text-muted-foreground">–</span>
+							}
+						</div>
+					</div>
 					</div>
 				}
 			}
@@ -207,43 +253,69 @@ templ LogDetailPanel(data LogDetailData) {
 					}
 				}
 				@card.Content() {
-					<div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-						<div>
-							<span class="text-muted-foreground">Tokens</span>
-							<div class="font-medium font-mono">
-								{ fmt.Sprintf("%d", data.TotalTokens) }
-								<span class="text-muted-foreground text-xs">({ fmt.Sprintf("%d", data.PromptTokens) } prompt + { fmt.Sprintf("%d", data.CompletionTokens) } completion)</span>
+					if data.HasSpendLog {
+						<div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+							<div>
+								<span class="text-muted-foreground">Tokens</span>
+								<div class="font-medium font-mono">
+									if data.TotalTokens != nil && data.PromptTokens != nil && data.CompletionTokens != nil {
+										{ fmt.Sprintf("%d", *data.TotalTokens) }
+										<span class="text-muted-foreground text-xs">({ fmt.Sprintf("%d", *data.PromptTokens) } prompt + { fmt.Sprintf("%d", *data.CompletionTokens) } completion)</span>
+									} else {
+										<span class="text-muted-foreground">–</span>
+									}
+								</div>
+							</div>
+							<div>
+								<span class="text-muted-foreground">Cost</span>
+								<div class="font-medium font-mono">
+									if data.Spend != nil {
+										{ fmt.Sprintf("$%.6f", *data.Spend) }
+									} else {
+										<span class="text-muted-foreground">–</span>
+									}
+								</div>
+							</div>
+							<div>
+								<span class="text-muted-foreground">Duration</span>
+								<div class="font-medium font-mono">
+									if data.DurationSec != nil {
+										{ fmt.Sprintf("%.3f s", *data.DurationSec) }
+									} else {
+										<span class="text-muted-foreground">–</span>
+									}
+								</div>
+							</div>
+							<div>
+								<span class="text-muted-foreground">Cache Hit</span>
+								<div class="font-medium">
+									if strings.EqualFold(data.CacheHit, "true") {
+										<span class="text-emerald-600">Hit</span>
+									} else if data.CacheHit != "" {
+										<span class="text-muted-foreground">Miss</span>
+									} else {
+										<span class="text-muted-foreground">–</span>
+									}
+								</div>
+							</div>
+							<div>
+								<span class="text-muted-foreground">Start Time</span>
+								<div class="font-medium text-xs">{ data.StartTime.Format(time.RFC3339) }</div>
+							</div>
+							<div>
+								<span class="text-muted-foreground">End Time</span>
+								<div class="font-medium text-xs">
+									if !data.EndTime.IsZero() {
+										{ data.EndTime.Format(time.RFC3339) }
+									} else {
+										<span class="text-muted-foreground">–</span>
+									}
+								</div>
 							</div>
 						</div>
-						<div>
-							<span class="text-muted-foreground">Cost</span>
-							<div class="font-medium font-mono">{ fmt.Sprintf("$%.6f", data.Spend) }</div>
-						</div>
-						<div>
-							<span class="text-muted-foreground">Duration</span>
-							<div class="font-medium font-mono">{ fmt.Sprintf("%.3f s", data.DurationSec) }</div>
-						</div>
-						<div>
-							<span class="text-muted-foreground">Cache Hit</span>
-							<div class="font-medium">
-								if strings.EqualFold(data.CacheHit, "true") {
-									<span class="text-emerald-600">Hit</span>
-								} else if data.CacheHit != "" {
-									<span class="text-muted-foreground">Miss</span>
-								} else {
-									<span class="text-muted-foreground">–</span>
-								}
-							</div>
-						</div>
-						<div>
-							<span class="text-muted-foreground">Start Time</span>
-							<div class="font-medium text-xs">{ data.StartTime.Format(time.RFC3339) }</div>
-						</div>
-						<div>
-							<span class="text-muted-foreground">End Time</span>
-							<div class="font-medium text-xs">{ data.EndTime.Format(time.RFC3339) }</div>
-						</div>
-					</div>
+					} else {
+						<div class="text-sm text-muted-foreground">Metrics are unavailable; no spend record exists for this request.</div>
+					}
 				}
 			}
 			<!-- Request & Response (Payload) -->
@@ -257,11 +329,13 @@ templ LogDetailPanel(data LogDetailData) {
 					@card.Content() {
 						if data.hasPayload() {
 							<div class="space-y-3">
-								<details>
-									<summary class="text-sm font-medium cursor-pointer hover:text-foreground text-muted-foreground">Messages</summary>
-									<pre class="mt-1 p-3 bg-muted rounded text-xs overflow-x-auto max-h-64 overflow-y-auto font-mono">{ data.prettyJSON(data.PayloadMessages) }</pre>
-								</details>
-								if data.PayloadResponse != "" && data.PayloadResponse != "{}" {
+								if strings.TrimSpace(data.PayloadMessages) != "" && strings.TrimSpace(data.PayloadMessages) != "{}" {
+									<details>
+										<summary class="text-sm font-medium cursor-pointer hover:text-foreground text-muted-foreground">Messages</summary>
+										<pre class="mt-1 p-3 bg-muted rounded text-xs overflow-x-auto max-h-64 overflow-y-auto font-mono">{ data.prettyJSON(data.PayloadMessages) }</pre>
+									</details>
+								}
+								if strings.TrimSpace(data.PayloadResponse) != "" && strings.TrimSpace(data.PayloadResponse) != "{}" {
 									<details>
 										<summary class="text-sm font-medium cursor-pointer hover:text-foreground text-muted-foreground">Response</summary>
 										<pre class="mt-1 p-3 bg-muted rounded text-xs overflow-x-auto max-h-64 overflow-y-auto font-mono">{ data.prettyJSON(data.PayloadResponse) }</pre>

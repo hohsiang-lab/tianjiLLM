@@ -346,29 +346,65 @@ func (q *Queries) GetSpendByUser(ctx context.Context, arg GetSpendByUserParams) 
 }
 
 const getSpendLogDetail = `-- name: GetSpendLogDetail :one
+WITH target_spend AS (
+    SELECT request_id, call_type, api_key, spend, total_tokens, prompt_tokens, completion_tokens, starttime, endtime, completionstartime, model, model_id, model_group, api_base, "user", metadata, cache_hit, cache_key, request_tags, team_id, end_user, requester_ip_address, organization_id, provider, request_duration_ms, upstream_token_key, reasoning_effort
+    FROM "SpendLogs" AS s
+    WHERE s.request_id = $1
+), latest_error AS (
+    SELECT id, request_id, api_key_hash, model, provider, status_code, error_type, error_message, traceback, created_at, team_id, upstream_token_key, end_user, organization_id, reasoning_effort
+    FROM "ErrorLogs" AS e
+    WHERE e.request_id = $1
+    ORDER BY e.id DESC
+    LIMIT 1
+)
 SELECT
-    sl.request_id, sl.call_type, sl.api_key, sl.spend, sl.total_tokens, sl.prompt_tokens, sl.completion_tokens, sl.starttime, sl.endtime, sl.completionstartime, sl.model, sl.model_id, sl.model_group, sl.api_base, sl."user", sl.metadata, sl.cache_hit, sl.cache_key, sl.request_tags, sl.team_id, sl.end_user, sl.requester_ip_address, sl.organization_id, sl.provider, sl.request_duration_ms, sl.upstream_token_key, sl.reasoning_effort,
+    COALESCE(sl.request_id, el.request_id) AS request_id,
+    COALESCE(sl.call_type, '') AS call_type,
+    COALESCE(sl.api_key, el.api_key_hash, '') AS api_key,
+    sl.spend,
+    sl.total_tokens,
+    sl.prompt_tokens,
+    sl.completion_tokens,
+    COALESCE(sl.starttime, el.created_at) AS starttime,
+    sl.endtime,
+    sl.completionstartime,
+    COALESCE(sl.model, el.model, '') AS model,
+    COALESCE(sl.model_id, '') AS model_id,
+    COALESCE(sl.model_group, '') AS model_group,
+    COALESCE(sl.api_base, '') AS api_base,
+    COALESCE(sl."user", '') AS "user",
+    COALESCE(sl.metadata, '{}'::jsonb) AS metadata,
+    COALESCE(sl.cache_hit, '') AS cache_hit,
+    COALESCE(sl.cache_key, '') AS cache_key,
+    COALESCE(sl.request_tags, ARRAY[]::text[]) AS request_tags,
+    COALESCE(sl.team_id, el.team_id) AS team_id,
+    COALESCE(sl.end_user, el.end_user, '') AS end_user,
+    sl.requester_ip_address,
+    COALESCE(sl.organization_id, el.organization_id, '') AS organization_id,
+    COALESCE(sl.provider, el.provider, '') AS provider,
+    sl.request_duration_ms,
+    COALESCE(sl.upstream_token_key, el.upstream_token_key, '') AS upstream_token_key,
+    COALESCE(sl.reasoning_effort, el.reasoning_effort, '') AS reasoning_effort,
     COALESCE(vt.key_alias, '') AS key_alias,
     el.status_code AS error_status_code,
     el.error_type,
     el.error_message,
-    el.traceback AS error_traceback
-FROM "SpendLogs" sl
-LEFT JOIN "VerificationToken" vt ON sl.api_key = vt.token
-LEFT JOIN "ErrorLogs" el ON el.request_id = sl.request_id AND el.id = (
-    SELECT id FROM "ErrorLogs" WHERE request_id = sl.request_id ORDER BY id DESC LIMIT 1
-)
-WHERE sl.request_id = $1
+    el.traceback AS error_traceback,
+    CASE WHEN sl.request_id IS NULL THEN 0 ELSE 1 END AS has_spend_log,
+    el.id AS error_log_id
+FROM target_spend sl
+FULL OUTER JOIN latest_error el ON el.request_id = sl.request_id
+LEFT JOIN "VerificationToken" vt ON COALESCE(sl.api_key, el.api_key_hash) = vt.token
 `
 
 type GetSpendLogDetailRow struct {
 	RequestID          string             `json:"request_id"`
 	CallType           string             `json:"call_type"`
 	ApiKey             string             `json:"api_key"`
-	Spend              float64            `json:"spend"`
-	TotalTokens        int32              `json:"total_tokens"`
-	PromptTokens       int32              `json:"prompt_tokens"`
-	CompletionTokens   int32              `json:"completion_tokens"`
+	Spend              *float64           `json:"spend"`
+	TotalTokens        *int32             `json:"total_tokens"`
+	PromptTokens       *int32             `json:"prompt_tokens"`
+	CompletionTokens   *int32             `json:"completion_tokens"`
 	Starttime          pgtype.Timestamptz `json:"starttime"`
 	Endtime            pgtype.Timestamptz `json:"endtime"`
 	Completionstartime pgtype.Timestamptz `json:"completionstartime"`
@@ -382,9 +418,9 @@ type GetSpendLogDetailRow struct {
 	CacheKey           string             `json:"cache_key"`
 	RequestTags        []string           `json:"request_tags"`
 	TeamID             *string            `json:"team_id"`
-	EndUser            *string            `json:"end_user"`
+	EndUser            string             `json:"end_user"`
 	RequesterIpAddress *string            `json:"requester_ip_address"`
-	OrganizationID     *string            `json:"organization_id"`
+	OrganizationID     string             `json:"organization_id"`
 	Provider           string             `json:"provider"`
 	RequestDurationMs  *int32             `json:"request_duration_ms"`
 	UpstreamTokenKey   string             `json:"upstream_token_key"`
@@ -394,6 +430,8 @@ type GetSpendLogDetailRow struct {
 	ErrorType          *string            `json:"error_type"`
 	ErrorMessage       *string            `json:"error_message"`
 	ErrorTraceback     *string            `json:"error_traceback"`
+	HasSpendLog        int32              `json:"has_spend_log"`
+	ErrorLogID         *string            `json:"error_log_id"`
 }
 
 func (q *Queries) GetSpendLogDetail(ctx context.Context, requestID string) (GetSpendLogDetailRow, error) {
@@ -432,6 +470,8 @@ func (q *Queries) GetSpendLogDetail(ctx context.Context, requestID string) (GetS
 		&i.ErrorType,
 		&i.ErrorMessage,
 		&i.ErrorTraceback,
+		&i.HasSpendLog,
+		&i.ErrorLogID,
 	)
 	return i, err
 }

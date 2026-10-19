@@ -49,19 +49,55 @@ DELETE FROM "SpendLogs"
 WHERE starttime < $1;
 
 -- name: GetSpendLogDetail :one
+WITH target_spend AS (
+    SELECT *
+    FROM "SpendLogs" AS s
+    WHERE s.request_id = $1
+), latest_error AS (
+    SELECT *
+    FROM "ErrorLogs" AS e
+    WHERE e.request_id = $1
+    ORDER BY e.id DESC
+    LIMIT 1
+)
 SELECT
-    sl.*,
+    COALESCE(sl.request_id, el.request_id) AS request_id,
+    COALESCE(sl.call_type, '') AS call_type,
+    COALESCE(sl.api_key, el.api_key_hash, '') AS api_key,
+    sl.spend,
+    sl.total_tokens,
+    sl.prompt_tokens,
+    sl.completion_tokens,
+    COALESCE(sl.starttime, el.created_at) AS starttime,
+    sl.endtime,
+    sl.completionstartime,
+    COALESCE(sl.model, el.model, '') AS model,
+    COALESCE(sl.model_id, '') AS model_id,
+    COALESCE(sl.model_group, '') AS model_group,
+    COALESCE(sl.api_base, '') AS api_base,
+    COALESCE(sl."user", '') AS "user",
+    COALESCE(sl.metadata, '{}'::jsonb) AS metadata,
+    COALESCE(sl.cache_hit, '') AS cache_hit,
+    COALESCE(sl.cache_key, '') AS cache_key,
+    COALESCE(sl.request_tags, ARRAY[]::text[]) AS request_tags,
+    COALESCE(sl.team_id, el.team_id) AS team_id,
+    COALESCE(sl.end_user, el.end_user, '') AS end_user,
+    sl.requester_ip_address,
+    COALESCE(sl.organization_id, el.organization_id, '') AS organization_id,
+    COALESCE(sl.provider, el.provider, '') AS provider,
+    sl.request_duration_ms,
+    COALESCE(sl.upstream_token_key, el.upstream_token_key, '') AS upstream_token_key,
+    COALESCE(sl.reasoning_effort, el.reasoning_effort, '') AS reasoning_effort,
     COALESCE(vt.key_alias, '') AS key_alias,
     el.status_code AS error_status_code,
     el.error_type,
     el.error_message,
-    el.traceback AS error_traceback
-FROM "SpendLogs" sl
-LEFT JOIN "VerificationToken" vt ON sl.api_key = vt.token
-LEFT JOIN "ErrorLogs" el ON el.request_id = sl.request_id AND el.id = (
-    SELECT id FROM "ErrorLogs" WHERE request_id = sl.request_id ORDER BY id DESC LIMIT 1
-)
-WHERE sl.request_id = $1;
+    el.traceback AS error_traceback,
+    CASE WHEN sl.request_id IS NULL THEN 0 ELSE 1 END AS has_spend_log,
+    el.id AS error_log_id
+FROM target_spend sl
+FULL OUTER JOIN latest_error el ON el.request_id = sl.request_id
+LEFT JOIN "VerificationToken" vt ON COALESCE(sl.api_key, el.api_key_hash) = vt.token;
 
 -- name: GetRequestPayload :one
 SELECT messages, response
