@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/praxisllmlab/tianjiLLM/internal/db"
+	"github.com/praxisllmlab/tianjiLLM/internal/security/redact"
 	"github.com/praxisllmlab/tianjiLLM/internal/ui/pages"
 )
 
@@ -178,6 +179,14 @@ func toLogRow(row db.ListRequestLogsRow) pages.RequestLogRow {
 	return lr
 }
 
+func redactStringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	redacted := redact.String(*value)
+	return &redacted
+}
+
 func (h *UIHandler) handleLogDetail(w http.ResponseWriter, r *http.Request) {
 	requestID := r.URL.Query().Get("request_id")
 	if requestID == "" {
@@ -205,34 +214,36 @@ func (h *UIHandler) handleLogDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := "Success"
-	if row.ErrorStatusCode != nil {
+	if row.ErrorLogID != nil {
 		status = "Failed"
 	}
 
 	data := pages.LogDetailData{
-		RequestID:        row.RequestID,
-		CallType:         row.CallType,
+		RequestID:        redact.String(row.RequestID),
+		CallType:         redact.String(row.CallType),
 		Status:           status,
-		Model:            row.Model,
-		ReasoningEffort:  row.ReasoningEffort,
-		Provider:         resolveProvider(row.Provider, row.Model),
-		ApiBase:          row.ApiBase,
+		Model:            redact.String(row.Model),
+		ReasoningEffort:  redact.String(row.ReasoningEffort),
+		Provider:         redactStringPtr(resolveProvider(row.Provider, row.Model)),
+		ApiBase:          redact.String(row.ApiBase),
 		Spend:            row.Spend,
-		TotalTokens:      int(row.TotalTokens),
-		PromptTokens:     int(row.PromptTokens),
-		CompletionTokens: int(row.CompletionTokens),
-		CacheHit:         row.CacheHit,
-		KeyHash:          row.ApiKey,
-		KeyAlias:         row.KeyAlias,
-		UpstreamTokenKey: row.UpstreamTokenKey,
-		TeamID:           row.TeamID,
-		EndUser:          row.EndUser,
-		User:             row.User,
+		TotalTokens:      row.TotalTokens,
+		PromptTokens:     row.PromptTokens,
+		CompletionTokens: row.CompletionTokens,
+		CacheHit:         redact.String(row.CacheHit),
+		KeyHash:          redact.String(row.ApiKey),
+		KeyAlias:         redact.String(row.KeyAlias),
+		UpstreamTokenKey: redact.String(row.UpstreamTokenKey),
+		TeamID:           redactStringPtr(row.TeamID),
+		EndUser:          redactStringPtr(&row.EndUser),
+		OrganizationID:   redactStringPtr(&row.OrganizationID),
+		User:             redact.String(row.User),
 		Metadata:         string(row.Metadata),
 		ErrorStatusCode:  row.ErrorStatusCode,
-		ErrorType:        row.ErrorType,
-		ErrorMessage:     row.ErrorMessage,
-		ErrorTraceback:   row.ErrorTraceback,
+		ErrorType:        redactStringPtr(row.ErrorType),
+		ErrorMessage:     redactStringPtr(row.ErrorMessage),
+		ErrorTraceback:   redactStringPtr(row.ErrorTraceback),
+		HasSpendLog:      row.HasSpendLog != 0,
 	}
 
 	if row.Starttime.Valid {
@@ -242,9 +253,11 @@ func (h *UIHandler) handleLogDetail(w http.ResponseWriter, r *http.Request) {
 		data.EndTime = row.Endtime.Time
 	}
 	if row.RequestDurationMs != nil {
-		data.DurationSec = float64(*row.RequestDurationMs) / 1000.0
+		duration := float64(*row.RequestDurationMs) / 1000.0
+		data.DurationSec = &duration
 	} else if row.Starttime.Valid && row.Endtime.Valid {
-		data.DurationSec = row.Endtime.Time.Sub(row.Starttime.Time).Seconds()
+		duration := row.Endtime.Time.Sub(row.Starttime.Time).Seconds()
+		data.DurationSec = &duration
 	}
 
 	// Payload (if store_prompts_in_spend_logs enabled)
